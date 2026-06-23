@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const body = await req.json()
-  const { email, name, phone, password, hourlyRate } = body
+  const { email, name, phone, password } = body
   if (!email || !name) return NextResponse.json({ error: "البريد الإلكتروني والاسم مطلوبان" }, { status: 400 })
 
   const existing = await prisma.user.findUnique({ where: { email } })
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     data: { email, passwordHash, name, phone, role: "TEACHER", schoolId: user.schoolId },
   })
   const teacher = await prisma.teacher.create({
-    data: { schoolId: user.schoolId, userId: appUser.id, phone, hourlyRate: hourlyRate ? parseFloat(hourlyRate) : undefined },
+    data: { schoolId: user.schoolId, userId: appUser.id, phone },
     include: {
       user: { select: { id: true, email: true, name: true, phone: true, isActive: true } },
     },
@@ -54,7 +54,7 @@ export async function PUT(req: NextRequest) {
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const body = await req.json()
-  const { id, name, phone, isActive, hourlyRate } = body
+  const { id, name, phone, isActive } = body
 
   const teacher = await prisma.teacher.findFirst({ where: { id, schoolId: user.schoolId } })
   if (!teacher) return NextResponse.json({ error: "غير موجود" }, { status: 404 })
@@ -65,7 +65,7 @@ export async function PUT(req: NextRequest) {
   })
   await prisma.teacher.update({
     where: { id },
-    data: { phone: phone || undefined, hourlyRate: hourlyRate !== undefined ? parseFloat(hourlyRate) : undefined },
+    data: { phone: phone || undefined },
   })
 
   const updated = await prisma.teacher.findUnique({

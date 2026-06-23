@@ -48,9 +48,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   }
 
   const payroll = {
-    hourlyRate: teacher.hourlyRate,
-    totalHours: teacher.hourlyRate ? totalHours : null,
-    estimatedEarnings: teacher.hourlyRate ? Math.round(totalHours * teacher.hourlyRate * 10) / 10 : null,
+    hourlyRate: null,
+    totalHours: null,
+    estimatedEarnings: null,
   }
 
   return NextResponse.json({ teacher, assignments, recentLessons, stats, payroll })

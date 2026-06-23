@@ -13,31 +13,57 @@ export async function GET() {
 
   const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0)
 
-  const teachers = await prisma.teacher.findMany({
-    where: { schoolId: user.schoolId },
-    include: { user: { select: { name: true } } },
+  const assignments = await prisma.teacherAssignment.findMany({
+    where: { schoolId: user.schoolId, academicYearId: yearId },
+    include: {
+      teacher: { include: { user: { select: { name: true } } } },
+      subject: true,
+      classroom: true,
+    },
   })
 
-  const rows = await Promise.all(teachers.map(async (t) => {
+  const rows = await Promise.all(assignments.map(async (a) => {
     const lessons = await prisma.lesson.findMany({
-      where: { teacherId: t.id, academicYearId: yearId, date: { gte: monthStart } },
+      where: {
+        teacherId: a.teacherId,
+        subjectId: a.subjectId,
+        classroomId: a.classroomId,
+        academicYearId: yearId,
+        date: { gte: monthStart },
+      },
       select: { duration: true },
     })
     const totalMinutes = lessons.reduce((s, l) => s + (l.duration || 0), 0)
     const totalHours = Math.round((totalMinutes / 60) * 10) / 10
-    const earnings = t.hourlyRate ? Math.round(totalHours * t.hourlyRate * 10) / 10 : null
+    const earnings = a.hourlyRate ? Math.round(totalHours * a.hourlyRate * 10) / 10 : null
     return {
-      id: t.id,
-      name: t.user.name,
-      hourlyRate: t.hourlyRate,
+      id: a.id,
+      teacherId: a.teacherId,
+      teacherName: a.teacher.user.name,
+      subject: a.subject.nameAr,
+      classroom: a.classroom.name,
+      hourlyRate: a.hourlyRate,
+      weeklyHours: a.weeklyHours,
       totalHours,
       lessonCount: lessons.length,
       earnings,
     }
   }))
 
-  const totalEarnings = rows.reduce((s, r) => s + (r.earnings || 0), 0)
-  const grandTotalHours = rows.reduce((s, r) => s + r.totalHours, 0)
+  // Group by teacher
+  const teacherMap = new Map<string, { name: string; assignments: typeof rows; totalHours: number; totalEarnings: number }>()
+  for (const r of rows) {
+    const key = r.teacherId
+    if (!teacherMap.has(key)) teacherMap.set(key, { name: r.teacherName, assignments: [], totalHours: 0, totalEarnings: 0 })
+    const entry = teacherMap.get(key)!
+    entry.assignments.push(r)
+    entry.totalHours += r.totalHours
+    entry.totalEarnings += r.earnings || 0
+  }
 
-  return NextResponse.json({ rows, totalEarnings, grandTotalHours })
+  const teachers = Array.from(teacherMap.values())
+  const totalEarnings = teachers.reduce((s, t) => s + t.totalEarnings, 0)
+  const grandTotalHours = teachers.reduce((s, t) => s + t.totalHours, 0)
+
+  return NextResponse.json({ teachers, rows, totalEarnings, grandTotalHours })
 }

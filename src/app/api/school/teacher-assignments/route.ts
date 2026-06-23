@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const body = await req.json()
-  const { teacherId, subjectId, classroomId } = body
+  const { teacherId, subjectId, classroomId, hourlyRate, weeklyHours } = body
 
   const year = await prisma.academicYear.findFirst({ where: { schoolId: user.schoolId, isActive: true } })
   if (!year) return NextResponse.json({ error: "لا توجد سنة دراسية نشطة" }, { status: 400 })
@@ -38,7 +38,34 @@ export async function POST(req: NextRequest) {
   if (existing) return NextResponse.json({ error: "هذا التكليف موجود مسبقاً" }, { status: 400 })
 
   const item = await prisma.teacherAssignment.create({
-    data: { schoolId: user.schoolId, teacherId, subjectId, classroomId, academicYearId: year.id },
+    data: {
+      schoolId: user.schoolId, teacherId, subjectId, classroomId, academicYearId: year.id,
+      hourlyRate: hourlyRate ? parseFloat(hourlyRate) : undefined,
+      weeklyHours: weeklyHours ? parseFloat(weeklyHours) : undefined,
+    },
+    include: {
+      teacher: { include: { user: { select: { name: true } } } },
+      subject: true,
+      classroom: { include: { level: true } },
+    },
+  })
+  return NextResponse.json(item)
+}
+
+export async function PUT(req: NextRequest) {
+  const session = await getServerSession(authOptions)
+  const user = session?.user as any
+  if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const body = await req.json()
+  const { id, hourlyRate, weeklyHours } = body
+
+  const item = await prisma.teacherAssignment.update({
+    where: { id },
+    data: {
+      hourlyRate: hourlyRate !== undefined ? parseFloat(hourlyRate) : undefined,
+      weeklyHours: weeklyHours !== undefined ? parseFloat(weeklyHours) : undefined,
+    },
     include: {
       teacher: { include: { user: { select: { name: true } } } },
       subject: true,
