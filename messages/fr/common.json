@@ -1,0 +1,91 @@
+{
+  "app": {
+    "name": "ClassFlow",
+    "tagline": "Plateforme de gestion scolaire"
+  },
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "students": "Élèves",
+    "teachers": "Professeurs",
+    "classrooms": "Classes",
+    "attendance": "Absences",
+    "lessons": "Leçons",
+    "grades": "Notes",
+    "finance": "Finances",
+    "notifications": "Notifications",
+    "settings": "Paramètres",
+    "logout": "Déconnexion"
+  },
+  "attendance": {
+    "title": "Registre d&apos;absence",
+    "date": "Date",
+    "student": "Élève",
+    "status": "Statut",
+    "present": "Présent",
+    "absent": "Absent",
+    "late": "Retard",
+    "excused": "Excusé",
+    "save": "Enregistrer",
+    "classroom": "Classe",
+    "subject": "Matière"
+  },
+  "lessons": {
+    "title": "Registre des leçons",
+    "newLesson": "Nouvelle leçon",
+    "titleField": "Titre de la leçon",
+    "description": "Description",
+    "homework": "Devoirs",
+    "notes": "Notes",
+    "save": "Enregistrer",
+    "classroom": "Classe",
+    "subject": "Matière",
+    "date": "Date"
+  },
+  "grades": {
+    "title": "Registre des notes",
+    "newGrade": "Nouvelle note",
+    "type": "Type",
+    "exam": "Examen",
+    "test": "Test",
+    "homework": "Devoir",
+    "project": "Projet",
+    "score": "Note",
+    "maxScore": "Note maximale",
+    "coefficient": "Coefficient",
+    "save": "Enregistrer",
+    "student": "Élève",
+    "subject": "Matière",
+    "average": "Moyenne",
+    "rank": "Rang",
+    "validate": "Valider les notes"
+  },
+  "finance": {
+    "title": "Registre des frais",
+    "fees": "Frais",
+    "payments": "Paiements",
+    "newPayment": "Nouveau paiement",
+    "amount": "Montant",
+    "method": "Méthode",
+    "cash": "Espèces",
+    "check": "Chèque",
+    "receipt": "N° reçu",
+    "receiptTitle": "Reçu de paiement",
+    "overdue": "Impayés",
+    "reminder": "Envoyer rappel"
+  },
+  "common": {
+    "search": "Rechercher...",
+    "add": "Ajouter",
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "cancel": "Annuler",
+    "confirm": "Confirmer",
+    "loading": "Chargement...",
+    "noData": "Aucune donnée",
+    "print": "Imprimer",
+    "export": "Exporter",
+    "email": "Email",
+    "password": "Mot de passe",
+    "login": "Connexion"
+  }
+}

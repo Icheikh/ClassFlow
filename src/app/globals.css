@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 255 255 255;
+    --foreground: 23 23 23;
+    --primary: 37 99 235;
+    --primary-foreground: 255 255 255;
+    --border: 229 231 235;
+  }
+}
+
+@layer base {
+  body {
+    @apply bg-white text-gray-900;
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+}
+
+html[dir="rtl"] {
+  text-align: right;
+}

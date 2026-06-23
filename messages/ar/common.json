@@ -1,0 +1,91 @@
+{
+  "app": {
+    "name": "ClassFlow",
+    "tagline": "منصة إدارة المدارس"
+  },
+  "nav": {
+    "dashboard": "لوحة التحكم",
+    "students": "الطلاب",
+    "teachers": "المدرسين",
+    "classrooms": "الأقسام",
+    "attendance": "الغياب",
+    "lessons": "الدروس",
+    "grades": "النقاط",
+    "finance": "المالية",
+    "notifications": "الإشعارات",
+    "settings": "الإعدادات",
+    "logout": "تسجيل الخروج"
+  },
+  "attendance": {
+    "title": "دفتر الغياب",
+    "date": "التاريخ",
+    "student": "التلميذ",
+    "status": "الحالة",
+    "present": "حاضر",
+    "absent": "غائب",
+    "late": "متأخر",
+    "excused": "بعذر",
+    "save": "حفظ",
+    "classroom": "القسم",
+    "subject": "المادة"
+  },
+  "lessons": {
+    "title": "دفتر الدروس",
+    "newLesson": "درس جديد",
+    "titleField": "عنوان الدرس",
+    "description": "شرح الدرس",
+    "homework": "الواجب المنزلي",
+    "notes": "ملاحظات",
+    "save": "حفظ الدرس",
+    "classroom": "القسم",
+    "subject": "المادة",
+    "date": "التاريخ"
+  },
+  "grades": {
+    "title": "دفتر النقاط",
+    "newGrade": "نتيجة جديدة",
+    "type": "نوع التقويم",
+    "exam": "امتحان",
+    "test": "فرض",
+    "homework": "واجب",
+    "project": "مشروع",
+    "score": "النقطة",
+    "maxScore": "النقطة القصوى",
+    "coefficient": "المعامل",
+    "save": "حفظ النتيجة",
+    "student": "التلميذ",
+    "subject": "المادة",
+    "average": "المعدل",
+    "rank": "الترتيب",
+    "validate": "اعتماد النتائج"
+  },
+  "finance": {
+    "title": "دفتر الأقساط",
+    "fees": "الرسوم",
+    "payments": "المدفوعات",
+    "newPayment": "دفعة جديدة",
+    "amount": "المبلغ",
+    "method": "طريقة الدفع",
+    "cash": "نقداً",
+    "check": "شيك",
+    "receipt": "رقم الوصل",
+    "receiptTitle": "وصل الدفع",
+    "overdue": "متأخرات",
+    "reminder": "إرسال تذكير"
+  },
+  "common": {
+    "search": "بحث...",
+    "add": "إضافة",
+    "edit": "تعديل",
+    "delete": "حذف",
+    "cancel": "إلغاء",
+    "confirm": "تأكيد",
+    "loading": "جاري التحميل...",
+    "noData": "لا توجد بيانات",
+    "print": "طباعة",
+    "export": "تصدير",
+    "email": "البريد الإلكتروني",
+    "password": "كلمة المرور",
+    "login": "تسجيل الدخول"
+  }
+}
