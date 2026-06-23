@@ -1,0 +1,504 @@
+// ============================================================
+// ClassFlow — Prisma Schema
+// Multi-tenant School Management SaaS
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// 1. PLATFORM & SCHOOL
+// ============================================================
+
+model School {
+  id                   String   @id @default(cuid())
+  name                 String
+  slug                 String   @unique
+  address              String?
+  phone                String?
+  email                String?
+  logo                 String?
+  subscriptionStatus   String   @default("TRIAL")
+  billingStudentCount  Int      @default(0)
+  isActive             Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  users                User[]
+  educationStages      EducationStage[]
+  academicYears        AcademicYear[]
+  levels               Level[]
+  streams              Stream[]
+  classrooms           Classroom[]
+  subjects             Subject[]
+  students             Student[]
+  teachers             Teacher[]
+  parents              Parent[]
+  fees                 Fee[]
+  payments             Payment[]
+  schedules            Schedule[]
+  lessons              Lesson[]
+  attendances          Attendance[]
+  grades               Grade[]
+  teacherAttendances   TeacherAttendance[]
+  notifications        Notification[]
+}
+
+// ============================================================
+// 2. ACADEMIC STRUCTURE
+// ============================================================
+
+model EducationStage {
+  id        String   @id @default(cuid())
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id])
+  name      String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  levels    Level[]
+
+  @@index([schoolId])
+}
+
+model Level {
+  id        String   @id @default(cuid())
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id])
+  stageId   String
+  stage     EducationStage @relation(fields: [stageId], references: [id])
+  name      String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  classrooms         Classroom[]
+  streams            Stream[]
+  subjectCoefficients SubjectCoefficient[]
+
+  @@index([schoolId, stageId])
+}
+
+model Stream {
+  id        String   @id @default(cuid())
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id])
+  levelId   String
+  level     Level    @relation(fields: [levelId], references: [id])
+  name      String
+  code      String?
+  createdAt DateTime @default(now())
+
+  classrooms         Classroom[]
+  subjectCoefficients SubjectCoefficient[]
+
+  @@index([schoolId, levelId])
+}
+
+model AcademicYear {
+  id        String   @id @default(cuid())
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id])
+  name      String
+  startsAt  DateTime
+  endsAt    DateTime
+  isActive  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  terms       Term[]
+  enrollments Enrollment[]
+  teacherAssignments TeacherAssignment[]
+  attendances Attendance[]
+  lessons     Lesson[]
+  grades      Grade[]
+
+  @@index([schoolId])
+}
+
+model Term {
+  id               String   @id @default(cuid())
+  schoolId         String
+  academicYearId   String
+  academicYear     AcademicYear @relation(fields: [academicYearId], references: [id])
+  name             String
+  startsAt         DateTime
+  endsAt           DateTime
+  order            Int      @default(1)
+  isActive         Boolean  @default(false)
+  createdAt        DateTime @default(now())
+
+  attendances      Attendance[]
+  lessons          Lesson[]
+  grades           Grade[]
+
+  @@index([schoolId, academicYearId])
+}
+
+// ============================================================
+// 3. CLASSROOM & SUBJECT
+// ============================================================
+
+model Classroom {
+  id              String   @id @default(cuid())
+  schoolId        String
+  school          School   @relation(fields: [schoolId], references: [id])
+  levelId         String
+  level           Level    @relation(fields: [levelId], references: [id])
+  streamId        String?
+  stream          Stream?  @relation(fields: [streamId], references: [id])
+  name            String
+  capacity        Int      @default(40)
+  createdAt       DateTime @default(now())
+
+  enrollments     Enrollment[]
+  teacherAssignments TeacherAssignment[]
+  lessons         Lesson[]
+  attendances     Attendance[]
+  grades          Grade[]
+  schedules       Schedule[]
+
+  @@index([schoolId, levelId])
+}
+
+model Subject {
+  id        String   @id @default(cuid())
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id])
+  nameAr    String
+  nameFr    String?
+  code      String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  teacherAssignments TeacherAssignment[]
+  subjectCoefficients SubjectCoefficient[]
+  grades              Grade[]
+  lessons             Lesson[]
+  attendances         Attendance[]
+  schedules           Schedule[]
+}
+
+model SubjectCoefficient {
+  id              String   @id @default(cuid())
+  schoolId        String
+  academicYearId  String
+  levelId         String
+  level           Level    @relation(fields: [levelId], references: [id])
+  streamId        String?
+  stream          Stream?  @relation(fields: [streamId], references: [id])
+  subjectId       String
+  subject         Subject  @relation(fields: [subjectId], references: [id])
+  coefficient     Float    @default(1)
+  createdAt       DateTime @default(now())
+
+  @@unique([academicYearId, levelId, streamId, subjectId])
+  @@index([schoolId, levelId])
+}
+
+// ============================================================
+// 4. PEOPLE
+// ============================================================
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  passwordHash   String
+  name           String
+  phone          String?
+  role           String   @default("TEACHER")
+  schoolId       String?
+  school         School?  @relation(fields: [schoolId], references: [id])
+  isActive       Boolean  @default(true)
+  emailVerified  DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  teacher         Teacher?
+  parent          Parent?
+  notifications   Notification[]
+  attendanceLogs  TeacherAttendance[]
+}
+
+model Teacher {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  user       User     @relation(fields: [userId], references: [id])
+  schoolId   String
+  school     School   @relation(fields: [schoolId], references: [id])
+  phone      String?
+  status     String   @default("ACTIVE")
+  createdAt  DateTime @default(now())
+
+  teacherAssignments TeacherAssignment[]
+  lessons            Lesson[]
+  grades             Grade[]
+  attendanceLogs     TeacherAttendance[]
+  attendances        Attendance[]
+}
+
+model Parent {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id])
+  phone     String?
+  preferredLanguage String @default("ar")
+  createdAt DateTime @default(now())
+
+  studentParents StudentParent[]
+}
+
+model Student {
+  id            String   @id @default(cuid())
+  schoolId      String
+  school        School   @relation(fields: [schoolId], references: [id])
+  firstName     String
+  lastName      String
+  gender        String?
+  birthDate     DateTime?
+  studentNumber String?
+  address       String?
+  phone         String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  enrollments   Enrollment[]
+  studentParents StudentParent[]
+  attendances   Attendance[]
+  grades        Grade[]
+  payments      Payment[]
+}
+
+model StudentParent {
+  id                   String   @id @default(cuid())
+  schoolId             String
+  studentId            String
+  student              Student  @relation(fields: [studentId], references: [id])
+  parentId             String
+  parent               Parent   @relation(fields: [parentId], references: [id])
+  relationship         String?
+  isPrimary            Boolean  @default(false)
+  receiveNotifications Boolean  @default(true)
+  createdAt            DateTime @default(now())
+
+  @@unique([studentId, parentId])
+  @@index([schoolId])
+}
+
+model Enrollment {
+  id              String   @id @default(cuid())
+  schoolId        String
+  studentId       String
+  student         Student   @relation(fields: [studentId], references: [id])
+  academicYearId  String
+  academicYear    AcademicYear @relation(fields: [academicYearId], references: [id])
+  classroomId     String
+  classroom       Classroom @relation(fields: [classroomId], references: [id])
+  status          String   @default("ACTIVE")
+  enrolledAt      DateTime @default(now())
+
+  @@unique([studentId, academicYearId])
+  @@index([schoolId, academicYearId])
+}
+
+model TeacherAssignment {
+  id              String   @id @default(cuid())
+  schoolId        String
+  teacherId       String
+  teacher         Teacher   @relation(fields: [teacherId], references: [id])
+  subjectId       String
+  subject         Subject   @relation(fields: [subjectId], references: [id])
+  classroomId     String
+  classroom       Classroom @relation(fields: [classroomId], references: [id])
+  academicYearId  String
+  academicYear    AcademicYear @relation(fields: [academicYearId], references: [id])
+  hourlyRate      Float?
+  weeklyHours     Float?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+
+  @@unique([teacherId, subjectId, classroomId, academicYearId])
+  @@index([schoolId, academicYearId])
+}
+
+// ============================================================
+// 5. DAILY REGISTERS
+// ============================================================
+
+model Attendance {
+  id              String   @id @default(cuid())
+  schoolId        String
+  school          School   @relation(fields: [schoolId], references: [id])
+  academicYearId  String
+  academicYear    AcademicYear @relation(fields: [academicYearId], references: [id])
+  termId          String?
+  term            Term?    @relation(fields: [termId], references: [id])
+  date            DateTime @default(now())
+  status          String   @default("PRESENT")
+  studentId       String
+  student         Student  @relation(fields: [studentId], references: [id])
+  classroomId     String
+  classroom       Classroom @relation(fields: [classroomId], references: [id])
+  subjectId       String?
+  subject         Subject?  @relation(fields: [subjectId], references: [id])
+  teacherId       String
+  teacher         Teacher   @relation(fields: [teacherId], references: [id])
+  createdAt       DateTime  @default(now())
+
+  @@unique([studentId, date, subjectId])
+  @@index([schoolId, date])
+}
+
+model Lesson {
+  id              String   @id @default(cuid())
+  schoolId        String
+  school          School   @relation(fields: [schoolId], references: [id])
+  academicYearId  String
+  academicYear    AcademicYear @relation(fields: [academicYearId], references: [id])
+  termId          String?
+  term            Term?    @relation(fields: [termId], references: [id])
+  title           String
+  description     String?
+  duration        Int?
+  homework        String?
+  notes           String?
+  status          String   @default("DRAFT")
+  date            DateTime @default(now())
+  classroomId     String
+  classroom       Classroom @relation(fields: [classroomId], references: [id])
+  subjectId       String
+  subject         Subject   @relation(fields: [subjectId], references: [id])
+  teacherId       String
+  teacher         Teacher   @relation(fields: [teacherId], references: [id])
+  createdAt       DateTime  @default(now())
+
+  @@index([schoolId, academicYearId])
+}
+
+model Grade {
+  id              String   @id @default(cuid())
+  schoolId        String
+  school          School   @relation(fields: [schoolId], references: [id])
+  academicYearId  String
+  academicYear    AcademicYear @relation(fields: [academicYearId], references: [id])
+  termId          String
+  term            Term    @relation(fields: [termId], references: [id])
+  assessmentType  String
+  label           String
+  score           Float
+  maxScore        Float   @default(20)
+  status          String  @default("DRAFT")
+  date            DateTime @default(now())
+  studentId       String
+  student         Student  @relation(fields: [studentId], references: [id])
+  subjectId       String
+  subject         Subject  @relation(fields: [subjectId], references: [id])
+  classroomId     String
+  classroom       Classroom @relation(fields: [classroomId], references: [id])
+  teacherId       String
+  teacher         Teacher   @relation(fields: [teacherId], references: [id])
+  createdAt       DateTime  @default(now())
+
+  @@index([schoolId, academicYearId, termId])
+}
+
+// ============================================================
+// 6. FINANCE
+// ============================================================
+
+model Fee {
+  id          String   @id @default(cuid())
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id])
+  name        String
+  amount      Float
+  frequency   String   @default("MONTHLY")
+  levelId     String?
+  classroomId String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  payments    Payment[]
+}
+
+model Payment {
+  id              String   @id @default(cuid())
+  schoolId        String
+  school          School   @relation(fields: [schoolId], references: [id])
+  amount          Float
+  date            DateTime @default(now())
+  method          String   @default("CASH")
+  receiptNumber   String?
+  notes           String?
+  studentId       String
+  student         Student  @relation(fields: [studentId], references: [id])
+  feeId           String?
+  fee             Fee?     @relation(fields: [feeId], references: [id])
+  receivedByUserId String?
+  createdAt       DateTime @default(now())
+
+  @@index([schoolId, date])
+}
+
+// ============================================================
+// 7. ATTENDANCE & NOTIFICATIONS & SCHEDULE
+// ============================================================
+
+model TeacherAttendance {
+  id        String   @id @default(cuid())
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id])
+  date      DateTime @default(now())
+  checkIn   DateTime?
+  checkOut  DateTime?
+  status    String   @default("PRESENT")
+  teacherId String
+  teacher   Teacher  @relation(fields: [teacherId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([teacherId, date])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id])
+  title     String
+  message   String
+  type      String
+  channel   String   @default("IN_APP")
+  status    String   @default("PENDING")
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  read      Boolean  @default(false)
+  sentAt    DateTime?
+  errorMessage  String?
+  createdAt DateTime @default(now())
+
+  @@index([schoolId, userId, read])
+}
+
+model Schedule {
+  id          String   @id @default(cuid())
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id])
+  dayOfWeek   Int
+  startTime   String
+  endTime     String
+  classroomId String
+  classroom   Classroom @relation(fields: [classroomId], references: [id])
+  subjectId   String
+  subject     Subject   @relation(fields: [subjectId], references: [id])
+  teacherId   String?
+  createdAt   DateTime  @default(now())
+
+  @@index([schoolId, classroomId])
+}
