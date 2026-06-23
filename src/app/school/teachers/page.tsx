@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { api } from "@/lib/api"
-import { Button, Card, Modal, Input, Select, Badge, LoadingPage } from "@/components/ui"
+import { Button, Card, Modal, Input, Badge, LoadingPage } from "@/components/ui"
 import { Plus, UserPlus, BookOpen, Trash2, X, ChevronDown, ChevronUp, Mail, Phone, Shield, Eye } from "lucide-react"
 import Link from "next/link"
 import toast from "react-hot-toast"
@@ -121,10 +121,22 @@ export default function TeachersPage() {
 
       <Modal open={assignModal} onClose={() => setAssignModal(false)} title="تكليف أستاذ بمادة">
         <div className="space-y-4">
-          <Select label="المادة" value={assignSubj} onChange={setAssignSubj}
-            options={subjects.map((s) => ({ value: s.id, label: s.nameAr }))} placeholder="اختر المادة" />
-          <Select label="القسم" value={assignClass} onChange={setAssignClass}
-            options={classrooms.map((c) => ({ value: c.id, label: `${c.name} - ${c.level.name}` }))} placeholder="اختر القسم" />
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">المادة</label>
+            <select value={assignSubj} onChange={(e) => setAssignSubj(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">اختر المادة</option>
+              {subjects.map((s) => <option key={s.id} value={s.id}>{s.nameAr}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">القسم</label>
+            <select value={assignClass} onChange={(e) => setAssignClass(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">اختر القسم</option>
+              {classrooms.map((c) => <option key={c.id} value={c.id}>{c.name} - {c.level.name}</option>)}
+            </select>
+          </div>
           <Button fullWidth onClick={saveAssignment}>إضافة تكليف</Button>
         </div>
       </Modal>
