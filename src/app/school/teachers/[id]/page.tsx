@@ -4,37 +4,40 @@ import { useEffect, useState, useCallback } from "react"
 import { useParams } from "next/navigation"
 import { api } from "@/lib/api"
 import { Button, Card, Badge, Modal, Input, LoadingPage } from "@/components/ui"
-import { ArrowRight, BookOpen, School, Calendar, Clock, Phone, Mail, DollarSign, ChevronRight, Wallet } from "lucide-react"
+import { ArrowRight, BookOpen, School, Calendar, Phone, Mail, DollarSign, ChevronRight, Wallet, Clock } from "lucide-react"
 import Link from "next/link"
 import toast from "react-hot-toast"
 
 type DetailData = {
-  teacher: { id: string; phone: string | null; hourlyRate: number | null; user: { id: string; email: string; name: string; phone: string | null; isActive: boolean } }
-  assignments: { id: string; subject: { nameAr: string; code: string | null }; classroom: { id: string; name: string; level: { name: string } } }[]
+  teacher: { id: string; phone: string | null; user: { id: string; email: string; name: string; phone: string | null; isActive: boolean } }
+  assignments: { id: string; subject: { nameAr: string; code: string | null }; classroom: { id: string; name: string; level: { name: string } }; hourlyRate: number | null; weeklyHours: number | null }[]
   recentLessons: { id: string; title: string; date: string; status: string; subject: { nameAr: string }; classroom: { name: string } }[]
   stats: { assignments: number; lessonsThisMonth: number; totalStudents: number }
-  payroll: { hourlyRate: number | null; totalHours: number | null; estimatedEarnings: number | null }
 }
 
 export default function TeacherDetailPage() {
   const { id } = useParams()
   const [data, setData] = useState<DetailData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [showRateModal, setShowRateModal] = useState(false)
-  const [rateInput, setRateInput] = useState("")
+  const [editAssign, setEditAssign] = useState<{ id: string; hourlyRate: string; weeklyHours: string } | null>(null)
 
   const fetchData = useCallback(async () => {
     const { data } = await api.get<DetailData>(`/api/school/teachers/${id}`)
-    if (data) { setData(data); setRateInput(String(data.teacher.hourlyRate || "")) }
+    if (data) setData(data)
     setLoading(false)
   }, [id])
 
   useEffect(() => { fetchData() }, [fetchData])
 
-  async function saveRate() {
-    const { error } = await api.put("/api/school/teachers", { id, hourlyRate: rateInput })
+  async function saveAssignmentRate() {
+    if (!editAssign) return
+    const { error } = await api.put("/api/school/teacher-assignments", {
+      id: editAssign.id,
+      hourlyRate: editAssign.hourlyRate,
+      weeklyHours: editAssign.weeklyHours,
+    })
     if (error) toast.error(error)
-    else { toast.success("تم حفظ الأجر"); setShowRateModal(false); fetchData() }
+    else { toast.success("تم الحفظ"); setEditAssign(null); fetchData() }
   }
 
   if (loading) return <LoadingPage />
@@ -47,13 +50,16 @@ export default function TeacherDetailPage() {
       <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
         <Link href="/school/teachers" className="hover:text-blue-600">الأساتذة</Link>
         <ChevronRight className="h-4 w-4" />
-        <span className="text-gray-900 font-medium">{data.teacher.user.name}</span>
+        <span className="text-gray-900 font-medium">{t.user.name}</span>
       </div>
 
-      <Modal open={showRateModal} onClose={() => setShowRateModal(false)} title="تحديد الأجر للساعة">
+      <Modal open={!!editAssign} onClose={() => setEditAssign(null)} title="تحديد أجر وساعات التكليف">
         <div className="space-y-4">
-          <Input label="الأجر للساعة (أوقية)" type="number" value={rateInput} onChange={(e) => setRateInput(e.target.value)} placeholder="250" />
-          <Button fullWidth onClick={saveRate}>حفظ</Button>
+          <Input label="الأجر للساعة (أوقية)" type="number" value={editAssign?.hourlyRate || ""}
+            onChange={(e) => setEditAssign((prev) => prev ? { ...prev, hourlyRate: e.target.value } : null)} placeholder="250" />
+          <Input label="عدد الساعات أسبوعياً" type="number" value={editAssign?.weeklyHours || ""}
+            onChange={(e) => setEditAssign((prev) => prev ? { ...prev, weeklyHours: e.target.value } : null)} placeholder="4" />
+          <Button fullWidth onClick={saveAssignmentRate}>حفظ</Button>
         </div>
       </Modal>
 
@@ -61,18 +67,18 @@ export default function TeacherDetailPage() {
       <div className="flex items-start justify-between mb-6">
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-2xl">
-            {data.teacher.user.name.charAt(0)}
+            {t.user.name.charAt(0)}
           </div>
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-3">
-              {data.teacher.user.name}
-              <Badge variant={data.teacher.user.isActive ? "success" : "danger"}>
-                {data.teacher.user.isActive ? "نشط" : "موقوف"}
+              {t.user.name}
+              <Badge variant={t.user.isActive ? "success" : "danger"}>
+                {t.user.isActive ? "نشط" : "موقوف"}
               </Badge>
             </h1>
             <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
-              <span className="flex items-center gap-1"><Mail className="h-4 w-4" /> {data.teacher.user.email}</span>
-              {data.teacher.user.phone && <span className="flex items-center gap-1"><Phone className="h-4 w-4" /> {data.teacher.user.phone}</span>}
+              <span className="flex items-center gap-1"><Mail className="h-4 w-4" /> {t.user.email}</span>
+              {t.user.phone && <span className="flex items-center gap-1"><Phone className="h-4 w-4" /> {t.user.phone}</span>}
             </div>
           </div>
         </div>
@@ -82,7 +88,7 @@ export default function TeacherDetailPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-3 gap-4 mb-6">
         <Card padding="md">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-50 rounded-lg"><BookOpen className="h-5 w-5 text-blue-600" /></div>
@@ -101,30 +107,10 @@ export default function TeacherDetailPage() {
             <div><p className="text-2xl font-bold">{data.stats.totalStudents}</p><p className="text-xs text-gray-500">إجمالي الطلاب</p></div>
           </div>
         </Card>
-        <Card padding="md" className="cursor-pointer hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-3" onClick={() => setShowRateModal(true)}>
-            <div className="p-2 bg-amber-50 rounded-lg">
-              {data.payroll.hourlyRate ? <Wallet className="h-5 w-5 text-amber-600" /> : <DollarSign className="h-5 w-5 text-gray-400" />}
-            </div>
-            <div>
-              {data.payroll.hourlyRate ? (
-                <>
-                  <p className="text-2xl font-bold text-amber-700">{data.payroll.hourlyRate} <span className="text-xs font-normal">/س</span></p>
-                  <p className="text-xs text-gray-500">{data.payroll.totalHours} ساعة هذا الشهر ≈ {data.payroll.estimatedEarnings}</p>
-                </>
-              ) : (
-                <>
-                  <p className="text-sm text-gray-400">لم يحدد</p>
-                  <p className="text-xs text-blue-500">اضغط لتحديد الأجر</p>
-                </>
-              )}
-            </div>
-          </div>
-        </Card>
       </div>
 
-      {/* Rest of the page */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Assignments */}
         <Card padding="lg">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold flex items-center gap-2"><BookOpen className="h-5 w-5" /> التكليفات ({data.assignments.length})</h3>
@@ -134,21 +120,44 @@ export default function TeacherDetailPage() {
           ) : (
             <div className="space-y-2">
               {data.assignments.map((a) => (
-                <div key={a.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100">
-                  <div>
-                    <span className="font-medium text-sm">{a.subject.nameAr}</span>
-                    {a.subject.code && <span className="text-xs text-gray-400 mr-2">({a.subject.code})</span>}
+                <div key={a.id} className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <BookOpen className="h-4 w-4 text-blue-500" />
+                      <span className="font-medium text-sm">{a.subject.nameAr}</span>
+                      <Link href={`/school/classrooms/${a.classroom.id}`} className="text-xs text-blue-600 hover:underline">
+                        {a.classroom.name} - {a.classroom.level.name}
+                      </Link>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={() =>
+                      setEditAssign({ id: a.id, hourlyRate: String(a.hourlyRate || ""), weeklyHours: String(a.weeklyHours || "") })
+                    }>
+                      <DollarSign className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
-                  <Link href={`/school/classrooms/${a.classroom.id}`} className="text-sm text-blue-600 hover:underline flex items-center gap-1">
-                    <School className="h-3.5 w-3.5" />
-                    {a.classroom.name} - {a.classroom.level.name}
-                  </Link>
+                  <div className="flex items-center gap-4 text-xs text-gray-500">
+                    {a.hourlyRate ? (
+                      <span className="flex items-center gap-1 text-amber-700 font-medium">
+                        <DollarSign className="h-3 w-3" /> {a.hourlyRate} /س
+                      </span>
+                    ) : (
+                      <span className="text-gray-300 cursor-pointer" onClick={() =>
+                        setEditAssign({ id: a.id, hourlyRate: "", weeklyHours: "" })
+                      }>تحديد الأجر</span>
+                    )}
+                    {a.weeklyHours && (
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" /> {a.weeklyHours} س/أسبوع
+                      </span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </Card>
 
+        {/* Recent Lessons */}
         <Card padding="lg">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold flex items-center gap-2"><Calendar className="h-5 w-5" /> آخر الدروس ({data.recentLessons.length})</h3>
