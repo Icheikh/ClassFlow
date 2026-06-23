@@ -155,47 +155,49 @@ export default function TeachersPage() {
         <div className="space-y-3">
           {filtered.map((t) => (
             <Card key={t.id} padding="md" className="relative group">
-              <Link href={`/school/teachers/${t.id}`} className="flex items-start gap-4">
-                {/* Avatar */}
-                <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold shrink-0 text-lg">
-                  {t.user.name.charAt(0)}
-                </div>
+              <div className="flex items-start gap-4">
+                <Link href={`/school/teachers/${t.id}`} className="flex items-center gap-4 flex-1 min-w-0">
+                  {/* Avatar */}
+                  <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold shrink-0 text-lg">
+                    {t.user.name.charAt(0)}
+                  </div>
 
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-semibold text-lg text-blue-700 group-hover:underline">{t.user.name}</h3>
-                    <Badge variant={t.user.isActive ? "success" : "danger"}>
-                      {t.user.isActive ? "نشط" : "موقوف"}
-                    </Badge>
-                    <span className="text-xs px-2 py-0.5 bg-purple-50 text-purple-700 rounded-full flex items-center gap-1">
-                      <Shield className="h-3 w-3" /> أستاذ
-                    </span>
+                  {/* Info */}
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-semibold text-lg text-blue-700 group-hover:underline">{t.user.name}</h3>
+                      <Badge variant={t.user.isActive ? "success" : "danger"}>
+                        {t.user.isActive ? "نشط" : "موقوف"}
+                      </Badge>
+                      <span className="text-xs px-2 py-0.5 bg-purple-50 text-purple-700 rounded-full flex items-center gap-1">
+                        <Shield className="h-3 w-3" /> أستاذ
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
+                      <span className="flex items-center gap-1"><Mail className="h-3.5 w-3.5" /> {t.user.email}</span>
+                      {t.phone && <span className="flex items-center gap-1"><Phone className="h-3.5 w-3.5" /> {t.phone}</span>}
+                      <span className="text-xs text-gray-400">{t.teacherAssignments.length} تكليف</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
-                    <span className="flex items-center gap-1"><Mail className="h-3.5 w-3.5" /> {t.user.email}</span>
-                    {t.phone && <span className="flex items-center gap-1"><Phone className="h-3.5 w-3.5" /> {t.phone}</span>}
-                    <span className="text-xs text-gray-400">{t.teacherAssignments.length} تكليف</span>
-                  </div>
-                </div>
+                </Link>
 
                 {/* Actions */}
                 <div className="flex gap-1 shrink-0">
-                  <Button variant="secondary" size="sm" onClick={() => { setAssignTeacherId(t.id); setAssignSubj(""); setAssignClass(""); setAssignModal(true) }}>
+                  <Button variant="secondary" size="sm" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setAssignTeacherId(t.id); setAssignSubj(""); setAssignClass(""); setAssignModal(true) }}>
                     <BookOpen className="h-4 w-4" /> تكليف
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => { setEditId(t.id); setForm({ name: t.user.name, email: t.user.email, phone: t.user.phone || "", password: "" }); setAddModal(true) }}>
+                  <Button variant="ghost" size="sm" onClick={(e) => { e.preventDefault(); setEditId(t.id); setForm({ name: t.user.name, email: t.user.email, phone: t.user.phone || "", password: "" }); setAddModal(true) }}>
                     تعديل
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => deleteTeacher(t.id)} className="text-red-500">
+                  <Button variant="ghost" size="sm" onClick={(e) => { e.preventDefault(); deleteTeacher(t.id) }} className="text-red-500">
                     <Trash2 className="h-4 w-4" />
                   </Button>
-                  <button onClick={() => setExpandedId(expandedId === t.id ? null : t.id)}
+                  <button onClick={(e) => { e.preventDefault(); setExpandedId(expandedId === t.id ? null : t.id) }}
                     className="p-1.5 hover:bg-gray-100 rounded">
                     {expandedId === t.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                   </button>
                 </div>
-              </Link>
+              </div>
 
               {/* Assignments */}
               {expandedId === t.id && (
