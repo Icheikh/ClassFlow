@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react"
 import { useParams } from "next/navigation"
 import { api } from "@/lib/api"
 import { Button, Card, Badge, Modal, Input, LoadingPage } from "@/components/ui"
-import { ArrowRight, BookOpen, School, Calendar, Phone, Mail, DollarSign, ChevronRight, Wallet, Clock } from "lucide-react"
+import { ArrowRight, BookOpen, School, Calendar, Phone, Mail, ChevronRight, Wallet, Clock, Link as LinkIcon } from "lucide-react"
 import Link from "next/link"
 import toast from "react-hot-toast"
 
@@ -88,11 +88,11 @@ export default function TeacherDetailPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-2 gap-4 mb-6">
         <Card padding="md">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-50 rounded-lg"><BookOpen className="h-5 w-5 text-blue-600" /></div>
-            <div><p className="text-2xl font-bold">{data.stats.assignments}</p><p className="text-xs text-gray-500">تكليفات</p></div>
+            <div><p className="text-2xl font-bold">{data.stats.assignments}</p><p className="text-xs text-gray-500">مواد</p></div>
           </div>
         </Card>
         <Card padding="md">
@@ -101,19 +101,27 @@ export default function TeacherDetailPage() {
             <div><p className="text-2xl font-bold">{data.stats.lessonsThisMonth}</p><p className="text-xs text-gray-500">درس هذا الشهر</p></div>
           </div>
         </Card>
-        <Card padding="md">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-50 rounded-lg"><School className="h-5 w-5 text-purple-600" /></div>
-            <div><p className="text-2xl font-bold">{data.stats.totalStudents}</p><p className="text-xs text-gray-500">إجمالي الطلاب</p></div>
-          </div>
-        </Card>
       </div>
+
+      {/* Classrooms */}
+      <Card padding="md" className="mb-6">
+        <h3 className="font-semibold text-sm text-gray-700 mb-3 flex items-center gap-2"><School className="h-4 w-4" /> الأقسام التي يدرس فيها</h3>
+        <div className="flex flex-wrap gap-2">
+          {data.assignments.map((a) => (
+            <Link key={a.id} href={`/school/classrooms/${a.classroom.id}`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-sm hover:bg-blue-100 transition-colors">
+              <LinkIcon className="h-3.5 w-3.5" />
+              {a.classroom.name} - {a.classroom.level.name}
+            </Link>
+          ))}
+        </div>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Assignments */}
         <Card padding="lg">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold flex items-center gap-2"><BookOpen className="h-5 w-5" /> التكليفات ({data.assignments.length})</h3>
+            <h3 className="font-semibold flex items-center gap-2"><BookOpen className="h-5 w-5" /> المواد ({data.assignments.length})</h3>
           </div>
           {data.assignments.length === 0 ? (
             <p className="text-gray-400 text-sm py-4 text-center">لا توجد تكليفات</p>
@@ -132,13 +140,13 @@ export default function TeacherDetailPage() {
                     <Button variant="ghost" size="sm" onClick={() =>
                       setEditAssign({ id: a.id, hourlyRate: String(a.hourlyRate || ""), weeklyHours: String(a.weeklyHours || "") })
                     }>
-                      <DollarSign className="h-3.5 w-3.5" />
+                      <Wallet className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                   <div className="flex items-center gap-4 text-xs text-gray-500">
                     {a.hourlyRate ? (
                       <span className="flex items-center gap-1 text-amber-700 font-medium">
-                        <DollarSign className="h-3 w-3" /> {a.hourlyRate} /س
+                        {a.hourlyRate} MRU /س
                       </span>
                     ) : (
                       <span className="text-gray-300 cursor-pointer" onClick={() =>

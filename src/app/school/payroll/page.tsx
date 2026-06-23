@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { api } from "@/lib/api"
 import { Button, Card, Badge, LoadingPage } from "@/components/ui"
-import { Wallet, DollarSign, Clock, Calendar } from "lucide-react"
+import { Wallet, Clock, Calendar, TrendingUp } from "lucide-react"
 import Link from "next/link"
 
 type PayrollAssignRow = {
@@ -59,8 +59,8 @@ export default function PayrollPage() {
             </Card>
             <Card padding="md">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-50 rounded-lg"><DollarSign className="h-5 w-5 text-green-600" /></div>
-                <div><p className="text-2xl font-bold text-green-700">{data.totalEarnings.toLocaleString()}</p><p className="text-xs text-gray-500">إجمالي المستحقات</p></div>
+                <div className="p-2 bg-green-50 rounded-lg"><TrendingUp className="h-5 w-5 text-green-600" /></div>
+                <div><p className="text-2xl font-bold text-green-700">{data.totalEarnings.toLocaleString()} MRU</p><p className="text-xs text-gray-500">إجمالي المستحقات</p></div>
               </div>
             </Card>
             <Card padding="md">

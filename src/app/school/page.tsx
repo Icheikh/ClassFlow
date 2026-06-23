@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
 import { dashboardApi, type DashboardStats } from "@/lib/api"
 import { Card } from "@/components/ui"
-import { Users, BookOpen, GraduationCap, ClipboardCheck, TrendingUp, DollarSign } from "lucide-react"
+import { Users, BookOpen, GraduationCap, ClipboardCheck, TrendingUp } from "lucide-react"
 
 export default function SchoolDashboardPage() {
   const { data: session } = useSession()
