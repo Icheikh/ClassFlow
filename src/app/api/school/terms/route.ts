@@ -48,6 +48,9 @@ export async function PUT(req: NextRequest) {
   const body = await req.json()
   const { id, name, startsAt, endsAt, order, isActive } = body
 
+  const existing = await prisma.term.findFirst({ where: { id, schoolId: user.schoolId } })
+  if (!existing) return NextResponse.json({ error: "غير موجود" }, { status: 404 })
+
   const item = await prisma.term.update({
     where: { id },
     data: { name, startsAt: new Date(startsAt), endsAt: new Date(endsAt), order: parseInt(order), isActive },
@@ -64,6 +67,9 @@ export async function DELETE(req: NextRequest) {
   const url = new URL(req.url)
   const id = url.searchParams.get("id")
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 })
+
+  const existing = await prisma.term.findFirst({ where: { id, schoolId: user.schoolId } })
+  if (!existing) return NextResponse.json({ error: "غير موجود" }, { status: 404 })
 
   await prisma.term.delete({ where: { id } })
   return NextResponse.json({ success: true })

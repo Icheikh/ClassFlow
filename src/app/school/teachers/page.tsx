@@ -52,7 +52,7 @@ export default function TeachersPage() {
 
   async function saveTeacher() {
     if (!form.name || !form.email) { toast.error("الاسم والبريد الإلكتروني مطلوبان"); return }
-    const payload = editId ? { id: editId, ...form } : form
+    const payload = editId ? { id: editId, name: form.name, email: form.email, phone: form.phone } : form
     const { error } = editId
       ? await api.put("/api/school/teachers", payload)
       : await api.post("/api/school/teachers", payload)

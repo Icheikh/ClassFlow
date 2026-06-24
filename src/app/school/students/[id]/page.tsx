@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { api } from "@/lib/api"
 import { Button, Card, Badge, Modal, LoadingPage } from "@/components/ui"
-import { ArrowRight, User, Hash, Calendar, Phone, MapPin, BookOpen, Users, GraduationCap, UserCheck, UserX, TrendingUp, ChevronRight, Edit3, Link2, Plus } from "lucide-react"
+import { ArrowLeft, User, Hash, Calendar, Phone, MapPin, BookOpen, Users, GraduationCap, UserCheck, UserX, TrendingUp, ChevronRight, Edit3, Link2, Plus } from "lucide-react"
 import Link from "next/link"
 import toast from "react-hot-toast"
 
@@ -48,7 +48,7 @@ export default function StudentDetailPage() {
   const [enrollClassroomId, setEnrollClassroomId] = useState("")
   const [enrollYearId, setEnrollYearId] = useState("")
 
-  const [form, setForm] = useState({ firstName: "", lastName: "", gender: "", birthDate: "", studentNumber: "", address: "", phone: "", parentName: "", parentPhone: "" })
+  const [form, setForm] = useState({ firstName: "", lastName: "", gender: "", birthDate: "", studentNumber: "", address: "", phone: "", parentName: "", parentPhone: "", parentEmail: "" })
 
   const fetchStudent = async () => {
     const [sRes, cRes, yRes] = await Promise.all([
@@ -129,6 +129,7 @@ export default function StudentDetailPage() {
               studentNumber: s.studentNumber || "", address: s.address || "", phone: s.phone || "",
               parentName: s.studentParents[0]?.parent.user.name || "",
               parentPhone: s.studentParents[0]?.parent.user.phone || "",
+              parentEmail: s.studentParents[0]?.parent.user.email || "",
             })
             setEditModal(true)
           }}>
@@ -184,7 +185,7 @@ export default function StudentDetailPage() {
               </div>
               <Link href={`/school/classrooms/${activeEnrollment.classroom.id}`}>
                 <Button variant="secondary" fullWidth size="sm">
-                  <ArrowRight className="h-4 w-4" /> عرض القسم
+                  <ArrowLeft className="h-4 w-4" /> عرض القسم
                 </Button>
               </Link>
             </div>
@@ -303,7 +304,8 @@ export default function StudentDetailPage() {
           <hr />
           <p className="text-sm font-medium text-gray-700">ولي الأمر</p>
           <input className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="اسم ولي الأمر" value={form.parentName} onChange={(e) => setForm({ ...form, parentName: e.target.value })} />
-          <input className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="هاتف ولي الأمر" value={form.parentPhone} onChange={(e) => setForm({ ...form, parentPhone: e.target.value })} />
+           <input className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="هاتف ولي الأمر" value={form.parentPhone} onChange={(e) => setForm({ ...form, parentPhone: e.target.value })} />
+          <input className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" dir="ltr" placeholder="البريد الإلكتروني" type="email" value={form.parentEmail} onChange={(e) => setForm({ ...form, parentEmail: e.target.value })} />
           <Button fullWidth onClick={saveStudent}>حفظ التعديلات</Button>
         </div>
       </Modal>

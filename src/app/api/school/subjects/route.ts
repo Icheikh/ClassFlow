@@ -40,6 +40,8 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   const body = await req.json()
   const { id, nameAr, nameFr, code } = body
+  const existing = await prisma.subject.findFirst({ where: { id, schoolId: user.schoolId } })
+  if (!existing) return NextResponse.json({ error: "غير موجود" }, { status: 404 })
   const item = await prisma.subject.update({ where: { id }, data: { nameAr, nameFr: nameFr || null, code } })
   return NextResponse.json(item)
 }
@@ -55,6 +57,8 @@ export async function DELETE(req: NextRequest) {
     const url = new URL(req.url)
     const id = url.searchParams.get("id")
     if (!id) return NextResponse.json({ error: "id required" }, { status: 400 })
+    const existing = await prisma.subject.findFirst({ where: { id, schoolId: user.schoolId } })
+    if (!existing) return NextResponse.json({ error: "غير موجود" }, { status: 404 })
     await prisma.subject.delete({ where: { id } })
     return NextResponse.json({ success: true })
   } catch (e: any) {

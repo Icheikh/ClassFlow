@@ -56,7 +56,7 @@ export default function SchoolDashboardPage() {
             <QuickLink href="/school/levels" label="المستويات والشعب" />
             <QuickLink href="/school/classrooms" label="الأقسام" />
             <QuickLink href="/school/subjects" label="المواد" />
-            <QuickLink href="/school/coefficients" label="الضوارب" />
+            <QuickLink href="/school/subjects" label="الضوارب" />
           </div>
         </Card>
 
@@ -64,7 +64,7 @@ export default function SchoolDashboardPage() {
           <h2 className="text-lg font-semibold mb-4">الموظفون والطلاب</h2>
           <div className="space-y-3">
             <QuickLink href="/school/teachers" label="الأساتذة" />
-            <QuickLink href="/school/assignments" label="تعيين الأساتذة" />
+            <QuickLink href="/school/teachers" label="تعيين الأساتذة" />
             <QuickLink href="/school/students" label="الطلاب" />
             <QuickLink href="/school/settings" label="إعدادات المدرسة" />
           </div>

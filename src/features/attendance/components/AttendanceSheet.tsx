@@ -6,7 +6,7 @@ import { useClasses } from "@/hooks/useClasses"
 import { useStudents } from "@/hooks/useStudents"
 import { api } from "@/lib/api"
 import { Button, Card, Badge, LoadingSpinner } from "@/components/ui"
-import { Check, X, Clock, AlertCircle, Save, RefreshCw } from "lucide-react"
+import { Check, X, Clock, AlertCircle, Save, RefreshCw, Calendar } from "lucide-react"
 import toast from "react-hot-toast"
 
 type AttendanceStatus = "present" | "absent" | "late" | "excused"
@@ -30,18 +30,17 @@ export function AttendanceSheet() {
 
   const [classroomId, setClassroomId] = useState(initialClassroom)
   const [subjectId, setSubjectId] = useState(initialSubject)
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0])
   const { students, loading: loadingStudents } = useStudents(classroomId)
   const [records, setRecords] = useState<Record<string, AttendanceStatus>>({})
   const [saving, setSaving] = useState(false)
   const [existingAttendance, setExistingAttendance] = useState<any[]>([])
   const [loadingExisting, setLoadingExisting] = useState(false)
 
-  // Load existing attendance for today when classroom+subject selected
   useEffect(() => {
     if (!classroomId || !subjectId) return
-    const today = new Date().toISOString().split("T")[0]
     setLoadingExisting(true)
-    api.get<any[]>(`/api/attendance?classroomId=${classroomId}&subjectId=${subjectId}&date=${today}`)
+    api.get<any[]>(`/api/attendance?classroomId=${classroomId}&subjectId=${subjectId}&date=${selectedDate}`)
       .then(({ data }) => {
         if (data && data.length > 0) {
           setExistingAttendance(data)
@@ -50,10 +49,13 @@ export function AttendanceSheet() {
             map[r.studentId] = r.status.toLowerCase() as AttendanceStatus
           }
           setRecords(map)
+        } else {
+          setExistingAttendance([])
+          setRecords({})
         }
         setLoadingExisting(false)
       })
-  }, [classroomId, subjectId])
+  }, [classroomId, subjectId, selectedDate])
 
   function getStatus(studentId: string): AttendanceStatus {
     return records[studentId] || "present"
@@ -65,13 +67,22 @@ export function AttendanceSheet() {
     setRecords({ ...records, [studentId]: STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length] })
   }
 
+  function markAllPresent() {
+    const newRecords = { ...records }
+    for (const s of students) {
+      newRecords[s.id] = "present"
+    }
+    setRecords(newRecords)
+    toast.success("تم تأشير الجميع حاضر")
+  }
+
   async function save() {
     if (!classroomId || !subjectId) { toast.error("اختر القسم والمادة"); return }
     setSaving(true)
     const result = await api.post("/api/attendance", {
       classroomId,
       subjectId,
-      date: new Date().toISOString().split("T")[0],
+      date: selectedDate,
       records: students.map((s) => ({ studentId: s.id, status: getStatus(s.id).toUpperCase() })),
     })
     if (result.error) toast.error(result.error)
@@ -100,7 +111,7 @@ export function AttendanceSheet() {
       </div>
 
       <div className="flex gap-4 mb-6">
-        <select value={classroomId} onChange={(v) => { setClassroomId(v); setSubjectId(""); setRecords({}); setExistingAttendance([]) }}
+        <select value={classroomId} onChange={(e) => { setClassroomId(e.target.value); setSubjectId(""); setRecords({}); setExistingAttendance([]) }}
           className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
           <option value="">اختر القسم</option>
           {[...new Map(assignments.map((a) => [a.classroom.id, a.classroom])).entries()].map(([id, c]) => (
@@ -116,6 +127,11 @@ export function AttendanceSheet() {
             ))}
           </select>
         )}
+        <div className="flex items-center gap-2 shrink-0">
+          <Calendar className="h-4 w-4 text-gray-400" />
+          <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
       </div>
 
       {subjectId && (
@@ -123,12 +139,17 @@ export function AttendanceSheet() {
           <Card padding="sm" className="mb-4">
             <div className="flex items-center justify-between">
               <p className="text-sm text-gray-500">
-                التاريخ: {new Date().toLocaleDateString("ar-MR")} · {students.length} تلميذ
-                {existingAttendance.length > 0 && " · تم التعديل today"}
+                التاريخ: {new Date(selectedDate).toLocaleDateString("ar-MR")} · {students.length} تلميذ
+                {existingAttendance.length > 0 && " · تم التعديل سابقاً"}
               </p>
-              <button onClick={() => { setRecords({}); setExistingAttendance([]) }} className="text-xs text-blue-600 hover:underline flex items-center gap-1">
-                <RefreshCw className="h-3 w-3" /> إعادة تعيين
-              </button>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={markAllPresent} disabled={students.length === 0}>
+                  <Check className="h-4 w-4" /> الكل حاضر
+                </Button>
+                <button onClick={() => { setRecords({}); setExistingAttendance([]) }} className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+                  <RefreshCw className="h-3 w-3" /> إعادة تعيين
+                </button>
+              </div>
             </div>
           </Card>
 

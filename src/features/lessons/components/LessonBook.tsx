@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation"
 import { useClasses } from "@/hooks/useClasses"
 import { api } from "@/lib/api"
 import { Button, Card, LoadingSpinner } from "@/components/ui"
-import { BookOpen, Plus, Save, Clock } from "lucide-react"
+import { BookOpen, Plus, Save, Clock, Edit3, Trash2 } from "lucide-react"
 import toast from "react-hot-toast"
 
 type Lesson = {
@@ -40,6 +40,8 @@ export function LessonBook() {
   const [duration, setDuration] = useState("45")
   const [saving, setSaving] = useState(false)
 
+  const [editId, setEditId] = useState<string | null>(null)
+
   useEffect(() => {
     if (classroomId && subjectId) {
       api.get<Lesson[]>(`/api/lessons?classroomId=${classroomId}&subjectId=${subjectId}`).then(({ data }) => {
@@ -48,22 +50,48 @@ export function LessonBook() {
     }
   }, [classroomId, subjectId])
 
+  function startEdit(lesson: Lesson) {
+    setEditId(lesson.id)
+    setTitle(lesson.title)
+    setDescription(lesson.description || "")
+    setHomework(lesson.homework || "")
+    setNotes(lesson.notes || "")
+    setDuration(String(lesson.duration || 45))
+    setShowForm(true)
+  }
+
+  function resetForm() {
+    setTitle(""); setDescription(""); setHomework(""); setNotes(""); setDuration("45")
+    setEditId(null); setShowForm(false)
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!title.trim()) { toast.error("يرجى إدخال عنوان الدرس"); return }
     setSaving(true)
-    const result = await api.post("/api/lessons", {
-      title, description, homework, notes, duration,
-      classroomId, subjectId,
-    })
+
+    const payload = { title, description, homework, notes, duration: parseInt(duration) || 45, classroomId, subjectId }
+    const result = editId
+      ? await api.put("/api/lessons", { id: editId, ...payload })
+      : await api.post("/api/lessons", payload)
+
     if (result.error) toast.error(result.error)
     else {
-      toast.success("تم تسجيل الدرس")
-      setTitle(""); setDescription(""); setHomework(""); setNotes(""); setDuration("45")
-      setShowForm(false)
+      toast.success(editId ? "تم التعديل" : "تم تسجيل الدرس")
+      resetForm()
       api.get<Lesson[]>(`/api/lessons?classroomId=${classroomId}&subjectId=${subjectId}`).then(({ data }) => { if (data) setLessons(data) })
     }
     setSaving(false)
+  }
+
+  async function deleteLesson(id: string) {
+    if (!confirm("سيتم حذف هذا الدرس. هل أنت متأكد؟")) return
+    const { error } = await api.delete(`/api/lessons?id=${id}`)
+    if (error) toast.error(error)
+    else {
+      toast.success("تم الحذف")
+      api.get<Lesson[]>(`/api/lessons?classroomId=${classroomId}&subjectId=${subjectId}`).then(({ data }) => { if (data) setLessons(data) })
+    }
   }
 
   if (loading) return <LoadingSpinner />
@@ -75,14 +103,14 @@ export function LessonBook() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">دفتر الدروس</h1>
         {classroomId && subjectId && (
-          <Button variant="primary" onClick={() => setShowForm(!showForm)}>
-            <Plus className="h-5 w-5" /> درس جديد
+          <Button variant="primary" onClick={() => { resetForm(); setShowForm(!showForm) }}>
+            <Plus className="h-5 w-5" /> {showForm ? "إلغاء" : "درس جديد"}
           </Button>
         )}
       </div>
 
       <div className="flex gap-4 mb-6">
-        <select value={classroomId} onChange={(v) => { setClassroomId(v); setSubjectId(""); setShowForm(false) }}
+        <select value={classroomId} onChange={(e) => { setClassroomId(e.target.value); setSubjectId(""); setShowForm(false) }}
           className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
           <option value="">اختر القسم</option>
           {[...new Map(assignments.map((a) => [a.classroom.id, a.classroom])).entries()].map(([id, c]) => (
@@ -104,6 +132,7 @@ export function LessonBook() {
         <form onSubmit={handleSubmit} className="mb-6">
           <Card>
             <div className="space-y-4">
+              <p className="text-sm font-medium text-gray-700">{editId ? "تعديل الدرس" : "درس جديد"}</p>
               <input className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="عنوان الدرس *" value={title} onChange={(e) => setTitle(e.target.value)} />
               <textarea className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="شرح الدرس" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
               <textarea className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="الواجب المنزلي" rows={2} value={homework} onChange={(e) => setHomework(e.target.value)} />
@@ -113,7 +142,10 @@ export function LessonBook() {
                 <input type="number" className="w-24 px-3 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="المدة" value={duration} onChange={(e) => setDuration(e.target.value)} min="1" max="180" />
                 <span className="text-sm text-gray-500">دقيقة</span>
               </div>
-              <Button fullWidth loading={saving}><Save className="h-5 w-5" /> حفظ الدرس</Button>
+              <div className="flex gap-2">
+                <Button fullWidth loading={saving}><Save className="h-5 w-5" /> {editId ? "حفظ التعديلات" : "حفظ الدرس"}</Button>
+                <Button variant="secondary" onClick={resetForm}>إلغاء</Button>
+              </div>
             </div>
           </Card>
         </form>
@@ -151,8 +183,18 @@ export function LessonBook() {
                 <span className="font-medium">الواجب: </span>{lesson.homework}
               </div>
             )}
-            <div className="flex gap-2 text-xs text-gray-400">
-              <span>{lesson.classroom.name}</span><span>·</span><span>{lesson.subject.nameAr}</span>
+            <div className="flex items-center justify-between mt-2">
+              <div className="flex gap-2 text-xs text-gray-400">
+                <span>{lesson.classroom.name}</span><span>·</span><span>{lesson.subject.nameAr}</span>
+              </div>
+              <div className="flex gap-1">
+                <button onClick={() => startEdit(lesson)} className="p-1 hover:bg-gray-100 rounded text-blue-500">
+                  <Edit3 className="h-4 w-4" />
+                </button>
+                <button onClick={() => deleteLesson(lesson.id)} className="p-1 hover:bg-gray-100 rounded text-red-500">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           </Card>
         ))}

@@ -43,6 +43,8 @@ export async function DELETE(req: NextRequest) {
     const url = new URL(req.url)
     const id = url.searchParams.get("id")
     if (!id) return NextResponse.json({ error: "id required" }, { status: 400 })
+    const existing = await prisma.stream.findFirst({ where: { id, schoolId: user.schoolId } })
+    if (!existing) return NextResponse.json({ error: "غير موجود" }, { status: 404 })
     await prisma.stream.delete({ where: { id } })
     return NextResponse.json({ success: true })
   } catch (e: any) {

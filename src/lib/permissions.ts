@@ -41,7 +41,7 @@ export function hasPermission(
   permission: string
 ): boolean {
   if (!user) return false
-  if (user.role === "SUPER_ADMIN") return false
+  if (user.role === "SUPER_ADMIN") return true
   if (user.role === "SCHOOL_ADMIN") return true
   if (!user.permissions) return false
   return user.permissions.includes(permission)

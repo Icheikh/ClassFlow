@@ -84,3 +84,45 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json(lessons)
 }
+
+export async function PUT(req: NextRequest) {
+  const session = await getServerSession(authOptions)
+  const user = session?.user as any
+  if (!session || !user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!canAccessLessons(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+
+  const body = await req.json()
+  const { id, title, description, homework, notes, duration } = body
+
+  const existing = await prisma.lesson.findFirst({ where: { id, schoolId: user.schoolId } })
+  if (!existing) return NextResponse.json({ error: "الدرس غير موجود" }, { status: 404 })
+
+  const lesson = await prisma.lesson.update({
+    where: { id },
+    data: {
+      ...(title !== undefined && { title }),
+      ...(description !== undefined && { description }),
+      ...(homework !== undefined && { homework }),
+      ...(notes !== undefined && { notes }),
+      ...(duration !== undefined && { duration: parseInt(duration) || null }),
+    },
+  })
+  return NextResponse.json(lesson)
+}
+
+export async function DELETE(req: NextRequest) {
+  const session = await getServerSession(authOptions)
+  const user = session?.user as any
+  if (!session || !user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!canAccessLessons(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+
+  const url = new URL(req.url)
+  const id = url.searchParams.get("id")
+  if (!id) return NextResponse.json({ error: "id required" }, { status: 400 })
+
+  const existing = await prisma.lesson.findFirst({ where: { id, schoolId: user.schoolId } })
+  if (!existing) return NextResponse.json({ error: "الدرس غير موجود" }, { status: 404 })
+
+  await prisma.lesson.delete({ where: { id } })
+  return NextResponse.json({ success: true })
+}

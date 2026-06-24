@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
     const totalHours = Math.round((totalMinutes / 60) * 10) / 10
     const allLessonsCount = lessons.length
     const validLessonsCount = validLessons.length
-    const earnings = a.hourlyRate ? Math.round(totalHours * a.hourlyRate * 10) / 10 : null
+    const earnings = a.hourlyRate != null ? Math.round(totalHours * a.hourlyRate * 10) / 10 : null
 
     return {
       id: a.id,

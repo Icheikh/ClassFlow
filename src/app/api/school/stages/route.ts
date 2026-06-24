@@ -46,6 +46,8 @@ export async function PUT(req: NextRequest) {
   if (blocked) return blocked
   const body = await req.json()
   const { id, name, order } = body
+  const existing = await prisma.educationStage.findFirst({ where: { id, schoolId: user.schoolId } })
+  if (!existing) return NextResponse.json({ error: "غير موجود" }, { status: 404 })
   const item = await prisma.educationStage.update({ where: { id }, data: { name, order: parseInt(order) } })
   return NextResponse.json(item)
 }

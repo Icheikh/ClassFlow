@@ -45,6 +45,9 @@ export async function PUT(req: NextRequest) {
   const body = await req.json()
   const { id, name, startsAt, endsAt, isActive } = body
 
+  const existing = await prisma.academicYear.findFirst({ where: { id, schoolId: user.schoolId } })
+  if (!existing) return NextResponse.json({ error: "غير موجود" }, { status: 404 })
+
   // If activating this year, deactivate all others
   if (isActive) {
     await prisma.academicYear.updateMany({

@@ -1,77 +1,73 @@
-# Session Summary — 2026-06-24
+# Session Summary — 2026-06-24 (Session 5)
 
-## Work Done
+## Work Done — Phase 2: UX Improvements
 
-### 1. Staff Management Page (Step 4)
-- Created `/school/staff` page with full CRUD for STAFF users
-- Components: `StaffList`, `StaffFormModal`, `PermissionGrid`, `PermissionPresets`
-- Permission checkboxes grouped by category (USERS, STUDENTS, TEACHERS, ACADEMIC, GRADES, FINANCE, REPORTS, NOTIFICATIONS)
-- Quick-preset buttons: مدير الدراسات, محاسب, مساعد مدير, مراقب
-- Only SCHOOL_ADMIN can access (sidebar hidden from other roles)
-- Self-modification protection (admin cannot edit own account)
+### 1. Date picker for attendance sheet
+- **`AttendanceSheet.tsx`**: Added `selectedDate` state + `<input type="date">` replacing hardcoded `new Date()`
+- The `useEffect` now depends on `[classroomId, subjectId, selectedDate]` — loads existing records for any date
 
-### 2. Staff API
-- `GET/POST/PUT /api/school/staff` — list, create, update (no hard delete, only deactivate)
-- `GET/PUT /api/school/staff/[id]/permissions` — view and replace permissions atomically
-- All filtered by `session.schoolId`
-- Email globally unique (enforced by schema)
+### 2. "Mark all present" button
+- **`AttendanceSheet.tsx`**: `markAllPresent()` sets all students to PRESENT in one click
+- UI: زر "الكل حاضر" بجانب زر إعادة التعيين
 
-### 3. API Permission Guards (Step 3)
-All 16 API route files migrated from role-only checks to dual checks (permission OR legacy role):
+### 3. Edit/Delete lessons
+- **`LessonBook.tsx`**: Edit button (✏️) pre-fills form, Delete button (🗑️) with confirm
+- **`/api/lessons/route.ts`**: Added `PUT` (update by id) + `DELETE` (delete by id) with schoolId verification
 
-| Pattern | Routes | Change |
-|---------|--------|--------|
-| Pattern B (schoolId only) | 10 school routes | Added permission check for mutations |
-| Pattern A (allowedRoles) | 4 teacher routes | Dual check: old role OR new permission |
-| Dashboard stats | 1 route | Added VIEW_REPORTS check |
-| Payroll | 1 route | Added VIEW_REPORTS check |
+### 4. Delete grades (assessments)
+- **`GradeBook.tsx`**: Trash icon on each assessment card with confirm dialog
+- **`/api/grades/route.ts`**: Added `DELETE` — deletes by `label + assessmentType + classroomId + subjectId` with schoolId verification
 
-### 4. Bug Fixes During Migration
-- 6 DELETE handlers missing `schoolId` check (streams, subject-coefficients, teacher-assignments, terms, classrooms, teachers)
-- 3 GET routes missing `schoolId` check (attendance, lessons, grades)
-- teachers DELETE not scoped by schoolId
+### 5. Fixed RTL icons (ArrowRight → ArrowLeft)
+- **6 files**: Import + JSX changed in `classrooms/[id]/page.tsx`, `teachers/[id]/page.tsx`, `students/[id]/page.tsx`, `classrooms/[id]/page.tsx`
 
-### 5. Seed Update
-- Added `studies@alnoor.edu` (STAFF, مدير الدراسات) with MANAGE_SUBJECTS, MANAGE_COEFFICIENTS, REVIEW_LESSONS, APPROVE_GRADES
+### 6. Error boundaries
+- **Created** `/school/error.tsx` and `/teacher/error.tsx` — show error message + "إعادة المحاولة" button
 
-## Backward Compatibility
-- SUPERVISOR and ACCOUNTANT roles keep full access (temporary, Phase C)
-- TEACHER blocked on school write endpoints (already blocked by layout)
-- STAFF without explicit permission gets 403
+## Files Changed
+- `src/features/attendance/components/AttendanceSheet.tsx` — date picker + mark all
+- `src/features/lessons/components/LessonBook.tsx` — edit/delete lessons
+- `src/features/grades/components/GradeBook.tsx` — delete assessments
+- `src/app/api/lessons/route.ts` — PUT + DELETE endpoints
+- `src/app/api/grades/route.ts` — DELETE endpoint
+- `src/app/school/classrooms/[id]/page.tsx` — RTL icon fix
+- `src/app/school/teachers/[id]/page.tsx` — RTL icon fix
+- `src/app/school/students/[id]/page.tsx` — RTL icon fix
+- `src/app/school/error.tsx` — NEW
+- `src/app/teacher/error.tsx` — NEW
 
-## Commit
-```
-0236c19 feat: permission system + staff management + API permission guards
-37 files changed, 3471 insertions(+), 79 deletions(-)
-```
+## Pending
+- `tsc --noEmit` verification (Node.js unavailable)
 
 ## State of the MVP
 
 | Feature | Status |
 |---------|--------|
 | Authentication + Roles | ✅ |
-| Permission DB + Helpers | ✅ (Step 1) |
-| Frontend Permission Exposure | ✅ (Step 2) |
-| API Permission Guards | ✅ (Step 3) |
-| Staff Management UI | ✅ (Step 4) |
-| Admin Dashboard | ✅ |
-| Academic Structure | ✅ |
-| Classrooms + Detail | ✅ |
-| Subjects + Coefficients | ✅ |
-| Teachers + Detail + Payroll | ✅ |
-| Teacher Interface (3 pages) | ✅ |
-| Students CRUD | ❌ |
+| Permission System | ✅ (SUPER_ADMIN fixed) |
+| School Admin Pages (11 pages) | ✅ (+ settings + error) |
+| Teacher Interface (4 pages + error) | ✅ |
+| Students CRUD | ✅ |
+| Teacher Attendance (check-in/out) | ✅ |
+| Supervisor Roster (مدير الدروس) | ✅ |
+| Payroll Engine | ✅ |
 | Finance (Fees/Payments) | ❌ |
 | Grade Workflow (Approve) | ❌ |
 | PDF Report Cards | ❌ |
+| Parent Interface | ❌ |
 | Notifications (WhatsApp) | ❌ |
 | Testing | ❌ |
 
-## Recommended Next Step
+## School Structure
+**الإعدادية:** 1AS1, 1AS2 │ 2AS1, 2AS2 │ 3AS1, 3AS2 │ 4AS1, 4AS2, 4AS3
+**الثانوية:** 5A, 5C, 5D │ 6C1, 6C2, 6A, 6D1, 6D2 │ 7C, 7D1, 7D2
+**200 تلميذ** (10 لكل قسم)، **17 تكليفاً** (عربية 250، رياضيات 300، فرنسية 250)
 
-**Students CRUD** — add, edit, enroll in classrooms, deactivate.
-- Schema already exists (Student, Enrollment)
-- Highest user-facing impact
-- Prerequisite for attendance, grades, finance workflows
+## Next Session: Phase 3 (Enrich Seed Data)
+1. أضف Terms للمدرسة 2 (الفتح)
+2. أضف دروس، نقاط، حضور للبذرة
+3. أضف معلمين إضافيين + تكليفات للمستوى 7
+4. أضف رسوماً ودفعات مالية تجريبية
+5. اربط الطلاب بأولياء الأمور في البذرة
 
-To resume: read `SESSION_SUMMARY.md` + `PROJECT_STATUS.md`, check `git log -1`.
+To resume: `git log -1` then read `SESSION_SUMMARY.md` + `PROJECT_STATUS.md`.

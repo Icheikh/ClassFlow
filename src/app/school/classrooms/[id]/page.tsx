@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import { api } from "@/lib/api"
 import { Button, Card, Badge, LoadingPage } from "@/components/ui"
-import { ArrowRight, Users, BookOpen, GraduationCap, Clock, UserCheck, UserX, Calendar, Phone, Mail, ChevronRight } from "lucide-react"
+import { ArrowLeft, Users, BookOpen, GraduationCap, Clock, UserCheck, UserX, Calendar, Phone, Mail, ChevronRight } from "lucide-react"
 import Link from "next/link"
 
 type DetailData = {
@@ -54,7 +54,7 @@ export default function ClassroomDetailPage() {
           <p className="text-sm text-gray-500 mt-1">السعة: {c.capacity} طالب | المسجلون: {data.stats.totalStudents}</p>
         </div>
         <Link href="/school/classrooms">
-          <Button variant="secondary"><ArrowRight className="h-4 w-4" /> رجوع</Button>
+          <Button variant="secondary">                <ArrowLeft className="h-4 w-4" /> رجوع</Button>
         </Link>
       </div>
 

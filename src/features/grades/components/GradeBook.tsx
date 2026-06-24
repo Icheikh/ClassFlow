@@ -6,7 +6,7 @@ import { useClasses } from "@/hooks/useClasses"
 import { useStudents } from "@/hooks/useStudents"
 import { api } from "@/lib/api"
 import { Button, Card, Badge, LoadingSpinner } from "@/components/ui"
-import { Plus, Save, Calculator, Eye, ChevronDown, ChevronUp } from "lucide-react"
+import { Plus, Save, Calculator, ChevronDown, ChevronUp, Trash2 } from "lucide-react"
 import toast from "react-hot-toast"
 
 type Assessment = {
@@ -74,6 +74,16 @@ export function GradeBook() {
     setSaving(false)
   }
 
+  async function deleteAssessment(assessment: Assessment) {
+    if (!confirm(`سيتم حذف تقويم "${assessment.label}". هل أنت متأكد؟`)) return
+    const { error } = await api.delete(`/api/grades?label=${encodeURIComponent(assessment.label)}&assessmentType=${assessment.type}&classroomId=${classroomId}&subjectId=${subjectId}`)
+    if (error) toast.error(error)
+    else {
+      toast.success("تم الحذف")
+      api.get<GradeData>(`/api/grades?classroomId=${classroomId}&subjectId=${subjectId}`).then(({ data }) => { if (data) setData(data) })
+    }
+  }
+
   if (loading) return <LoadingSpinner />
 
   const subjects = getSubjects(classroomId)
@@ -92,7 +102,7 @@ export function GradeBook() {
       </div>
 
       <div className="flex gap-4 mb-6">
-        <select value={classroomId} onChange={(v) => { setClassroomId(v); setSubjectId(""); setShowForm(false) }}
+        <select value={classroomId} onChange={(e) => { setClassroomId(e.target.value); setSubjectId(""); setShowForm(false) }}
           className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
           <option value="">اختر القسم</option>
           {[...new Map(assignments.map((a) => [a.classroom.id, a.classroom])).entries()].map(([id, c]) => (
@@ -193,6 +203,9 @@ export function GradeBook() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-500">{assessment.scores.length} تلميذ</span>
+                  <button onClick={(e) => { e.stopPropagation(); deleteAssessment(assessment) }} className="p-1 hover:bg-red-50 rounded text-red-400 hover:text-red-600">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                   {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </div>
               </div>

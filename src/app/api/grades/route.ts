@@ -98,3 +98,22 @@ export async function GET(req: NextRequest) {
     recent: grades.slice(0, 10).map((g) => ({ id: g.id, label: g.label, type: g.assessmentType, date: g.date, studentName: `${g.student.firstName} ${g.student.lastName}`, score: g.score, status: g.status })),
   })
 }
+
+export async function DELETE(req: NextRequest) {
+  const session = await getServerSession(authOptions)
+  const user = session?.user as any
+  if (!session || !user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!canAccessGrades(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+
+  const url = new URL(req.url)
+  const label = url.searchParams.get("label")
+  const assessmentType = url.searchParams.get("assessmentType")
+  const classroomId = url.searchParams.get("classroomId")
+  const subjectId = url.searchParams.get("subjectId")
+  if (!label || !assessmentType || !classroomId || !subjectId)
+    return NextResponse.json({ error: "label, assessmentType, classroomId, subjectId required" }, { status: 400 })
+
+  const where: any = { schoolId: user.schoolId, label, assessmentType, classroomId, subjectId }
+  const count = (await prisma.grade.deleteMany({ where })).count
+  return NextResponse.json({ success: true, deleted: count })
+}

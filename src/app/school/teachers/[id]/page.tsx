@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react"
 import { useParams } from "next/navigation"
 import { api } from "@/lib/api"
 import { Button, Card, Badge, Modal, Input, LoadingPage } from "@/components/ui"
-import { ArrowRight, BookOpen, School, Calendar, Phone, Mail, ChevronRight, Wallet, Clock, Link as LinkIcon } from "lucide-react"
+import { ArrowLeft, BookOpen, School, Calendar, Phone, Mail, ChevronRight, Wallet, Clock, Link as LinkIcon } from "lucide-react"
 import Link from "next/link"
 import toast from "react-hot-toast"
 
@@ -83,7 +83,7 @@ export default function TeacherDetailPage() {
           </div>
         </div>
         <Link href="/school/teachers">
-          <Button variant="secondary"><ArrowRight className="h-4 w-4" /> رجوع</Button>
+          <Button variant="secondary">                <ArrowLeft className="h-4 w-4" /> رجوع</Button>
         </Link>
       </div>
 

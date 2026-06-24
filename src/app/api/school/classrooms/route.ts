@@ -44,6 +44,8 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   const body = await req.json()
   const { id, levelId, name, capacity } = body
+  const existing = await prisma.classroom.findFirst({ where: { id, schoolId: user.schoolId } })
+  if (!existing) return NextResponse.json({ error: "غير موجود" }, { status: 404 })
   const item = await prisma.classroom.update({
     where: { id }, data: { levelId, name, capacity: parseInt(capacity) || 40 },
   })
@@ -61,6 +63,8 @@ export async function DELETE(req: NextRequest) {
     const url = new URL(req.url)
     const id = url.searchParams.get("id")
     if (!id) return NextResponse.json({ error: "id required" }, { status: 400 })
+    const existing = await prisma.classroom.findFirst({ where: { id, schoolId: user.schoolId } })
+    if (!existing) return NextResponse.json({ error: "غير موجود" }, { status: 404 })
     await prisma.classroom.delete({ where: { id } })
     return NextResponse.json({ success: true })
   } catch (e: any) {
