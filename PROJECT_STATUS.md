@@ -1,10 +1,10 @@
 # 📊 ClassFlow — Project Status
 
-**Last updated:** 2026-06-23  
-**Build:** ✅ Pass  
-**Lint:** ✅ Pass (0 errors, 0 warnings)  
+**Last updated:** 2026-06-24  
+**Build:** ✅ Pass (last run: prev session)  
+**Lint:** ✅ Pass (0 errors, 0 warnings, last run: prev session)  
 **Database:** SQLite (local), 26 models  
-**Commits:** 8 on `main`
+**Commits:** 9 on `main`
 
 ---
 
@@ -23,7 +23,13 @@
 - Every query filtered by `schoolId`
 - Seed includes 2 schools (النور, الفتح)
 
-### School Admin — Pages (7 total)
+### Permission System
+- ✅ **Step 1** — Permission + UserPermission models, 15 permissions seeded, helpers built, session loads permissions
+- ✅ **Step 2** — Frontend exposure: `useCurrentUser().hasPermission()`, `isStaff`, STAFF in roles/login/layout
+- ✅ **Step 3** — All 16 API routes migrated: dual checks (permission + legacy role fallback)
+- ✅ **Step 4** — Staff management UI (`/school/staff`) with permission assignment interface
+
+### School Admin — Pages (8 total)
 
 | Page | Route | Status |
 |------|-------|--------|
@@ -34,6 +40,7 @@
 | Subjects & Coefficients | `/school/subjects` | ✅ CRUD + per-level/stream |
 | Teachers | `/school/teachers` | ✅ CRUD + detail + assignments |
 | Payroll | `/school/payroll` | ✅ Per-assignment rates |
+| Staff & Permissions | `/school/staff` | ✅ CRUD + permission grid + presets |
 
 ### Teacher Interface
 - Attendance sheet (`/teacher/attendance`) — tap-based PRESENT/ABSENT/LATE/EXCUSED
@@ -42,32 +49,41 @@
 
 ### API Endpoints (School)
 
-| Endpoint | Methods |
-|----------|---------|
-| `/api/school/academic-years` | GET, POST |
-| `/api/school/terms` | GET, POST |
-| `/api/school/stages` | GET, POST |
-| `/api/school/levels` | GET, POST, PUT, DELETE |
-| `/api/school/streams` | GET, POST, DELETE |
-| `/api/school/classrooms` | GET, POST, PUT, DELETE |
-| `/api/school/classrooms/[id]` | GET (detail) |
-| `/api/school/subjects` | GET, POST, PUT, DELETE |
-| `/api/school/subject-coefficients` | GET, POST, DELETE |
-| `/api/school/teachers` | GET, POST, PUT, DELETE |
-| `/api/school/teachers/[id]` | GET (detail) |
-| `/api/school/teacher-assignments` | GET, POST, PUT, DELETE |
-| `/api/school/payroll` | GET |
+| Endpoint | Methods | Permission Guard |
+|----------|---------|------------------|
+| `/api/school/academic-years` | GET, POST, PUT | Mutations: MANAGE_ACADEMIC_YEARS |
+| `/api/school/terms` | GET, POST, PUT, DELETE | All: MANAGE_ACADEMIC_YEARS |
+| `/api/school/stages` | GET, POST, PUT | Mutations: MANAGE_ACADEMIC_YEARS |
+| `/api/school/levels` | GET, POST, PUT, DELETE | Mutations: MANAGE_CLASSROOMS |
+| `/api/school/streams` | GET, POST, DELETE | Mutations: MANAGE_CLASSROOMS |
+| `/api/school/classrooms` | GET, POST, PUT, DELETE | Mutations: MANAGE_CLASSROOMS |
+| `/api/school/classrooms/[id]` | GET (detail) | Open (schoolId only) |
+| `/api/school/subjects` | GET, POST, PUT, DELETE | Mutations: MANAGE_SUBJECTS |
+| `/api/school/subject-coefficients` | GET, POST, DELETE | Mutations: MANAGE_COEFFICIENTS |
+| `/api/school/teachers` | GET, POST, PUT, DELETE | Mutations: MANAGE_TEACHERS |
+| `/api/school/teachers/[id]` | GET (detail) | Open (schoolId only) |
+| `/api/school/teacher-assignments` | GET, POST, PUT, DELETE | Mutations: MANAGE_TEACHERS |
+| `/api/school/payroll` | GET | VIEW_REPORTS |
+| `/api/school/staff` | GET, POST, PUT | SCHOOL_ADMIN role only |
+| `/api/school/staff/[id]/permissions` | GET, PUT | SCHOOL_ADMIN role only |
+| `/api/attendance` | GET, POST | POST: TEACHER/legacy/REVIEW_LESSONS/MANAGE_STUDENTS |
+| `/api/lessons` | GET, POST | POST: TEACHER/legacy/REVIEW_LESSONS |
+| `/api/grades` | GET, POST | POST: TEACHER/legacy/APPROVE_GRADES |
+| `/api/teacher/classes` | GET | TEACHER/legacy/VIEW_REPORTS/REVIEW_LESSONS/MANAGE_TEACHERS |
+| `/api/dashboard/stats` | GET | Legacy/VIEW_REPORTS |
 
 ### UI Components
 - Button, Card, Input, Select (Radix), Modal (Radix Dialog), Badge, LoadingSpinner, LoadingPage
+- PermissionGrid, PermissionPresets, StaffFormModal, StaffList
 
 ### Database Schema (26 models)
 School, User, Teacher, Parent, Student, StudentParent, Enrollment, EducationStage, Level, Stream, AcademicYear, Term, Classroom, Subject, SubjectCoefficient, TeacherAssignment, Attendance, Lesson, Grade, Fee, Payment, TeacherAttendance, Notification, Schedule, Permission, UserPermission
 
 ### Seed Data
 - 2 schools, 3 stages, 13 levels, 3 streams, 8 subjects, 24 coefficients, 4 teacher assignments, 18 students
-- 15 permission definitions, 34 UserPermission records
+- 15 permission definitions, 34+ UserPermission records
 - SCHOOL_ADMIN users → all 15 permissions
+- STAFF user (studies@alnoor.edu) → MANAGE_SUBJECTS, MANAGE_COEFFICIENTS, REVIEW_LESSONS, APPROVE_GRADES
 - ACCOUNTANT user → MANAGE_FEES, RECORD_PAYMENTS, VIEW_FINANCE_REPORTS
 - SUPERVISOR user → VIEW_REPORTS
 
@@ -90,15 +106,8 @@ School, User, Teacher, Parent, Student, StudentParent, Enrollment, EducationStag
 
 ## ❌ Missing Features (Not Started)
 
-### Permission System (Migration Step 1 ✅, Step 2 ✅)
-- ✅ **Step 1** — Permission + UserPermission models created, 15 permissions seeded, `hasPermission()`/`authorize()` helpers built, session loads permissions
-- ✅ **Step 2** — `useCurrentUser` exposes `permissions`/`hasPermission()`/`isStaff`, `roles.ts` updated with STAFF, login redirects STAFF→`/school`, school layout allows STAFF role
-- ⬜ **Step 3** — API route guards migrated from role checks to permission checks
-- ⬜ **Step 4** — Staff management UI (`/school/staff`) + permission assignment interface
-
 ### School Admin
 - [ ] **Students CRUD** — add, edit, enroll in classrooms, deactivate
-- [ ] **Staff CRUD** — add/edit STAFF users with permissions
 - [ ] **School Settings** — name, logo, address, phone, email
 - [ ] **Attendance dashboard** — today's absences by classroom, trends
 - [ ] **Grade validation** — approve teacher-submitted grades
@@ -110,6 +119,13 @@ School, User, Teacher, Parent, Student, StudentParent, Enrollment, EducationStag
 - [ ] **Lessons** — edit submitted lessons
 - [ ] **Grades** — submit for approval, view class averages
 - [ ] **Dashboard** — teacher's own classes, quick stats
+
+### Finance
+- [ ] **Fee management** — `/finance/fees`
+- [ ] **Payment recording** — `/finance/payments`
+- [ ] **Receipts** — printing
+- [ ] **Arrears tracking**
+- [ ] **Financial reports**
 
 ### Supervisor Interface
 - [ ] No supervisor-specific pages exist yet
@@ -138,7 +154,6 @@ School, User, Teacher, Parent, Student, StudentParent, Enrollment, EducationStag
 |-------|----------|-------|
 | `.DS_Store` files tracked in git | Low | Should be in `.gitignore` from start |
 | No unit or integration tests | **High** | Zero test coverage |
-| Permission system not wired to API routes | **High** | Step 1 + 2 complete, Step 3 (API guards) not started |
 | Error boundaries not implemented | Medium | Crash on any page kills the whole app |
 | Loading states inconsistent | Low | Some pages use LoadingPage, others inline spinners |
 | No API input validation beyond required fields | Medium | Prisma validates types but no custom validation |
@@ -148,6 +163,7 @@ School, User, Teacher, Parent, Student, StudentParent, Enrollment, EducationStag
 | No rate limiting on API | Medium | No protection against abuse |
 | No request logging | Low | No audit trail for admin actions |
 | Seed doesn't run automatically | Low | Must run `npx prisma db seed` manually |
+| Permission system still has SUPERVISOR/ACCOUNTANT fallback | Low | Phase E cleanup: remove legacy role checks |
 
 ---
 
@@ -158,7 +174,7 @@ School, User, Teacher, Parent, Student, StudentParent, Enrollment, EducationStag
 | No password reset flow | Medium | User must contact admin |
 | Passwords hashed with bcrypt | ✅ Good | 10 rounds |
 | JWT secret in `.env` | ✅ Good | Not committed |
-| API unprotected without session check | ✅ Good | Every route checks `getServerSession` |
+| API now checks permissions on mutations | ✅ Good | Step 3 complete |
 | SQLite in production | 🔴 High | Must switch to PostgreSQL before launch |
 | No CSRF protection on API | Medium | NextAuth provides some but not full |
 | No input sanitization | Low | School admin is trusted role |
@@ -168,16 +184,8 @@ School, User, Teacher, Parent, Student, StudentParent, Enrollment, EducationStag
 
 ## 📋 Recommended Next Task
 
-**Permission Migration Step 3 — Wire permission checks into API routes**
-
-Migrate all API route guards from role-only checks to dual checks (role + permission)
-while keeping old roles as fallback:
-
-1. Rewrite school API routes to use `authorize()` with `requiredPermission` for mutations
-2. Add permission constants to grade/lesson/attendance routes
-3. Keep old `allowedRoles` as fallback for backward compatibility
-4. Add `STAFF` to all layout `allowedRoles` arrays
-5. Test all existing flows still work for SCHOOL_ADMIN, TEACHER, ACCOUNTANT, SUPERVISOR
-
-**Effort estimate:** ~100 lines across 13 route files  
-**Dependencies:** Step 1 + 2 complete (Permission model, helpers, session, layout access)
+**Students CRUD** — Create `/school/students` page with add/edit/enroll/deactivate.
+- Schema already exists (Student, Enrollment, StudentParent)
+- API routes planned: `GET/POST /api/school/students`, `PUT/DELETE /api/school/students/[id]`, `POST/DELETE /api/school/enrollments`
+- Highest user-facing impact — currently no way to manage students despite 18 seeded records
+- Prerequisite for attendance, grades, and finance features
