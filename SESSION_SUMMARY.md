@@ -2,49 +2,71 @@
 
 ## Work Done
 
-### 1. Admin Pages Built (7 pages + 2 detail pages)
-- **Dashboard** (`/school`) — stats cards with real data
-- **Academic Years** (`/school/academic-years`) — CRUD + terms
-- **Levels & Streams** (`/school/levels`) — stages, levels, baccalaureate streams
-- **Classrooms** (`/school/classrooms`) — CRUD + **detail page** (students, teachers, lessons)
-- **Subjects & Coefficients** (`/school/subjects`) — subjects + per-level/stream coefficients
-- **Teachers** (`/school/teachers`) — CRUD + **detail page** (assignments, lessons, hourly rates)
-- **Payroll** (`/school/payroll`) — per-assignment monthly calculation
+### 1. Master Specification Document
+- Created `docs/CLASSFLOW_MASTER_SPEC.md` — single source of truth merging PLAN.md, PRODUCT.md, PROJECT_STATUS.md, SESSION_SUMMARY.md, and prisma schema
+- 22 sections covering all domains (roles, permissions, data model, workflows, finance, notifications, subscriptions)
 
-### 2. Feature: Teacher Payroll
-- Added `hourlyRate` + `weeklyHours` to `TeacherAssignment` (not `Teacher`)
-- Each assignment can have its own rate (teacher may earn differently per subject)
-- Payroll page calculates: lessons × duration × hourlyRate per month
+### 2. Grade Engine Specification
+- Created `docs/GRADE_ENGINE_SPEC.md` — weighted assessment group grading engine
+- Two calculation profiles: PRIMARY (Tests×2 + Exam×1) and MIDDLE_SECONDARY (Tests×3 + Exam1×1 + Exam2×2 + Exam3×3)
+- Database implications, API design, worked examples, dependency map
 
-### 3. Database Schema Updated
-- `Teacher.hourlyRate` → removed (moved to TeacherAssignment)
-- `TeacherAssignment` added: `hourlyRate Float?`, `weeklyHours Float?`
-- `Lesson` added: `duration Int?` (minutes)
+### 3. Permission System Overhaul
+**Spec update:** Replaced 7 fixed roles with 5 base roles + 15 fine-grained permissions in CLASSFLOW_MASTER_SPEC.md and GRADE_ENGINE_SPEC.md
 
-### 4. Fixes
-- **Delete error handling** — all DELETE endpoints wrapped in try/catch with Prisma FK error messages
-- **Select component** — fixed empty value bug (hidden `<RadixSelect.Item value="" />`)
-- **Assignment modal** — replaced Radix Select with native `<select>` for reliability
-- **Link wrapping** — moved action buttons outside `<Link>` so clicks don't navigate away
-- **Currency** — replaced `$` / DollarSign with `MRU`
-- **Terminology** — "تكليفات" → "مواد", "إجمالي الطلاب" → روابط الأقسام
-- **Sidebar** — merged "الضوارب" into "المواد", added "الرواتب"
+**Migration Plan:** Created `docs/PERMISSION_MIGRATION_PLAN.md` with full analysis of:
+- 13 files with role-based checks, 3 distinct patterns, 8 conflicts
+- 8-step migration strategy with dual-running backward compatibility
 
-### 5. Documentation
-- `PROJECT_STATUS.md` — complete status with gap analysis, technical debt, security concerns
-- `README.md` — project overview, quick start, structure
-- Git history: 8 commits on `main`
+**Step 1 — Database + Helpers (implemented):**
+- Added `Permission` model (15 records seeded) and `UserPermission` model (34 records)
+- Created `src/lib/permissions.ts` with `hasPermission()`, `hasAnyPermission()`, `hasAllPermissions()`, `getUserPermissions()`, `authorize()`
+- Updated `auth.ts` to load permissions into JWT token and session
+- SCHOOL_ADMIN → all 15 permissions, ACCOUNTANT → finance permissions, SUPERVISOR → VIEW_REPORTS
+- All existing roles kept working, no API guards changed
+
+**Step 2 — Frontend Exposure (implemented):**
+- Updated `useCurrentUser.ts` — exposes `permissions[]`, `hasPermission()`, `hasAnyPermission()`, `isStaff`
+- Updated `roles.ts` — added STAFF with labels and route mapping
+- Updated login page — STAFF → `/school`
+- Updated `school/layout.tsx` — allows STAFF role alongside SCHOOL_ADMIN and SUPERVISOR
+- All old role booleans preserved (`isSupervisor`, `isAccountant` still work)
+
+### 4. Documentation
+- `CLASSFLOW_MASTER_SPEC.md` — full system specification (902 lines)
+- `GRADE_ENGINE_SPEC.md` — grading engine specification (605 lines)
+- `PERMISSION_MIGRATION_PLAN.md` — migration plan (624 lines)
+- `PROJECT_STATUS.md` — updated with permission system status
+- `README.md` — updated with permissions section
 
 ## Verifications
 - ✅ `npm run lint` — 0 errors, 0 warnings
 - ✅ `npm run build` — pass (34 static pages)
-- ✅ Seed data intact (2 schools, 18 students, 4 teachers, etc.)
+- ✅ Database: 26 models (added Permission, UserPermission), 15 permission records, 34 UserPermission records
+- ✅ All existing roles (SUPER_ADMIN, SCHOOL_ADMIN, ACCOUNTANT, SUPERVISOR, TEACHER, PARENT) unchanged and working
+- ✅ No API route guards modified — zero regression risk
 
 ## Files Changed (this session)
 ```
-Created:   10 pages, 13 API routes, 2 docs files, README
-Modified:  schema, layout, Select component, seed logic
-Total:     ~3000 lines of code
+Created:
+  docs/CLASSFLOW_MASTER_SPEC.md         (902 lines)
+  docs/GRADE_ENGINE_SPEC.md             (605 lines)
+  docs/PERMISSION_MIGRATION_PLAN.md     (624 lines)
+  src/lib/permissions.ts                (106 lines)
+
+Modified:
+  prisma/schema.prisma                  (+2 models: Permission, UserPermission)
+  prisma/seed.js                        (+76 lines: permissions seeding)
+  src/lib/auth.ts                       (+6 lines: permissions in JWT/session)
+  src/lib/roles.ts                      (+3 lines: STAFF entries)
+  src/hooks/useCurrentUser.ts           (+17 lines: permissions, hasPermission, isStaff)
+  src/app/auth/login/page.tsx           (+1 line: STAFF route)
+  src/app/school/layout.tsx             (+1 line: STAFF in allowedRoles)
+  PROJECT_STATUS.md                     (updated)
+  SESSION_SUMMARY.md                    (updated)
+  README.md                             (+36 lines: permissions section)
+
+Total new code: ~2300 lines (specs + helpers + seed)
 ```
 
 ## State of the MVP
@@ -52,6 +74,10 @@ Total:     ~3000 lines of code
 | Feature | Status |
 |---------|--------|
 | Authentication + Roles | ✅ |
+| Permission DB + Helpers | ✅ (Step 1) |
+| Frontend Permission Exposure | ✅ (Step 2) |
+| API Permission Guards | ❌ (Step 3 — next) |
+| Staff Management UI | ❌ (Step 4) |
 | Admin Dashboard | ✅ |
 | Academic Structure | ✅ |
 | Classrooms + Detail | ✅ |
@@ -66,4 +92,10 @@ Total:     ~3000 lines of code
 | Testing | ❌ |
 
 ## Recommended Next Step
-**Build Students CRUD page** — see `PROJECT_STATUS.md` for details.
+
+**Permission Migration Step 3 — Wire permission checks into API routes.**
+
+Migrate all API route guards from role-only checks to dual checks (role + permission)
+while keeping old roles as fallback. This is the prerequisite for building the Staff
+management UI (Step 4), because without backend enforcement, any permission granted
+in the UI would have no effect.

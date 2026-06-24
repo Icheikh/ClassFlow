@@ -1,6 +1,7 @@
 export const roleLabels: Record<string, string> = {
   SUPER_ADMIN: "مدير المنصة",
   SCHOOL_ADMIN: "مدير المدرسة",
+  STAFF: "موظف",
   ACCOUNTANT: "محاسب",
   SUPERVISOR: "مشرف",
   TEACHER: "أستاذ",
@@ -10,6 +11,7 @@ export const roleLabels: Record<string, string> = {
 export const roleTranslations: Record<string, string> = {
   SUPER_ADMIN: "Super Admin",
   SCHOOL_ADMIN: "Directeur",
+  STAFF: "Personnel",
   ACCOUNTANT: "Comptable",
   SUPERVISOR: "Superviseur",
   TEACHER: "Professeur",
@@ -19,6 +21,7 @@ export const roleTranslations: Record<string, string> = {
 export const roleRoutes: Record<string, string> = {
   SUPER_ADMIN: "/admin",
   SCHOOL_ADMIN: "/dashboard",
+  STAFF: "/school",
   ACCOUNTANT: "/finance",
   SUPERVISOR: "/supervision",
   TEACHER: "/teacher",

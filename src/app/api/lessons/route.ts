@@ -2,14 +2,22 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { hasPermission, PERMISSIONS } from "@/lib/permissions"
 
-const allowedRoles = ["TEACHER", "SCHOOL_ADMIN", "SUPERVISOR"]
+const legacyRoles = ["TEACHER", "SCHOOL_ADMIN", "SUPERVISOR"]
+
+function canAccessLessons(user: any) {
+  return legacyRoles.includes(user?.role) || hasPermission(user, PERMISSIONS.REVIEW_LESSONS)
+}
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   const user = session?.user as any
-  if (!session || !allowedRoles.includes(user?.role)) {
+  if (!session || !user?.schoolId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+  if (!canAccessLessons(user)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
   const body = await req.json()
@@ -43,7 +51,7 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
   const user = session?.user as any
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!session || !user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const url = new URL(req.url)
   const classroomId = url.searchParams.get("classroomId")

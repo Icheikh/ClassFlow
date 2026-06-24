@@ -2,14 +2,20 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { hasAnyPermission, PERMISSIONS } from "@/lib/permissions"
 
-const allowedRoles = ["TEACHER", "SCHOOL_ADMIN", "SUPERVISOR"]
+const legacyRoles = ["TEACHER", "SCHOOL_ADMIN", "SUPERVISOR"]
 
 export async function GET() {
   const session = await getServerSession(authOptions)
   const user = session?.user as any
-  if (!session || !allowedRoles.includes(user?.role)) {
+  if (!session || !user?.schoolId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+  const isLegacy = legacyRoles.includes(user?.role)
+  const hasPerms = hasAnyPermission(user, [PERMISSIONS.VIEW_REPORTS, PERMISSIONS.REVIEW_LESSONS, PERMISSIONS.MANAGE_TEACHERS])
+  if (!isLegacy && !hasPerms) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
   const activeYear = await prisma.academicYear.findFirst({

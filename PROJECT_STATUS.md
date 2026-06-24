@@ -3,7 +3,7 @@
 **Last updated:** 2026-06-23  
 **Build:** ✅ Pass  
 **Lint:** ✅ Pass (0 errors, 0 warnings)  
-**Database:** SQLite (local), 24 models  
+**Database:** SQLite (local), 26 models  
 **Commits:** 8 on `main`
 
 ---
@@ -12,8 +12,11 @@
 
 ### Authentication & Authorization
 - NextAuth with JWT strategy
-- 6 roles: SUPER_ADMIN, SCHOOL_ADMIN, ACCOUNTANT, SUPERVISOR, TEACHER, PARENT
-- Login with role-based redirect (admin → `/school`, teacher → `/teacher`, etc.)
+- 7 roles: SUPER_ADMIN, SCHOOL_ADMIN, STAFF, ACCOUNTANT, SUPERVISOR, TEACHER, PARENT
+- 15 fine-grained permissions (Permission + UserPermission models)
+- Session includes `permissions[]` from DB
+- `hasPermission()`, `hasAnyPermission()`, `authorize()` helpers available
+- Login with role-based redirect (STAFF → `/school`, etc.)
 - Middleware protects `/school/*` and `/api/school/*`
 
 ### Multi-Tenant Isolation
@@ -58,11 +61,15 @@
 ### UI Components
 - Button, Card, Input, Select (Radix), Modal (Radix Dialog), Badge, LoadingSpinner, LoadingPage
 
-### Database Schema (24 models)
-School, User, Teacher, Parent, Student, StudentParent, Enrollment, EducationStage, Level, Stream, AcademicYear, Term, Classroom, Subject, SubjectCoefficient, TeacherAssignment, Attendance, Lesson, Grade, Fee, Payment, TeacherAttendance, Notification, Schedule
+### Database Schema (26 models)
+School, User, Teacher, Parent, Student, StudentParent, Enrollment, EducationStage, Level, Stream, AcademicYear, Term, Classroom, Subject, SubjectCoefficient, TeacherAssignment, Attendance, Lesson, Grade, Fee, Payment, TeacherAttendance, Notification, Schedule, Permission, UserPermission
 
 ### Seed Data
 - 2 schools, 3 stages, 13 levels, 3 streams, 8 subjects, 24 coefficients, 4 teacher assignments, 18 students
+- 15 permission definitions, 34 UserPermission records
+- SCHOOL_ADMIN users → all 15 permissions
+- ACCOUNTANT user → MANAGE_FEES, RECORD_PAYMENTS, VIEW_FINANCE_REPORTS
+- SUPERVISOR user → VIEW_REPORTS
 
 ---
 
@@ -83,9 +90,15 @@ School, User, Teacher, Parent, Student, StudentParent, Enrollment, EducationStag
 
 ## ❌ Missing Features (Not Started)
 
+### Permission System (Migration Step 1 ✅, Step 2 ✅)
+- ✅ **Step 1** — Permission + UserPermission models created, 15 permissions seeded, `hasPermission()`/`authorize()` helpers built, session loads permissions
+- ✅ **Step 2** — `useCurrentUser` exposes `permissions`/`hasPermission()`/`isStaff`, `roles.ts` updated with STAFF, login redirects STAFF→`/school`, school layout allows STAFF role
+- ⬜ **Step 3** — API route guards migrated from role checks to permission checks
+- ⬜ **Step 4** — Staff management UI (`/school/staff`) + permission assignment interface
+
 ### School Admin
 - [ ] **Students CRUD** — add, edit, enroll in classrooms, deactivate
-- [ ] **Staff CRUD** — add/edit SUPERVISOR, ACCOUNTANT accounts
+- [ ] **Staff CRUD** — add/edit STAFF users with permissions
 - [ ] **School Settings** — name, logo, address, phone, email
 - [ ] **Attendance dashboard** — today's absences by classroom, trends
 - [ ] **Grade validation** — approve teacher-submitted grades
@@ -124,7 +137,8 @@ School, User, Teacher, Parent, Student, StudentParent, Enrollment, EducationStag
 | Issue | Severity | Notes |
 |-------|----------|-------|
 | `.DS_Store` files tracked in git | Low | Should be in `.gitignore` from start |
-| No unit or integration tests | High | Zero test coverage |
+| No unit or integration tests | **High** | Zero test coverage |
+| Permission system not wired to API routes | **High** | Step 1 + 2 complete, Step 3 (API guards) not started |
 | Error boundaries not implemented | Medium | Crash on any page kills the whole app |
 | Loading states inconsistent | Low | Some pages use LoadingPage, others inline spinners |
 | No API input validation beyond required fields | Medium | Prisma validates types but no custom validation |
@@ -154,16 +168,16 @@ School, User, Teacher, Parent, Student, StudentParent, Enrollment, EducationStag
 
 ## 📋 Recommended Next Task
 
-**Build Students CRUD page** — most critical missing admin feature:
+**Permission Migration Step 3 — Wire permission checks into API routes**
 
-1. Create `/api/school/students` (GET, POST, PUT, DELETE)
-2. Create `/api/school/enrollments` (POST, DELETE) for enrolling in classrooms
-3. Create `/school/students` page with:
-   - List with search/filter
-   - Add student modal (name, gender, birthdate, phone)
-   - Enrollment in classroom + academic year
-   - Student detail page (enrollments, attendance, grades)
-4. Create `/school/students/[id]` detail page
+Migrate all API route guards from role-only checks to dual checks (role + permission)
+while keeping old roles as fallback:
 
-**Effort estimate:** ~150 lines API + ~250 lines page  
-**Dependencies:** Schema already has Student + Enrollment models and seed data
+1. Rewrite school API routes to use `authorize()` with `requiredPermission` for mutations
+2. Add permission constants to grade/lesson/attendance routes
+3. Keep old `allowedRoles` as fallback for backward compatibility
+4. Add `STAFF` to all layout `allowedRoles` arrays
+5. Test all existing flows still work for SCHOOL_ADMIN, TEACHER, ACCOUNTANT, SUPERVISOR
+
+**Effort estimate:** ~100 lines across 13 route files  
+**Dependencies:** Step 1 + 2 complete (Permission model, helpers, session, layout access)

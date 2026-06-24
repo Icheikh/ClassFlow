@@ -7,6 +7,7 @@ import toast from "react-hot-toast"
 
 const roleRoutes: Record<string, string> = {
   SCHOOL_ADMIN: "/school",
+  STAFF: "/school",
   TEACHER: "/teacher",
   ACCOUNTANT: "/finance",
   SUPERVISOR: "/supervision",

@@ -222,6 +222,7 @@ model User {
   parent          Parent?
   notifications   Notification[]
   attendanceLogs  TeacherAttendance[]
+  userPermissions UserPermission[]
 }
 
 model Teacher {
@@ -501,4 +502,32 @@ model Schedule {
   createdAt   DateTime  @default(now())
 
   @@index([schoolId, classroomId])
+}
+
+// ============================================================
+// 8. PERMISSIONS
+// ============================================================
+
+model Permission {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String?
+  description String?
+  category    String?
+  createdAt   DateTime @default(now())
+
+  userPermissions UserPermission[]
+}
+
+model UserPermission {
+  id           String     @id @default(cuid())
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id])
+  grantedBy    String?
+  createdAt    DateTime   @default(now())
+
+  @@unique([userId, permissionId])
+  @@index([userId])
 }

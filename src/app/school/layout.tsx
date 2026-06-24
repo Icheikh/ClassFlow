@@ -6,13 +6,16 @@ import { redirect, usePathname } from "next/navigation"
 import { roleLabels } from "@/lib/roles"
 import {
   LayoutDashboard, Calendar, Layers, BookOpen, GraduationCap,
-  Users, ClipboardList, Settings, LogOut, School, UserPlus, Wallet,
+  Users, ClipboardList, Settings, LogOut, School, UserPlus, Wallet, Shield,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-const allowedRoles = ["SCHOOL_ADMIN", "SUPERVISOR"]
+const allowedRoles = ["SCHOOL_ADMIN", "STAFF", "SUPERVISOR"]
 
-const nav = [
+type NavItem = {
+  href: string; label: string; icon: React.ComponentType<{ className?: string }>; adminOnly?: boolean
+}
+const nav: NavItem[] = [
   { href: "/school", label: "لوحة التحكم", icon: LayoutDashboard },
   { href: "/school/academic-years", label: "السنوات والفصول", icon: Calendar },
   { href: "/school/levels", label: "المستويات والشعب", icon: Layers },
@@ -21,6 +24,7 @@ const nav = [
   { href: "/school/teachers", label: "الأساتذة", icon: UserPlus },
   { href: "/school/payroll", label: "الرواتب", icon: Wallet },
   { href: "/school/students", label: "الطلاب", icon: Users },
+  { href: "/school/staff", label: "الموظفون", icon: Shield, adminOnly: true },
   { href: "/school/settings", label: "الإعدادات", icon: Settings },
 ]
 
@@ -54,7 +58,7 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {nav.map((item) => {
+          {nav.filter((item) => !item.adminOnly || user?.role === "SCHOOL_ADMIN").map((item) => {
             const active = pathname === item.href
             return (
               <a

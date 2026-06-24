@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
+import { hasPermission, PERMISSIONS } from "@/lib/permissions"
 
 export async function GET() {
   const session = await getServerSession(authOptions)
@@ -27,6 +28,9 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   const user = session?.user as any
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const isLegacyRole = ["SUPERVISOR", "ACCOUNTANT"].includes(user?.role)
+  if (!hasPermission(user, PERMISSIONS.MANAGE_TEACHERS) && !isLegacyRole)
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const body = await req.json()
   const { email, name, phone, password } = body
@@ -52,6 +56,9 @@ export async function PUT(req: NextRequest) {
   const session = await getServerSession(authOptions)
   const user = session?.user as any
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const isLegacyRole = ["SUPERVISOR", "ACCOUNTANT"].includes(user?.role)
+  if (!hasPermission(user, PERMISSIONS.MANAGE_TEACHERS) && !isLegacyRole)
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const body = await req.json()
   const { id, name, phone, isActive } = body
@@ -78,11 +85,16 @@ export async function PUT(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
+    const user = session?.user as any
+    if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const isLegacyRole = ["SUPERVISOR", "ACCOUNTANT"].includes(user?.role)
+    if (!hasPermission(user, PERMISSIONS.MANAGE_TEACHERS) && !isLegacyRole)
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     const url = new URL(req.url)
     const id = url.searchParams.get("id")
     if (!id) return NextResponse.json({ error: "id required" }, { status: 400 })
 
-    const teacher = await prisma.teacher.findFirst({ where: { id } })
+    const teacher = await prisma.teacher.findFirst({ where: { id, schoolId: user.schoolId } })
     if (!teacher) return NextResponse.json({ error: "غير موجود" }, { status: 404 })
 
     await prisma.user.update({ where: { id: teacher.userId }, data: { isActive: false } })

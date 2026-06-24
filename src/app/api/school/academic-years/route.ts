@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { hasPermission, PERMISSIONS } from "@/lib/permissions"
 
 export async function GET() {
   const session = await getServerSession(authOptions)
@@ -20,6 +21,9 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   const user = session?.user as any
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const isLegacyRole = ["SUPERVISOR", "ACCOUNTANT"].includes(user?.role)
+  if (!hasPermission(user, PERMISSIONS.MANAGE_ACADEMIC_YEARS) && !isLegacyRole)
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const body = await req.json()
   const { name, startsAt, endsAt } = body
@@ -34,6 +38,9 @@ export async function PUT(req: NextRequest) {
   const session = await getServerSession(authOptions)
   const user = session?.user as any
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const isLegacyRole = ["SUPERVISOR", "ACCOUNTANT"].includes(user?.role)
+  if (!hasPermission(user, PERMISSIONS.MANAGE_ACADEMIC_YEARS) && !isLegacyRole)
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const body = await req.json()
   const { id, name, startsAt, endsAt, isActive } = body

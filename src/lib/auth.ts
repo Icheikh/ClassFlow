@@ -2,6 +2,7 @@ import { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { prisma } from "./prisma"
 import bcrypt from "bcryptjs"
+import { getUserPermissions } from "./permissions"
 
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
@@ -46,6 +47,10 @@ export const authOptions: NextAuthOptions = {
         token.role = (user as any).role
         token.schoolId = (user as any).schoolId
         token.school = (user as any).school
+        if (user.id) {
+          const permissions = await getUserPermissions(user.id as string)
+          token.permissions = permissions
+        }
       }
       return token
     },
@@ -55,6 +60,7 @@ export const authOptions: NextAuthOptions = {
         ;(session.user as any).role = token.role
         ;(session.user as any).schoolId = token.schoolId
         ;(session.user as any).school = token.school
+        ;(session.user as any).permissions = token.permissions || []
       }
       return session
     },

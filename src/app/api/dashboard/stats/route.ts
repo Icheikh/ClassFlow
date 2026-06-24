@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { hasPermission, PERMISSIONS } from "@/lib/permissions"
 
 export async function GET() {
   const session = await getServerSession(authOptions)
@@ -9,6 +10,9 @@ export async function GET() {
   if (!session || !user?.schoolId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
+  const isLegacyRole = ["SUPERVISOR", "ACCOUNTANT", "SCHOOL_ADMIN", "TEACHER"].includes(user?.role)
+  if (!hasPermission(user, PERMISSIONS.VIEW_REPORTS) && !isLegacyRole)
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const schoolId = user.schoolId
   const today = new Date()
