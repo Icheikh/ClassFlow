@@ -59,6 +59,7 @@ export async function POST(req: NextRequest) {
   for (const record of absentStudents) {
     const studentParents = await prisma.studentParent.findMany({
       where: { studentId: record.studentId, receiveNotifications: true },
+      include: { parent: true },
     })
     for (const sp of studentParents) {
       await prisma.notification.create({
@@ -69,7 +70,7 @@ export async function POST(req: NextRequest) {
           type: "attendance_alert",
           channel: "IN_APP",
           status: "SENT",
-          userId: sp.parentId,
+          userId: sp.parent.userId,
           sentAt: new Date(),
         },
       })

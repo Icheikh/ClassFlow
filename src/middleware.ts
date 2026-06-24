@@ -14,5 +14,6 @@ export const config = {
     "/api/grades/:path*",
     "/api/school/:path*",
     "/api/finance/:path*",
+    "/api/teacher-attendance/:path*",
   ],
 }

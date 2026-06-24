@@ -41,6 +41,64 @@ export const studentsApi = {
 }
 
 // ============================================================
+// School Students (CRUD)
+// ============================================================
+
+export type SchoolStudent = {
+  id: string
+  firstName: string
+  lastName: string
+  gender: string | null
+  birthDate: string | null
+  studentNumber: string | null
+  address: string | null
+  phone: string | null
+  isActive: boolean
+  createdAt: string
+  enrollments?: {
+    id: string
+    status: string
+    classroom: { id: string; name: string; level: { name: string } }
+    academicYear: { id: string; name: string }
+  }[]
+}
+
+export type StudentListResponse = {
+  students: SchoolStudent[]
+  total: number
+  page: number
+  limit: number
+}
+
+export const schoolStudentsApi = {
+  list: (params?: { search?: string; page?: number; limit?: number }) => {
+    const q = new URLSearchParams()
+    if (params?.search) q.set("search", params.search)
+    if (params?.page) q.set("page", String(params.page))
+    if (params?.limit) q.set("limit", String(params.limit))
+    return api.get<StudentListResponse>(`/api/school/students?${q}`)
+  },
+  get: (id: string) => api.get<SchoolStudent>(`/api/school/students/${id}`),
+  create: (data: { firstName: string; lastName: string; gender?: string; birthDate?: string; studentNumber?: string; address?: string; phone?: string }) =>
+    api.post("/api/school/students", data),
+  update: (id: string, data: { firstName?: string; lastName?: string; gender?: string | null; birthDate?: string | null; studentNumber?: string; address?: string; phone?: string; isActive?: boolean }) =>
+    api.put(`/api/school/students/${id}`, data),
+}
+
+export const enrollmentsApi = {
+  list: (params?: { classroomId?: string; academicYearId?: string; status?: string }) => {
+    const q = new URLSearchParams()
+    if (params?.classroomId) q.set("classroomId", params.classroomId)
+    if (params?.academicYearId) q.set("academicYearId", params.academicYearId)
+    if (params?.status) q.set("status", params.status)
+    return api.get<any[]>(`/api/school/enrollments?${q}`)
+  },
+  create: (data: { studentId: string; classroomId: string; academicYearId: string }) =>
+    api.post("/api/school/enrollments", data),
+  delete: (id: string) => api.delete(`/api/school/enrollments?id=${id}`),
+}
+
+// ============================================================
 // Attendance
 // ============================================================
 

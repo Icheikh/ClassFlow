@@ -12,6 +12,7 @@ import {
   LogOut,
   Menu,
   Users,
+  ClipboardList,
 } from "lucide-react"
 import { roleLabels } from "@/lib/roles"
 
@@ -22,6 +23,7 @@ const navItems = [
   { href: "/teacher/attendance", label: "الغياب", icon: Users },
   { href: "/teacher/lessons", label: "الدروس", icon: BookOpen },
   { href: "/teacher/grades", label: "النقاط", icon: GraduationCap },
+  { href: "/teacher/roster", label: "سجل الحضور", icon: ClipboardList, supervisorOnly: true },
 ]
 
 function TeacherLayoutContent({ children }: { children: React.ReactNode }) {
@@ -55,7 +57,7 @@ function TeacherLayoutContent({ children }: { children: React.ReactNode }) {
 
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t z-50">
         <div className="flex justify-around py-2">
-          {navItems.map((item) => (
+          {navItems.filter((item) => !item.supervisorOnly || user?.role !== "TEACHER").map((item) => (
             <a key={item.href} href={item.href} className="flex flex-col items-center text-xs text-gray-500 hover:text-blue-600">
               <item.icon className="h-5 w-5" />
               <span className="mt-1">{item.label}</span>
@@ -72,7 +74,7 @@ function TeacherLayoutContent({ children }: { children: React.ReactNode }) {
             <p className="text-xs text-gray-500">{roleLabels[user?.role]}</p>
           </div>
           <nav className="space-y-1">
-            {navItems.map((item) => (
+            {navItems.filter((item) => !item.supervisorOnly || user?.role !== "TEACHER").map((item) => (
               <a key={item.href} href={item.href} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
                 <item.icon className="h-5 w-5" />
                 {item.label}

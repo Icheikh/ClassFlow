@@ -7,7 +7,7 @@ async function main() {
   const passwordHash = await bcrypt.hash("password123", 10)
 
   // ============================================================
-  // SCHOOL 1: مدرسة النور (ابتدائي + إعدادي + ثانوي)
+  // SCHOOL 1: مدرسة النور (إعدادي + ثانوي)
   // ============================================================
   const school1 = await prisma.school.create({
     data: {
@@ -17,55 +17,46 @@ async function main() {
       phone: "+222 12345678",
       email: "info@alnoor.edu",
       subscriptionStatus: "TRIAL",
-      billingStudentCount: 25,
+      billingStudentCount: 200,
     },
   })
 
   // --- Education Stages ---
-  const primary = await prisma.educationStage.create({
-    data: { schoolId: school1.id, name: "الابتدائية", order: 1 },
-  })
   const middle = await prisma.educationStage.create({
-    data: { schoolId: school1.id, name: "الإعدادية", order: 2 },
+    data: { schoolId: school1.id, name: "الإعدادية", order: 1 },
   })
   const high = await prisma.educationStage.create({
-    data: { schoolId: school1.id, name: "الثانوية", order: 3 },
+    data: { schoolId: school1.id, name: "الثانوية", order: 2 },
   })
 
   // --- Levels ---
-  // Primary: 1-6
-  const primaryLevels = []
-  for (let i = 1; i <= 6; i++) {
-    primaryLevels.push(await prisma.level.create({
-      data: { schoolId: school1.id, stageId: primary.id, name: `السنة ${i} ابتدائي`, order: i },
+  const midLevelDefs = [
+    { name: "1AS", order: 1 },
+    { name: "2AS", order: 2 },
+    { name: "3AS", order: 3 },
+    { name: "4AS", order: 4 },
+  ]
+  const highLevelDefs = [
+    { name: "5", order: 5 },
+    { name: "6", order: 6 },
+    { name: "7", order: 7 },
+  ]
+
+  const midLevels = []
+  for (const lv of midLevelDefs) {
+    midLevels.push(await prisma.level.create({
+      data: { schoolId: school1.id, stageId: middle.id, name: lv.name, order: lv.order },
     }))
   }
-  // Middle: 1-4 (7ème to 10ème)
-  const middleLevels = []
-  for (let i = 1; i <= 4; i++) {
-    middleLevels.push(await prisma.level.create({
-      data: { schoolId: school1.id, stageId: middle.id, name: `السنة ${i} إعدادي`, order: i },
-    }))
-  }
-  // High: 5-7 (1AS, 2AS, 3AS)
   const highLevels = []
-  const highNames = ["1AS", "2AS", "3AS"]
-  for (let i = 0; i < 3; i++) {
+  for (const lv of highLevelDefs) {
     highLevels.push(await prisma.level.create({
-      data: { schoolId: school1.id, stageId: high.id, name: highNames[i], order: 5 + i },
+      data: { schoolId: school1.id, stageId: high.id, name: lv.name, order: lv.order },
     }))
   }
 
-  // --- Streams (for 2AS and 3AS) ---
-  const streamMath = await prisma.stream.create({
-    data: { schoolId: school1.id, levelId: highLevels[2].id, name: "علوم رياضية", code: "SM" },
-  })
-  const streamBio = await prisma.stream.create({
-    data: { schoolId: school1.id, levelId: highLevels[2].id, name: "علوم تجريبية", code: "SE" },
-  })
-  const streamArts = await prisma.stream.create({
-    data: { schoolId: school1.id, levelId: highLevels[2].id, name: "آداب وعلوم إنسانية", code: "L" },
-  })
+  const levelMap = {}
+  for (const l of [...midLevels, ...highLevels]) levelMap[l.name] = l
 
   // --- Academic Year ---
   const academicYear = await prisma.academicYear.create({
@@ -79,7 +70,7 @@ async function main() {
   })
 
   // --- Terms ---
-  const term1 = await prisma.term.create({
+  await prisma.term.create({
     data: {
       schoolId: school1.id,
       academicYearId: academicYear.id,
@@ -123,51 +114,23 @@ async function main() {
     prisma.subject.create({ data: { schoolId: school1.id, nameAr: "الفلسفة", nameFr: "Philosophie", code: "PHIL" } }),
   ])
 
-  // --- Subject Coefficients for 3AS ---
-  // علوم رياضية
-  const coefMap = {
-    SM: { MATH: 7, PHYS: 6, ARAB: 2, FREN: 2, SVT: 3, ISLA: 1, HG: 1, PHIL: 1 },
-    SE: { MATH: 5, PHYS: 5, ARAB: 3, FREN: 3, SVT: 7, ISLA: 1, HG: 1, PHIL: 1 },
-    L:  { MATH: 2, PHYS: 2, ARAB: 6, FREN: 5, SVT: 2, ISLA: 2, HG: 3, PHIL: 4 },
-  }
-  for (const [streamCode, coefs] of Object.entries(coefMap)) {
-    const stream = streamCode === "SM" ? streamMath : streamCode === "SE" ? streamBio : streamArts
-    for (const subject of subjects) {
-      const coef = coefs[subject.code]
-      if (coef) {
-        await prisma.subjectCoefficient.create({
-          data: {
-            schoolId: school1.id,
-            academicYearId: academicYear.id,
-            levelId: highLevels[2].id,
-            streamId: stream.id,
-            subjectId: subject.id,
-            coefficient: coef,
-          },
-        })
-      }
-    }
-  }
-
   // --- Classrooms ---
-  // 3AS1 (علوم رياضية), 3AS2 (علوم تجريبية), 3AS3 (آداب)
-  const classroom3AS1 = await prisma.classroom.create({
-    data: { schoolId: school1.id, levelId: highLevels[2].id, streamId: streamMath.id, name: "3AS1", capacity: 40 },
-  })
-  const classroom3AS2 = await prisma.classroom.create({
-    data: { schoolId: school1.id, levelId: highLevels[2].id, streamId: streamBio.id, name: "3AS2", capacity: 35 },
-  })
-  const classroom3AS3 = await prisma.classroom.create({
-    data: { schoolId: school1.id, levelId: highLevels[2].id, streamId: streamArts.id, name: "3AS3", capacity: 30 },
-  })
-  // 1AS1 (مشترك)
-  const classroom1AS1 = await prisma.classroom.create({
-    data: { schoolId: school1.id, levelId: highLevels[0].id, name: "1AS1", capacity: 45 },
-  })
-  // إعدادي
-  const classroom8eme = await prisma.classroom.create({
-    data: { schoolId: school1.id, levelId: middleLevels[1].id, name: "8ème A", capacity: 40 },
-  })
+  const classroomDefs = [
+    ["1AS1", "1AS"], ["1AS2", "1AS"],
+    ["2AS1", "2AS"], ["2AS2", "2AS"],
+    ["3AS1", "3AS"], ["3AS2", "3AS"],
+    ["4AS1", "4AS"], ["4AS2", "4AS"], ["4AS3", "4AS"],
+    ["5A", "5"], ["5C", "5"], ["5D", "5"],
+    ["6C1", "6"], ["6C2", "6"], ["6A", "6"], ["6D1", "6"], ["6D2", "6"],
+    ["7C", "7"], ["7D1", "7"], ["7D2", "7"],
+  ]
+
+  const classrooms = []
+  for (const [name, levelName] of classroomDefs) {
+    classrooms.push(await prisma.classroom.create({
+      data: { schoolId: school1.id, levelId: levelMap[levelName].id, name, capacity: 40 },
+    }))
+  }
 
   // ============================================================
   // PERMISSIONS
@@ -242,63 +205,74 @@ async function main() {
     data: { userId: parentUser.id, schoolId: school1.id, phone: "+222 55667788", preferredLanguage: "ar" },
   })
 
-  // --- Teacher Assignments (teacher teaches Math in 3AS1, 3AS2, 1AS1) ---
-  const mathSubject = subjects.find((s) => s.code === "MATH")
-  for (const classroom of [classroom3AS1, classroom3AS2, classroom1AS1]) {
-    await prisma.teacherAssignment.create({
-      data: {
-        schoolId: school1.id,
-        teacherId: teacher.id,
-        subjectId: mathSubject.id,
-        classroomId: classroom.id,
-        academicYearId: academicYear.id,
-        isActive: true,
-      },
-    })
+  // --- Teacher Assignments ---
+  const arabic = subjects.find((s) => s.code === "ARAB")
+  const math = subjects.find((s) => s.code === "MATH")
+  const french = subjects.find((s) => s.code === "FREN")
+
+  if (arabic) {
+    for (const c of classrooms.filter((c) => c.name.startsWith("1AS") || c.name.startsWith("2AS"))) {
+      await prisma.teacherAssignment.create({
+        data: { schoolId: school1.id, teacherId: teacher.id, subjectId: arabic.id, classroomId: c.id, academicYearId: academicYear.id, hourlyRate: 250, weeklyHours: 4, isActive: true },
+      })
+    }
+  }
+  if (math) {
+    for (const c of classrooms.filter((c) => c.name.startsWith("3AS") || c.name.startsWith("4AS"))) {
+      await prisma.teacherAssignment.create({
+        data: { schoolId: school1.id, teacherId: teacher.id, subjectId: math.id, classroomId: c.id, academicYearId: academicYear.id, hourlyRate: 300, weeklyHours: 5, isActive: true },
+      })
+    }
+  }
+  if (french) {
+    for (const c of classrooms.filter((c) => c.name.startsWith("5") || c.name.startsWith("6"))) {
+      await prisma.teacherAssignment.create({
+        data: { schoolId: school1.id, teacherId: teacher.id, subjectId: french.id, classroomId: c.id, academicYearId: academicYear.id, hourlyRate: 250, weeklyHours: 3, isActive: true },
+      })
+    }
   }
 
-  // --- Students + Enrollments ---
-  const studentNames = [
-    "أحمد ولد محمد", "فاطمة بنت أحمد", "محمد الأمين", "عائشة بنت عمر",
-    "عبد الله ولد سيدي", "مريم بنت عبد الله", "إبراهيم ولد الشيخ", "حواء بنت محمد",
-    "موسى ولد الحسن", "خديجة بنت أحمد", "يحيى ولد محمد", "آمنة بنت عبد الرحمن",
-    "إسماعيل ولد عمر", "سكينة بنت محمد", "علي ولد الحسين",
+  // --- Students (10 per classroom) ---
+  const firstNames = [
+    "أحمد", "محمد", "فاطمة", "عائشة", "عبد الله",
+    "مريم", "إبراهيم", "خديجة", "يوسف", "سارة",
+    "عمر", "حواء", "علي", "آمنة", "خالد",
+    "نورة", "سعيد", "لينا", "موسى", "هند",
+  ]
+  const lastNames = [
+    "ولد محمد", "بنت أحمد", "ولد سيدي", "بنت عمر", "ولد الشيخ",
+    "بنت عبد الله", "ولد الحسن", "بنت محمد", "ولد أحمد", "بنت عبد الرحمن",
+    "ولد الحسين", "بنت سعيد", "ولد المختار", "بنت الحسن", "ولد إبراهيم",
+    "بنت يوسف", "ولد عبد القادر", "بنت موسى", "ولد سالم", "بنت خالد",
   ]
 
-  const students = []
-  for (let i = 0; i < studentNames.length; i++) {
-    const name = studentNames[i]
-    const [firstName, ...lastNameParts] = name.split(" ")
-    const lastName = lastNameParts.join(" ")
+  let totalStudents = 0
+  const createdStudents = []
+  for (const c of classrooms) {
+    for (let i = 0; i < 10; i++) {
+      const firstName = firstNames[(totalStudents + i) % firstNames.length]
+      const lastName = lastNames[(totalStudents + i) % lastNames.length]
+      const gender = i % 2 === 0 ? "MALE" : "FEMALE"
+      const studentNumber = `${c.name}-${String(i + 1).padStart(2, "0")}`
 
-    const student = await prisma.student.create({
-      data: {
-        firstName, lastName, schoolId: school1.id,
-        gender: i % 2 === 0 ? "M" : "F",
-        studentNumber: `AL-${String(i + 1).padStart(4, "0")}`,
-      },
-    })
-    students.push(student)
+      const student = await prisma.student.create({
+        data: { schoolId: school1.id, firstName, lastName, gender, studentNumber, isActive: true },
+      })
+      createdStudents.push(student)
 
-    // Enroll in classroom (first 5 in 3AS1, next 5 in 3AS2, rest in 1AS1)
-    const classroom = i < 5 ? classroom3AS1 : i < 10 ? classroom3AS2 : classroom1AS1
-    await prisma.enrollment.create({
-      data: {
-        schoolId: school1.id,
-        studentId: student.id,
-        academicYearId: academicYear.id,
-        classroomId: classroom.id,
-        status: "ACTIVE",
-      },
-    })
+      await prisma.enrollment.create({
+        data: { schoolId: school1.id, studentId: student.id, academicYearId: academicYear.id, classroomId: c.id, status: "ACTIVE" },
+      })
+      totalStudents++
+    }
   }
 
-  // --- Link first student to parent ---
-  if (students.length > 0) {
+  // Link first student to parent
+  if (createdStudents.length > 0) {
     await prisma.studentParent.create({
       data: {
         schoolId: school1.id,
-        studentId: students[0].id,
+        studentId: createdStudents[0].id,
         parentId: parent.id,
         relationship: "الأب",
         isPrimary: true,
@@ -324,13 +298,13 @@ async function main() {
     data: { schoolId: school2.id, name: "الإعدادية", order: 1 },
   })
   const level2 = await prisma.level.create({
-    data: { schoolId: school2.id, stageId: stage2.id, name: "السنة 1 إعدادي", order: 1 },
+    data: { schoolId: school2.id, stageId: stage2.id, name: "1AS", order: 1 },
   })
   const year2 = await prisma.academicYear.create({
     data: { schoolId: school2.id, name: "2026/2027", startsAt: new Date("2026-10-01"), endsAt: new Date("2027-06-30"), isActive: true },
   })
   const classroom2 = await prisma.classroom.create({
-    data: { schoolId: school2.id, levelId: level2.id, name: "1AC1", capacity: 30 },
+    data: { schoolId: school2.id, levelId: level2.id, name: "1AS1", capacity: 30 },
   })
 
   const admin2 = await prisma.user.create({
@@ -348,15 +322,14 @@ async function main() {
     data: { schoolId: school2.id, nameAr: "اللغة العربية", nameFr: "Arabe", code: "ARAB" },
   })
   await prisma.teacherAssignment.create({
-    data: { schoolId: school2.id, teacherId: teacher2.id, subjectId: subject2.id, classroomId: classroom2.id, academicYearId: year2.id, isActive: true },
+    data: { schoolId: school2.id, teacherId: teacher2.id, subjectId: subject2.id, classroomId: classroom2.id, academicYearId: year2.id, hourlyRate: 250, weeklyHours: 4, isActive: true },
   })
 
   // Students in school 2
   for (const name of ["محمود ولد أحمد", "سارة بنت عمر", "يوسف ولد محمد"]) {
     const [firstName, ...lastNameParts] = name.split(" ")
-    const lastName = lastNameParts.join(" ")
     const s = await prisma.student.create({
-      data: { firstName, lastName, schoolId: school2.id },
+      data: { firstName, lastName: lastNameParts.join(" "), schoolId: school2.id },
     })
     await prisma.enrollment.create({
       data: { schoolId: school2.id, studentId: s.id, academicYearId: year2.id, classroomId: classroom2.id, status: "ACTIVE" },
@@ -378,12 +351,12 @@ async function main() {
   console.log("✅ Database seeded successfully")
   console.log("\n🔑 All passwords: password123\n")
 
-  console.log("📧 مدرسة النور (al-noor):")
+  console.log("📧 مدرسة النور (al-noor) — 20 أقسام، 200 تلميذ:")
   console.log("   admin@alnoor.edu      → SCHOOL_ADMIN")
-  console.log("   teacher@alnoor.edu    → TEACHER (Math in 3AS1, 3AS2, 1AS1)")
+  console.log("   teacher@alnoor.edu    → TEACHER")
   console.log("   accountant@alnoor.edu → ACCOUNTANT")
-  console.log("   supervisor@alnoor.edu → SUPERVISOR (مدير دروس)")
-  console.log("   studies@alnoor.edu    → STAFF (مدير الدراسات)")
+  console.log("   supervisor@alnoor.edu → SUPERVISOR")
+  console.log("   studies@alnoor.edu    → STAFF")
   console.log("   parent@alnoor.edu     → PARENT")
   console.log("\n📧 مدرسة الفتح (al-fath):")
   console.log("   admin@alfath.edu      → SCHOOL_ADMIN")

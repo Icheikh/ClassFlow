@@ -1,14 +1,35 @@
+"use client"
+
 import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { useClasses } from "@/hooks/useClasses"
-import { lessonsApi, type Lesson } from "@/lib/api"
-import { Button, Card, Select, Input, Textarea, LoadingSpinner } from "@/components/ui"
-import { BookOpen, Plus, Save } from "lucide-react"
+import { api } from "@/lib/api"
+import { Button, Card, LoadingSpinner } from "@/components/ui"
+import { BookOpen, Plus, Save, Clock } from "lucide-react"
 import toast from "react-hot-toast"
 
+type Lesson = {
+  id: string
+  title: string
+  description: string | null
+  homework: string | null
+  notes: string | null
+  duration: number | null
+  status: string
+  date: string
+  classroom: { id: string; name: string }
+  subject: { id: string; nameAr: string; nameFr: string | null }
+}
+
 export function LessonBook() {
-  const { classrooms, getSubjects, loading } = useClasses()
-  const [classroomId, setClassroomId] = useState("")
-  const [subjectId, setSubjectId] = useState("")
+  const searchParams = useSearchParams()
+  const { assignments, getSubjects, loading } = useClasses()
+
+  const initialClassroom = searchParams.get("classroomId") || ""
+  const initialSubject = searchParams.get("subjectId") || ""
+
+  const [classroomId, setClassroomId] = useState(initialClassroom)
+  const [subjectId, setSubjectId] = useState(initialSubject)
   const [lessons, setLessons] = useState<Lesson[]>([])
   const [showForm, setShowForm] = useState(false)
 
@@ -16,11 +37,12 @@ export function LessonBook() {
   const [description, setDescription] = useState("")
   const [homework, setHomework] = useState("")
   const [notes, setNotes] = useState("")
+  const [duration, setDuration] = useState("45")
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (classroomId && subjectId) {
-      lessonsApi.list(classroomId, subjectId).then(({ data }) => {
+      api.get<Lesson[]>(`/api/lessons?classroomId=${classroomId}&subjectId=${subjectId}`).then(({ data }) => {
         if (data) setLessons(data)
       })
     }
@@ -30,18 +52,23 @@ export function LessonBook() {
     e.preventDefault()
     if (!title.trim()) { toast.error("يرجى إدخال عنوان الدرس"); return }
     setSaving(true)
-    const result = await lessonsApi.create({ title, description, homework, notes, classroomId, subjectId })
+    const result = await api.post("/api/lessons", {
+      title, description, homework, notes, duration,
+      classroomId, subjectId,
+    })
     if (result.error) toast.error(result.error)
     else {
       toast.success("تم تسجيل الدرس")
-      setTitle(""); setDescription(""); setHomework(""); setNotes("")
+      setTitle(""); setDescription(""); setHomework(""); setNotes(""); setDuration("45")
       setShowForm(false)
-      lessonsApi.list(classroomId, subjectId).then(({ data }) => { if (data) setLessons(data) })
+      api.get<Lesson[]>(`/api/lessons?classroomId=${classroomId}&subjectId=${subjectId}`).then(({ data }) => { if (data) setLessons(data) })
     }
     setSaving(false)
   }
 
   if (loading) return <LoadingSpinner />
+
+  const subjects = getSubjects(classroomId)
 
   return (
     <div>
@@ -55,11 +82,21 @@ export function LessonBook() {
       </div>
 
       <div className="flex gap-4 mb-6">
-        <Select value={classroomId} onChange={(v) => { setClassroomId(v); setSubjectId("") }}
-          options={classrooms.map((c) => ({ value: c.id, label: c.name }))} placeholder="اختر القسم" />
+        <select value={classroomId} onChange={(v) => { setClassroomId(v); setSubjectId(""); setShowForm(false) }}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+          <option value="">اختر القسم</option>
+          {[...new Map(assignments.map((a) => [a.classroom.id, a.classroom])).entries()].map(([id, c]) => (
+            <option key={id} value={id}>{c.name} - {(c as any).level?.name}</option>
+          ))}
+        </select>
         {classroomId && (
-          <Select value={subjectId} onChange={setSubjectId}
-            options={getSubjects(classroomId).map((s) => ({ value: s.id, label: s.name }))} placeholder="اختر المادة" />
+          <select value={subjectId} onChange={(e) => setSubjectId(e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+            <option value="">اختر المادة</option>
+            {subjects.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
         )}
       </div>
 
@@ -67,10 +104,15 @@ export function LessonBook() {
         <form onSubmit={handleSubmit} className="mb-6">
           <Card>
             <div className="space-y-4">
-              <Input label="عنوان الدرس" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="أدخل عنوان الدرس" />
-              <Textarea label="شرح الدرس" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder="وصف الدرس..." />
-              <Textarea label="الواجب المنزلي" value={homework} onChange={(e) => setHomework(e.target.value)} rows={2} placeholder="الواجبات..." />
-              <Textarea label="ملاحظات" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="ملاحظات إضافية..." />
+              <input className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="عنوان الدرس *" value={title} onChange={(e) => setTitle(e.target.value)} />
+              <textarea className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="شرح الدرس" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
+              <textarea className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="الواجب المنزلي" rows={2} value={homework} onChange={(e) => setHomework(e.target.value)} />
+              <textarea className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="ملاحظات" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-gray-400" />
+                <input type="number" className="w-24 px-3 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="المدة" value={duration} onChange={(e) => setDuration(e.target.value)} min="1" max="180" />
+                <span className="text-sm text-gray-500">دقيقة</span>
+              </div>
               <Button fullWidth loading={saving}><Save className="h-5 w-5" /> حفظ الدرس</Button>
             </div>
           </Card>
@@ -79,10 +121,10 @@ export function LessonBook() {
 
       <div className="space-y-3">
         {!classroomId && !subjectId && (
-          <Card><p className="text-center text-gray-400">اختر القسم والمادة لعرض الدروس</p></Card>
+          <Card><p className="text-center text-gray-400 py-6">اختر القسم والمادة لعرض الدروس</p></Card>
         )}
         {lessons.length === 0 && classroomId && subjectId && !showForm && (
-          <Card><p className="text-center text-gray-400">لا توجد دروس مسجلة</p></Card>
+          <Card><p className="text-center text-gray-400 py-6">لا توجد دروس مسجلة. سجل أول درس الآن</p></Card>
         )}
         {lessons.map((lesson) => (
           <Card key={lesson.id}>
@@ -90,8 +132,18 @@ export function LessonBook() {
               <div className="flex items-center gap-2">
                 <BookOpen className="h-5 w-5 text-green-600" />
                 <h3 className="font-semibold">{lesson.title}</h3>
+                {lesson.duration && (
+                  <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+                    {lesson.duration} د
+                  </span>
+                )}
               </div>
-              <span className="text-sm text-gray-500">{new Date(lesson.date).toLocaleDateString("ar-MR")}</span>
+              <div className="flex items-center gap-2 text-xs text-gray-400">
+                <span>{new Date(lesson.date).toLocaleDateString("ar-MR")}</span>
+                <span className={`px-2 py-0.5 rounded-full ${lesson.status === "DRAFT" ? "bg-yellow-50 text-yellow-600" : "bg-green-50 text-green-600"}`}>
+                  {lesson.status === "DRAFT" ? "مسودة" : "مقدم"}
+                </span>
+              </div>
             </div>
             {lesson.description && <p className="text-sm text-gray-600 mb-2">{lesson.description}</p>}
             {lesson.homework && (

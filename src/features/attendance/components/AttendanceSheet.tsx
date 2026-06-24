@@ -1,9 +1,12 @@
-import { useState } from "react"
+"use client"
+
+import { useState, useEffect } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
 import { useClasses } from "@/hooks/useClasses"
 import { useStudents } from "@/hooks/useStudents"
-import { attendanceApi } from "@/lib/api"
-import { Button, Card, Select, Badge, LoadingSpinner } from "@/components/ui"
-import { Check, X, Clock, AlertCircle, Save } from "lucide-react"
+import { api } from "@/lib/api"
+import { Button, Card, Badge, LoadingSpinner } from "@/components/ui"
+import { Check, X, Clock, AlertCircle, Save, RefreshCw } from "lucide-react"
 import toast from "react-hot-toast"
 
 type AttendanceStatus = "present" | "absent" | "late" | "excused"
@@ -18,12 +21,39 @@ const STATUS_CONFIG: Record<AttendanceStatus, { icon: any; variant: "success" | 
 }
 
 export function AttendanceSheet() {
-  const { classrooms, getSubjects, loading: loadingClasses } = useClasses()
-  const [classroomId, setClassroomId] = useState("")
-  const [subjectId, setSubjectId] = useState("")
-  const { students } = useStudents(classroomId)
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const { assignments, classrooms, getSubjects, loading: loadingClasses } = useClasses()
+
+  const initialClassroom = searchParams.get("classroomId") || ""
+  const initialSubject = searchParams.get("subjectId") || ""
+
+  const [classroomId, setClassroomId] = useState(initialClassroom)
+  const [subjectId, setSubjectId] = useState(initialSubject)
+  const { students, loading: loadingStudents } = useStudents(classroomId)
   const [records, setRecords] = useState<Record<string, AttendanceStatus>>({})
   const [saving, setSaving] = useState(false)
+  const [existingAttendance, setExistingAttendance] = useState<any[]>([])
+  const [loadingExisting, setLoadingExisting] = useState(false)
+
+  // Load existing attendance for today when classroom+subject selected
+  useEffect(() => {
+    if (!classroomId || !subjectId) return
+    const today = new Date().toISOString().split("T")[0]
+    setLoadingExisting(true)
+    api.get<any[]>(`/api/attendance?classroomId=${classroomId}&subjectId=${subjectId}&date=${today}`)
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          setExistingAttendance(data)
+          const map: Record<string, AttendanceStatus> = {}
+          for (const r of data) {
+            map[r.studentId] = r.status.toLowerCase() as AttendanceStatus
+          }
+          setRecords(map)
+        }
+        setLoadingExisting(false)
+      })
+  }, [classroomId, subjectId])
 
   function getStatus(studentId: string): AttendanceStatus {
     return records[studentId] || "present"
@@ -36,86 +66,105 @@ export function AttendanceSheet() {
   }
 
   async function save() {
+    if (!classroomId || !subjectId) { toast.error("اختر القسم والمادة"); return }
     setSaving(true)
-    const result = await attendanceApi.save({
+    const result = await api.post("/api/attendance", {
       classroomId,
       subjectId,
       date: new Date().toISOString().split("T")[0],
-      records: students.map((s) => ({ studentId: s.id, status: getStatus(s.id) })),
+      records: students.map((s) => ({ studentId: s.id, status: getStatus(s.id).toUpperCase() })),
     })
     if (result.error) toast.error(result.error)
-    else toast.success("تم حفظ الغياب وإرسال الإشعارات")
+    else {
+      toast.success("تم حفظ الغياب")
+      if (students.filter((s) => getStatus(s.id) !== "present").length > 0) {
+        toast.success("تم إرسال إشعارات لأولياء الأمور")
+      }
+    }
     setSaving(false)
   }
 
   if (loadingClasses) return <LoadingSpinner message="جاري تحميل البيانات..." />
 
   const absentCount = students.filter((s) => getStatus(s.id) !== "present").length
+  const subjects = getSubjects(classroomId)
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">دفتر الغياب</h1>
-        {absentCount > 0 && (
-          <Badge variant="danger">{absentCount} غائب</Badge>
-        )}
+        <div className="flex items-center gap-2">
+          {absentCount > 0 && <Badge variant="danger">{absentCount} غائب/متأخر</Badge>}
+          {existingAttendance.length > 0 && <Badge variant="info">مسجل سابقاً</Badge>}
+        </div>
       </div>
 
       <div className="flex gap-4 mb-6">
-        <Select
-          value={classroomId}
-          onChange={(v) => { setClassroomId(v); setSubjectId("") }}
-          options={classrooms.map((c) => ({ value: c.id, label: c.name }))}
-          placeholder="اختر القسم"
-        />
+        <select value={classroomId} onChange={(v) => { setClassroomId(v); setSubjectId(""); setRecords({}); setExistingAttendance([]) }}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+          <option value="">اختر القسم</option>
+          {[...new Map(assignments.map((a) => [a.classroom.id, a.classroom])).entries()].map(([id, c]) => (
+            <option key={id} value={id}>{c.name} - {(c as any).level?.name}</option>
+          ))}
+        </select>
         {classroomId && (
-          <Select
-            value={subjectId}
-            onChange={setSubjectId}
-            options={getSubjects(classroomId).map((s) => ({ value: s.id, label: s.name }))}
-            placeholder="اختر المادة"
-          />
+          <select value={subjectId} onChange={(e) => setSubjectId(e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+            <option value="">اختر المادة</option>
+            {subjects.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
         )}
       </div>
 
       {subjectId && (
         <>
           <Card padding="sm" className="mb-4">
-            <p className="text-sm text-gray-500">
-              التاريخ: {new Date().toLocaleDateString("ar-MR")} · {students.length} تلميذ
-            </p>
-          </Card>
-
-          <Card padding="sm">
-            <div className="divide-y">
-              {students.map((s, i) => {
-                const status = getStatus(s.id)
-                const { icon: Icon, variant, label } = STATUS_CONFIG[status]
-                return (
-                  <div
-                    key={s.id}
-                    className="flex items-center justify-between py-3 px-2 hover:bg-gray-50 cursor-pointer rounded-lg transition-colors"
-                    onClick={() => toggle(s.id)}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm text-gray-400 w-6">{i + 1}</span>
-                      <span className="font-medium">{s.firstName} {s.lastName}</span>
-                    </div>
-                    <Badge variant={variant}>
-                      <Icon className="h-3 w-3" /> {label}
-                    </Badge>
-                  </div>
-                )
-              })}
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-500">
+                التاريخ: {new Date().toLocaleDateString("ar-MR")} · {students.length} تلميذ
+                {existingAttendance.length > 0 && " · تم التعديل today"}
+              </p>
+              <button onClick={() => { setRecords({}); setExistingAttendance([]) }} className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+                <RefreshCw className="h-3 w-3" /> إعادة تعيين
+              </button>
             </div>
           </Card>
 
+          <Card padding="sm">
+            {loadingStudents || loadingExisting ? (
+              <LoadingSpinner />
+            ) : students.length === 0 ? (
+              <p className="text-center text-gray-400 py-8">لا يوجد تلاميذ في هذا القسم</p>
+            ) : (
+              <div className="divide-y">
+                {students.map((s, i) => {
+                  const status = getStatus(s.id)
+                  const { icon: Icon, variant, label } = STATUS_CONFIG[status]
+                  return (
+                    <div
+                      key={s.id}
+                      className="flex items-center justify-between py-3 px-2 hover:bg-gray-50 cursor-pointer rounded-lg transition-colors"
+                      onClick={() => toggle(s.id)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm text-gray-400 w-6">{i + 1}</span>
+                        <span className="font-medium">{s.firstName} {s.lastName}</span>
+                      </div>
+                      <Badge variant={variant}>
+                        <Icon className="h-3 w-3" /> {label}
+                      </Badge>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </Card>
+
           <Button
-            fullWidth
-            size="lg"
-            loading={saving}
-            onClick={save}
-            className="mt-6"
+            fullWidth size="lg" loading={saving} onClick={save} className="mt-6"
+            disabled={!classroomId || !subjectId || students.length === 0}
           >
             <Save className="h-5 w-5" />
             حفظ الغياب وإرسال الإشعارات

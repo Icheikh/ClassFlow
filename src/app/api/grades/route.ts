@@ -21,31 +21,36 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { scores, assessmentType, label, classroomId, subjectId, termId } = body
+  const { scores, assessmentType, label, classroomId, subjectId } = body
 
   const activeYear = await prisma.academicYear.findFirst({
     where: { schoolId: user.schoolId, isActive: true },
   })
-  if (!activeYear) return NextResponse.json({ error: "No active academic year" }, { status: 400 })
+  if (!activeYear) return NextResponse.json({ error: "لا توجد سنة دراسية نشطة" }, { status: 400 })
+
+  const activeTerm = await prisma.term.findFirst({
+    where: { academicYearId: activeYear.id, isActive: true },
+  })
+  if (!activeTerm) return NextResponse.json({ error: "لا يوجد فصل دراسي نشط" }, { status: 400 })
 
   let teacherId: string
   if (user.role === "TEACHER") {
     const teacher = await prisma.teacher.findUnique({ where: { userId: user.id } })
-    if (!teacher) return NextResponse.json({ error: "Teacher not found" }, { status: 404 })
+    if (!teacher) return NextResponse.json({ error: "الأستاذ غير موجود" }, { status: 404 })
     teacherId = teacher.id
   } else {
     const assignment = await prisma.teacherAssignment.findFirst({
       where: { classroomId, subjectId, schoolId: user.schoolId, academicYearId: activeYear.id },
     })
     teacherId = assignment?.teacherId || ""
-    if (!teacherId) return NextResponse.json({ error: "No teacher assigned" }, { status: 404 })
+    if (!teacherId) return NextResponse.json({ error: "لا يوجد أستاذ مكلف" }, { status: 404 })
   }
 
   const grades = await Promise.all(
     scores.map((s: { studentId: string; score: number }) =>
       prisma.grade.create({
         data: {
-          schoolId: user.schoolId, academicYearId: activeYear.id, termId,
+          schoolId: user.schoolId, academicYearId: activeYear.id, termId: activeTerm.id,
           assessmentType, label, score: s.score, maxScore: 20, status: "DRAFT",
           studentId: s.studentId, subjectId, classroomId, teacherId,
         },
@@ -64,13 +69,32 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url)
   const classroomId = url.searchParams.get("classroomId")
   const subjectId = url.searchParams.get("subjectId")
+  const assessmentLabel = url.searchParams.get("label")
+
+  const where: any = { schoolId: user.schoolId }
+  if (classroomId) where.classroomId = classroomId
+  if (subjectId) where.subjectId = subjectId
+  if (assessmentLabel) where.label = assessmentLabel
 
   const grades = await prisma.grade.findMany({
-    where: { schoolId: user.schoolId, ...(classroomId && { classroomId }), ...(subjectId && { subjectId }) },
-    include: { student: true, subject: true },
-    orderBy: { createdAt: "desc" },
-    take: 100,
+    where,
+    include: { student: { select: { id: true, firstName: true, lastName: true } }, subject: { select: { id: true, nameAr: true } } },
+    orderBy: [{ label: "desc" }, { student: { firstName: "asc" } }],
+    take: 200,
   })
 
-  return NextResponse.json(grades)
+  // Group by assessment (label + type)
+  const assessments = new Map<string, { label: string; type: string; date: string; scores: any[] }>()
+  for (const g of grades) {
+    const key = `${g.label}-${g.assessmentType}`
+    if (!assessments.has(key)) {
+      assessments.set(key, { label: g.label, type: g.assessmentType, date: g.date.toISOString(), scores: [] })
+    }
+    assessments.get(key)!.scores.push({ studentId: g.studentId, studentName: `${g.student.firstName} ${g.student.lastName}`, score: g.score, maxScore: g.maxScore, status: g.status })
+  }
+
+  return NextResponse.json({
+    assessments: Array.from(assessments.values()),
+    recent: grades.slice(0, 10).map((g) => ({ id: g.id, label: g.label, type: g.assessmentType, date: g.date, studentName: `${g.student.firstName} ${g.student.lastName}`, score: g.score, status: g.status })),
+  })
 }
