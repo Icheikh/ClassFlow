@@ -200,6 +200,21 @@ export default function ClassroomDetailsPage() {
     }
 
     return getTermAssessmentRequirements({
+      term1TestWeight: 3,
+      term1ExamWeight: 1,
+      term1Denominator: 4,
+      term1RequireTest: true,
+      term1RequireExam: true,
+      term2TestWeight: 3,
+      term2ExamWeight: 2,
+      term2Denominator: 5,
+      term2RequireTest: true,
+      term2RequireExam: true,
+      term3TestWeight: 3,
+      term3ExamWeight: 3,
+      term3Denominator: 6,
+      term3RequireTest: true,
+      term3RequireExam: true,
       testWeight: 3,
       exam1Weight: 1,
       exam2Weight: 2,

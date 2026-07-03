@@ -14,6 +14,21 @@ export const RESULT_PUBLICATION_STATUSES = {
 type AssessmentType = (typeof ASSESSMENT_TYPES)[keyof typeof ASSESSMENT_TYPES]
 
 export type ResultRuleConfig = {
+  term1TestWeight: number
+  term1ExamWeight: number
+  term1Denominator: number
+  term1RequireTest: boolean
+  term1RequireExam: boolean
+  term2TestWeight: number
+  term2ExamWeight: number
+  term2Denominator: number
+  term2RequireTest: boolean
+  term2RequireExam: boolean
+  term3TestWeight: number
+  term3ExamWeight: number
+  term3Denominator: number
+  term3RequireTest: boolean
+  term3RequireExam: boolean
   testWeight: number
   exam1Weight: number
   exam2Weight: number
@@ -154,52 +169,60 @@ export function getTermExamType(termOrder?: number | null) {
   return ASSESSMENT_TYPES.EXAM_3
 }
 
+export function getTermRuleConfig(rule: ResultRuleConfig, termOrder?: number | null) {
+  if (termOrder === 1) {
+    return {
+      testWeight: rule.term1TestWeight,
+      examWeight: rule.term1ExamWeight,
+      denominator: rule.term1Denominator,
+      requireTest: rule.term1RequireTest,
+      requireExam: rule.term1RequireExam,
+    }
+  }
+  if (termOrder === 2) {
+    return {
+      testWeight: rule.term2TestWeight,
+      examWeight: rule.term2ExamWeight,
+      denominator: rule.term2Denominator,
+      requireTest: rule.term2RequireTest,
+      requireExam: rule.term2RequireExam,
+    }
+  }
+
+  return {
+    testWeight: rule.term3TestWeight,
+    examWeight: rule.term3ExamWeight,
+    denominator: rule.term3Denominator,
+    requireTest: rule.term3RequireTest,
+    requireExam: rule.term3RequireExam,
+  }
+}
+
 export function getTermAssessmentRequirements(rule: ResultRuleConfig, termOrder?: number | null): TermAssessmentRequirement[] {
   const examType = getTermExamType(termOrder)
-  const examWeight =
-    examType === ASSESSMENT_TYPES.EXAM_1
-      ? rule.exam1Weight
-      : examType === ASSESSMENT_TYPES.EXAM_2
-        ? rule.exam2Weight
-        : rule.exam3Weight
-  const examRequired =
-    examType === ASSESSMENT_TYPES.EXAM_1
-      ? rule.requireExam1
-      : examType === ASSESSMENT_TYPES.EXAM_2
-        ? rule.requireExam2
-        : rule.requireExam3
+  const termRule = getTermRuleConfig(rule, termOrder)
 
   return [
     {
       type: ASSESSMENT_TYPES.TEST,
       label: getAssessmentLabel(ASSESSMENT_TYPES.TEST),
-      required: rule.requireTest,
-      weight: rule.testWeight,
-      minimumCount: rule.requireTest ? 1 : 0,
+      required: termRule.requireTest,
+      weight: termRule.testWeight,
+      minimumCount: termRule.requireTest ? 1 : 0,
     },
     {
       type: examType,
       label: getAssessmentLabel(examType),
-      required: examRequired,
-      weight: examWeight,
-      minimumCount: examRequired ? 1 : 0,
+      required: termRule.requireExam,
+      weight: termRule.examWeight,
+      minimumCount: termRule.requireExam ? 1 : 0,
     },
   ]
 }
 
 export function isAssessmentTypeAllowedForTerm(type: string, termOrder?: number | null) {
   const normalizedType = normalizeAssessmentType(type)
-  const allowedTypes = new Set(getTermAssessmentRequirements({
-    testWeight: 3,
-    exam1Weight: 1,
-    exam2Weight: 2,
-    exam3Weight: 3,
-    denominator: 9,
-    requireTest: true,
-    requireExam1: true,
-    requireExam2: true,
-    requireExam3: true,
-  }, termOrder).map((item) => item.type))
+  const allowedTypes = new Set<string>([ASSESSMENT_TYPES.TEST, getTermExamType(termOrder)])
 
   return allowedTypes.has(normalizedType)
 }
@@ -210,7 +233,7 @@ export function buildTermCalculationNote(rule: ResultRuleConfig, termOrder?: num
     .filter((item) => item.weight > 0)
     .map((item) => `${item.label} × ${item.weight}`)
     .join(" + ")
-  const denominator = requirements.reduce((sum, item) => sum + item.weight, 0)
+  const denominator = getTermRuleConfig(rule, termOrder).denominator
   return `في هذا الفصل: (${numerator}) ÷ ${denominator}`
 }
 
@@ -256,15 +279,10 @@ export function computeSubjectAverage(options: {
       }
     }
 
-    const denominator = termRequirements.reduce((sum, item) => {
-      if (item.type === ASSESSMENT_TYPES.TEST) {
-        return testAverage != null ? sum + item.weight : sum
-      }
-      return termExamAverage != null ? sum + item.weight : sum
-    }, 0)
+    const termRule = getTermRuleConfig(options.rule, options.termOrder)
 
     const weightedSum =
-      ((testAverage ?? 0) * options.rule.testWeight) +
+      ((testAverage ?? 0) * termRule.testWeight) +
       ((termExamAverage ?? 0) * (termRequirements.find((item) => item.type === termExamType)?.weight || 0))
 
     return {
@@ -272,7 +290,7 @@ export function computeSubjectAverage(options: {
       exam1Average,
       exam2Average,
       exam3Average,
-      finalAverage: denominator > 0 ? roundScore(weightedSum / denominator) : null,
+      finalAverage: termRule.denominator > 0 ? roundScore(weightedSum / termRule.denominator) : null,
     }
   }
 
