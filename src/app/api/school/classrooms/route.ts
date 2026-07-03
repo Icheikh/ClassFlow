@@ -26,6 +26,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   const body = await req.json()
   const { levelId, streamId, name, capacity } = body
+  if (streamId) {
+    const stream = await prisma.stream.findFirst({
+      where: { id: streamId, levelId, schoolId: user.schoolId },
+    })
+    if (!stream) return NextResponse.json({ error: "الشعبة لا تنتمي إلى هذا المستوى" }, { status: 400 })
+  }
   const item = await prisma.classroom.create({
     data: {
       schoolId: user.schoolId, levelId, streamId: streamId || null,
@@ -43,11 +49,23 @@ export async function PUT(req: NextRequest) {
   if (!hasPermission(user, PERMISSIONS.MANAGE_CLASSROOMS) && !isLegacyRole)
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   const body = await req.json()
-  const { id, levelId, name, capacity } = body
+  const { id, levelId, streamId, name, capacity } = body
   const existing = await prisma.classroom.findFirst({ where: { id, schoolId: user.schoolId } })
   if (!existing) return NextResponse.json({ error: "غير موجود" }, { status: 404 })
+  if (streamId) {
+    const stream = await prisma.stream.findFirst({
+      where: { id: streamId, levelId, schoolId: user.schoolId },
+    })
+    if (!stream) return NextResponse.json({ error: "الشعبة لا تنتمي إلى هذا المستوى" }, { status: 400 })
+  }
   const item = await prisma.classroom.update({
-    where: { id }, data: { levelId, name, capacity: parseInt(capacity) || 40 },
+    where: { id },
+    data: {
+      levelId,
+      streamId: streamId || null,
+      name,
+      capacity: parseInt(capacity) || 40,
+    },
   })
   return NextResponse.json(item)
 }

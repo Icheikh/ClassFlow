@@ -6,7 +6,7 @@ import { redirect, usePathname } from "next/navigation"
 import { roleLabels } from "@/lib/roles"
 import {
   LayoutDashboard, Calendar, Layers, BookOpen, GraduationCap,
-  Users, ClipboardList, Settings, LogOut, School, UserPlus, Wallet, Shield,
+  Users, ClipboardList, Settings, LogOut, School, UserPlus, Wallet, Shield, DollarSign, Receipt,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -22,8 +22,12 @@ const nav: NavItem[] = [
   { href: "/school/classrooms", label: "الأقسام", icon: School },
   { href: "/school/subjects", label: "المواد والضوارب", icon: BookOpen },
   { href: "/school/teachers", label: "الأساتذة", icon: UserPlus },
+  { href: "/school/result-rules", label: "قواعد النتائج", icon: ClipboardList, adminOnly: true },
   { href: "/school/payroll", label: "الرواتب", icon: Wallet },
+  { href: "/school/fees", label: "الرسوم", icon: DollarSign },
+  { href: "/school/invoices", label: "الفواتير", icon: Receipt },
   { href: "/school/students", label: "الطلاب", icon: Users },
+  { href: "/school/results", label: "النتائج", icon: GraduationCap },
   { href: "/school/staff", label: "الموظفون", icon: Shield, adminOnly: true },
   { href: "/school/settings", label: "الإعدادات", icon: Settings },
 ]
@@ -46,8 +50,8 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex" dir="rtl">
-      <aside className="w-64 bg-white border-l shadow-sm flex flex-col shrink-0">
+    <div className="min-h-screen bg-gray-50 flex print:block print:bg-white" dir="rtl">
+      <aside className="w-64 bg-white border-l shadow-sm flex flex-col shrink-0 print:hidden">
         <div className="p-5 border-b">
           <h1 className="text-xl font-bold text-gray-900">ClassFlow</h1>
           <div className="mt-2">
@@ -86,7 +90,7 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <main className="flex-1 p-8 overflow-y-auto">
+      <main className="flex-1 p-8 overflow-y-auto print:p-0 print:overflow-visible">
         {children}
       </main>
     </div>

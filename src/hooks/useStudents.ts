@@ -6,7 +6,13 @@ export function useStudents(classroomId: string) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!classroomId) return
+    if (!classroomId) {
+      setStudents([])
+      setLoading(false)
+      return
+    }
+
+    setLoading(true)
     studentsApi.listByClass(classroomId).then(({ data }) => {
       if (data) setStudents(data)
       setLoading(false)

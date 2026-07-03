@@ -1,0 +1,269 @@
+import { NextRequest, NextResponse } from "next/server"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
+import { hasAnyPermission, hasPermission, PERMISSIONS } from "@/lib/permissions"
+import { computeClassroomResults, RESULT_PUBLICATION_STATUSES } from "@/lib/results"
+import { createResultAuditLog, ensurePublishedResultRule, serializeRule } from "@/lib/result-rules"
+
+const reviewRoles = ["SCHOOL_ADMIN", "STAFF", "SUPERVISOR"]
+
+function canReviewResults(user: any) {
+  return reviewRoles.includes(user?.role) || hasAnyPermission(user, [
+    PERMISSIONS.VIEW_REPORTS,
+    PERMISSIONS.APPROVE_GRADES,
+    PERMISSIONS.LOCK_GRADES,
+  ])
+}
+
+async function getAcademicContext(schoolId: string, termId?: string | null) {
+  const activeYear = await prisma.academicYear.findFirst({
+    where: { schoolId, isActive: true },
+  })
+  if (!activeYear) return { error: "لا توجد سنة دراسية نشطة" }
+
+  const term = termId
+    ? await prisma.term.findFirst({ where: { id: termId, schoolId, academicYearId: activeYear.id } })
+    : await prisma.term.findFirst({ where: { schoolId, academicYearId: activeYear.id, isActive: true } })
+
+  if (!term) return { error: "لا يوجد فصل دراسي نشط" }
+
+  return { activeYear, term }
+}
+
+export async function GET(req: NextRequest) {
+  const session = await getServerSession(authOptions)
+  const user = session?.user as any
+  if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!canReviewResults(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+
+  const url = new URL(req.url)
+  const classroomId = url.searchParams.get("classroomId")
+  const termId = url.searchParams.get("termId")
+
+  if (!classroomId) {
+    return NextResponse.json({ error: "classroomId required" }, { status: 400 })
+  }
+
+  const context = await getAcademicContext(user.schoolId, termId)
+  if ("error" in context) {
+    return NextResponse.json({ error: context.error }, { status: 400 })
+  }
+
+  const classroom = await prisma.classroom.findFirst({
+    where: { id: classroomId, schoolId: user.schoolId },
+    include: {
+      level: { include: { stage: true } },
+      stream: true,
+    },
+  })
+  if (!classroom) {
+    return NextResponse.json({ error: "القسم غير موجود" }, { status: 404 })
+  }
+
+  const [enrollments, assessments, coefficients, publication, resultRule] = await Promise.all([
+    prisma.enrollment.findMany({
+      where: {
+        schoolId: user.schoolId,
+        academicYearId: context.activeYear.id,
+        classroomId,
+        status: "ACTIVE",
+      },
+      include: {
+        student: { select: { id: true, firstName: true, lastName: true } },
+      },
+      orderBy: [{ student: { firstName: "asc" } }, { student: { lastName: "asc" } }],
+    }),
+    prisma.assessment.findMany({
+      where: {
+        schoolId: user.schoolId,
+        academicYearId: context.activeYear.id,
+        termId: context.term.id,
+        classroomId,
+      },
+      include: {
+        subject: { select: { id: true, nameAr: true, code: true } },
+        scores: { select: { studentId: true, score: true } },
+      },
+      orderBy: [{ subject: { nameAr: "asc" } }, { date: "asc" }],
+    }),
+    prisma.subjectCoefficient.findMany({
+      where: {
+        schoolId: user.schoolId,
+        academicYearId: context.activeYear.id,
+        OR: [
+          { classroomId },
+          { levelId: classroom.levelId },
+        ],
+      },
+      select: {
+        subjectId: true,
+        levelId: true,
+        streamId: true,
+        classroomId: true,
+        coefficient: true,
+      },
+    }),
+    prisma.resultPublication.findUnique({
+      where: {
+        academicYearId_termId_classroomId: {
+          academicYearId: context.activeYear.id,
+          termId: context.term.id,
+          classroomId,
+        },
+      },
+    }),
+    ensurePublishedResultRule(prisma, user.schoolId),
+  ])
+
+  const results = computeClassroomResults({
+    students: enrollments.map((enrollment) => enrollment.student),
+    assessments: assessments.map((assessment) => ({
+      subjectId: assessment.subjectId,
+      type: assessment.type,
+      maxScore: assessment.maxScore,
+      scores: assessment.scores,
+    })),
+    coefficients,
+    classroomId,
+    levelId: classroom.levelId,
+    streamId: classroom.streamId,
+    rule: resultRule,
+  })
+
+  const subjectMap = new Map(assessments.map((assessment) => [assessment.subjectId, assessment.subject]))
+  const computedRows = results.filter((row) => row.average != null)
+  const classAverage = computedRows.length
+    ? Math.round((computedRows.reduce((sum, row) => sum + (row.average || 0), 0) / computedRows.length) * 100) / 100
+    : null
+
+  return NextResponse.json({
+    school: {
+      id: user.schoolId,
+      name: user.school?.name || null,
+      address: user.school?.address || null,
+      phone: user.school?.phone || null,
+    },
+    classroom: {
+      id: classroom.id,
+      name: classroom.name,
+      level: classroom.level,
+      stream: classroom.stream,
+    },
+    term: context.term,
+    resultRule: serializeRule(resultRule),
+    publicationStatus: publication?.status || RESULT_PUBLICATION_STATUSES.OPEN,
+    publication: publication
+      ? {
+          id: publication.id,
+          status: publication.status,
+          approvedAt: publication.approvedAt,
+          lockedAt: publication.lockedAt,
+        }
+      : null,
+    stats: {
+      students: results.length,
+      assessments: assessments.length,
+      classAverage,
+    },
+    subjects: Array.from(subjectMap.values()),
+    results: results.map((row) => ({
+      ...row,
+      subjectResults: row.subjectResults.map((subject) => ({
+        ...subject,
+        subjectName: subjectMap.get(subject.subjectId)?.nameAr || "مادة",
+      })),
+    })),
+  })
+}
+
+export async function PUT(req: NextRequest) {
+  const session = await getServerSession(authOptions)
+  const user = session?.user as any
+  if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!canReviewResults(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+
+  const body = await req.json()
+  const { classroomId, termId, status } = body
+
+  if (!classroomId || !termId || !status) {
+    return NextResponse.json({ error: "classroomId و termId و status مطلوبة" }, { status: 400 })
+  }
+
+  if (!Object.values(RESULT_PUBLICATION_STATUSES).includes(status)) {
+    return NextResponse.json({ error: "حالة النتائج غير صالحة" }, { status: 400 })
+  }
+
+  const context = await getAcademicContext(user.schoolId, termId)
+  if ("error" in context) {
+    return NextResponse.json({ error: context.error }, { status: 400 })
+  }
+
+  const classroom = await prisma.classroom.findFirst({
+    where: { id: classroomId, schoolId: user.schoolId },
+    select: { id: true },
+  })
+  if (!classroom) {
+    return NextResponse.json({ error: "القسم غير موجود" }, { status: 404 })
+  }
+
+  if (status === RESULT_PUBLICATION_STATUSES.LOCKED && !hasPermission(user, PERMISSIONS.LOCK_GRADES) && user.role !== "SCHOOL_ADMIN") {
+    return NextResponse.json({ error: "ليس لديك صلاحية قفل النتائج" }, { status: 403 })
+  }
+
+  if (status === RESULT_PUBLICATION_STATUSES.APPROVED && !hasPermission(user, PERMISSIONS.APPROVE_GRADES) && !reviewRoles.includes(user.role)) {
+    return NextResponse.json({ error: "ليس لديك صلاحية اعتماد النتائج" }, { status: 403 })
+  }
+
+  const now = new Date()
+  const existingPublication = await prisma.resultPublication.findUnique({
+    where: {
+      academicYearId_termId_classroomId: {
+        academicYearId: context.activeYear.id,
+        termId: context.term.id,
+        classroomId,
+      },
+    },
+  })
+  const publication = await prisma.resultPublication.upsert({
+    where: {
+      academicYearId_termId_classroomId: {
+        academicYearId: context.activeYear.id,
+        termId: context.term.id,
+        classroomId,
+      },
+    },
+    update: {
+      status,
+      approvedAt: status === RESULT_PUBLICATION_STATUSES.APPROVED || status === RESULT_PUBLICATION_STATUSES.LOCKED ? now : null,
+      lockedAt: status === RESULT_PUBLICATION_STATUSES.LOCKED ? now : null,
+      approvedByUserId: status === RESULT_PUBLICATION_STATUSES.APPROVED || status === RESULT_PUBLICATION_STATUSES.LOCKED ? user.id : null,
+      lockedByUserId: status === RESULT_PUBLICATION_STATUSES.LOCKED ? user.id : null,
+    },
+    create: {
+      schoolId: user.schoolId,
+      academicYearId: context.activeYear.id,
+      termId: context.term.id,
+      classroomId,
+      status,
+      approvedAt: status === RESULT_PUBLICATION_STATUSES.APPROVED || status === RESULT_PUBLICATION_STATUSES.LOCKED ? now : null,
+      lockedAt: status === RESULT_PUBLICATION_STATUSES.LOCKED ? now : null,
+      approvedByUserId: status === RESULT_PUBLICATION_STATUSES.APPROVED || status === RESULT_PUBLICATION_STATUSES.LOCKED ? user.id : null,
+      lockedByUserId: status === RESULT_PUBLICATION_STATUSES.LOCKED ? user.id : null,
+    },
+  })
+
+  await createResultAuditLog({
+    prisma,
+    schoolId: user.schoolId,
+    actorUserId: user.id,
+    entityType: "RESULT_PUBLICATION",
+    entityId: publication.id,
+    action: status,
+    description: `تغيير حالة نتائج القسم ${classroomId} للفصل ${context.term.name} إلى ${status}`,
+    before: existingPublication,
+    after: publication,
+  })
+
+  return NextResponse.json(publication)
+}

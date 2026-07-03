@@ -70,8 +70,8 @@ export default function LevelsPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">المستويات والشعب</h1>
-          <p className="text-sm text-gray-500">إدارة المراحل الدراسية والمستويات والشعب</p>
+          <h1 className="text-2xl font-bold">المراحل والمستويات والشعب</h1>
+          <p className="text-sm text-gray-500">المرحلة = إعدادية أو ثانوية، المستوى = 1AS إلى 7، والشعبة تخص الثانوية فقط</p>
         </div>
         <Button onClick={() => { setStageName(""); setStageOrder(""); setShowStageModal(true) }}>
           <Plus className="h-5 w-5" /> إضافة مرحلة
@@ -88,7 +88,7 @@ export default function LevelsPage() {
 
       <Modal open={showLevelModal} onClose={() => setShowLevelModal(false)} title={`إضافة مستوى في ${selectedStage?.name}`}>
         <div className="space-y-4">
-          <Input label="اسم المستوى" value={levelName} onChange={(e) => setLevelName(e.target.value)} placeholder="مثال: السنة 1" />
+          <Input label="اسم المستوى" value={levelName} onChange={(e) => setLevelName(e.target.value)} placeholder="مثال: 1AS أو 5 أو 7" />
           <Input label="الترتيب" type="number" value={levelOrder} onChange={(e) => setLevelOrder(e.target.value)} />
           <Button fullWidth onClick={saveLevel}>حفظ</Button>
         </div>
@@ -96,8 +96,8 @@ export default function LevelsPage() {
 
       <Modal open={showStreamModal} onClose={() => setShowStreamModal(false)} title={`إضافة شعبة في ${selectedLevel?.name}`}>
         <div className="space-y-4">
-          <Input label="اسم الشعبة" value={streamName} onChange={(e) => setStreamName(e.target.value)} placeholder="علوم رياضية" />
-          <Input label="الرمز" value={streamCode} onChange={(e) => setStreamCode(e.target.value)} placeholder="SM" />
+          <Input label="اسم الشعبة" value={streamName} onChange={(e) => setStreamName(e.target.value)} placeholder="رياضيات / علوم / آداب" />
+          <Input label="الرمز" value={streamCode} onChange={(e) => setStreamCode(e.target.value)} placeholder="C / D / A" />
           <Button fullWidth onClick={saveStream}>حفظ</Button>
         </div>
       </Modal>
@@ -146,7 +146,7 @@ export default function LevelsPage() {
                         ))}
                       </div>
                     )}
-                    {stage.name.includes("ثانوي") && level.streams.length === 0 && (
+                    {stage.name.includes("ثانوي") && (
                       <Button variant="ghost" size="sm" onClick={() => { setSelectedLevel(level); setShowStreamModal(true) }}>
                         <Plus className="h-3 w-3" /> شعبة
                       </Button>

@@ -5,6 +5,7 @@ import { api } from "@/lib/api"
 import { Button, Card, Modal, Input, Badge, LoadingPage } from "@/components/ui"
 import { Plus, Users, Trash2, BookOpen, ChevronDown, ChevronUp, Phone, Calendar, Hash, X, Upload, Filter, UserPlus, Download, Eye } from "lucide-react"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import toast from "react-hot-toast"
 
 type StudentData = {
@@ -21,11 +22,12 @@ type StudentData = {
     id: string
     status: string
     classroom: { id: string; name: string; level: { name: string } }
-    academicYear: { id: string; name: string }
+    academicYear: { id: string; name: string; isActive: boolean }
   }[]
   studentParents?: {
     id: string
     relationship: string | null
+    isPrimary: boolean
     parent: { id: string; phone: string | null; user: { name: string; email: string; phone: string | null } }
   }[]
 }
@@ -34,13 +36,15 @@ type Classroom = { id: string; name: string; level: { id: string; name: string; 
 type AcademicYear = { id: string; name: string; isActive: boolean }
 
 export default function StudentsPage() {
+  const searchParams = useSearchParams()
+  const classroomIdFromQuery = searchParams.get("classroomId") || ""
   const [students, setStudents] = useState<StudentData[]>([])
   const [total, setTotal] = useState(0)
   const [classrooms, setClassrooms] = useState<Classroom[]>([])
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
-  const [classroomFilter, setClassroomFilter] = useState("")
+  const [classroomFilter, setClassroomFilter] = useState(classroomIdFromQuery)
   const [statusFilter, setStatusFilter] = useState("")
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
@@ -74,6 +78,10 @@ export default function StudentsPage() {
   }, [search, classroomFilter, statusFilter])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  useEffect(() => {
+    setClassroomFilter(classroomIdFromQuery)
+  }, [classroomIdFromQuery])
 
   function resetForm() { setForm({ firstName: "", lastName: "", gender: "", birthDate: "", studentNumber: "", address: "", phone: "", parentName: "", parentPhone: "", parentEmail: "" }); setEditId(null) }
 

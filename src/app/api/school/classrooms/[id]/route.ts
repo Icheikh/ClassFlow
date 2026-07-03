@@ -15,6 +15,11 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   if (!classroom) return NextResponse.json({ error: "غير موجود" }, { status: 404 })
 
   const year = await prisma.academicYear.findFirst({ where: { schoolId: user.schoolId, isActive: true } })
+  const activeTerm = year
+    ? await prisma.term.findFirst({
+        where: { schoolId: user.schoolId, academicYearId: year.id, isActive: true },
+      })
+    : null
 
   const enrollments = await prisma.enrollment.findMany({
     where: { classroomId: classroom.id, academicYearId: year?.id },
@@ -34,6 +39,63 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     include: { subject: true, teacher: { include: { user: { select: { name: true } } } } },
   })
 
+  const assessments = await prisma.assessment.findMany({
+    where: {
+      classroomId: classroom.id,
+      academicYearId: year?.id,
+      termId: activeTerm?.id,
+    },
+    orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+    include: {
+      subject: { select: { id: true, nameAr: true } },
+      teacher: { include: { user: { select: { name: true } } } },
+      scores: {
+        include: {
+          student: { select: { id: true, firstName: true, lastName: true } },
+        },
+        orderBy: [{ student: { firstName: "asc" } }, { student: { lastName: "asc" } }],
+      },
+    },
+  })
+
+  const publication = activeTerm
+    ? await prisma.resultPublication.findUnique({
+        where: {
+          academicYearId_termId_classroomId: {
+            academicYearId: year!.id,
+            termId: activeTerm.id,
+            classroomId: classroom.id,
+          },
+        },
+      })
+    : null
+
+  const assessmentIds = assessments.map((assessment) => assessment.id)
+  const recentActivity = assessmentIds.length || publication
+    ? await prisma.resultAuditLog.findMany({
+        where: {
+          schoolId: user.schoolId,
+          OR: [
+            ...(assessmentIds.length
+              ? [{ entityType: { in: ["ASSESSMENT", "ASSESSMENT_OVERRIDE"] }, entityId: { in: assessmentIds } }]
+              : []),
+            ...(publication ? [{ entityType: "RESULT_PUBLICATION", entityId: publication.id }] : []),
+          ],
+        },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+        include: {
+          actorUser: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+      })
+    : []
+
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const todayAttendances = await prisma.attendance.findMany({
@@ -49,11 +111,16 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     enrollments,
     teacherAssignments,
     recentLessons,
+    activeTerm,
+    resultPublication: publication,
+    assessments,
+    recentActivity,
     stats: {
       totalStudents: enrollments.length,
       totalTeachers: teacherAssignments.length,
       presentToday,
       absentToday,
+      assessmentCount: assessments.length,
     },
   })
 }

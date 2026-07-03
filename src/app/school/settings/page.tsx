@@ -45,6 +45,7 @@ export default function SchoolSettingsPage() {
           <Input label="الهاتف" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           <Input label="البريد الإلكتروني" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           <Input label="العنوان" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+          <p className="text-xs text-gray-500">حساب النتائج الأكاديمية يتم وفق القاعدة المعتمدة للنظام: معدل الاختبارات × 3 + الامتحان الأول × 1 + الامتحان الثاني × 2 + الامتحان الثالث × 3 ثم القسمة على 9.</p>
           <Button fullWidth loading={saving} onClick={save}>حفظ الإعدادات</Button>
         </div>
       </Card>

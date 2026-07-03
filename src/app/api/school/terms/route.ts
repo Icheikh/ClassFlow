@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { hasPermission, PERMISSIONS } from "@/lib/permissions"
+import { hasAnyPermission, hasPermission, PERMISSIONS } from "@/lib/permissions"
 
 const allowedRoles = ["SCHOOL_ADMIN", "SUPERVISOR"]
 
@@ -10,11 +10,15 @@ function canManage(user: any) {
   return allowedRoles.includes(user?.role) || hasPermission(user, PERMISSIONS.MANAGE_ACADEMIC_YEARS)
 }
 
+function canView(user: any) {
+  return canManage(user) || hasAnyPermission(user, [PERMISSIONS.VIEW_REPORTS, PERMISSIONS.APPROVE_GRADES, PERMISSIONS.LOCK_GRADES])
+}
+
 export async function GET() {
   const session = await getServerSession(authOptions)
   const user = session?.user as any
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!canManage(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  if (!canView(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const items = await prisma.term.findMany({
     where: { schoolId: user.schoolId },
