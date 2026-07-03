@@ -26,6 +26,16 @@ type ResultRow = {
 
 type ReportResponse = {
   school: { id: string; name: string | null; address: string | null; phone: string | null }
+  template: {
+    title: string
+    subtitle: string | null
+    footerNote: string | null
+    notesLabel: string
+    signatureLabel: string
+    showRank: boolean
+    showWeightedScore: boolean
+    showRuleNotes: boolean
+  }
   classroom: { id: string; name: string; level: { name: string; stage: { name: string } }; stream: { name: string } | null }
   term: { id: string; name: string }
   resultRule: { id: string; name: string; version: number; notes?: string | null }
@@ -76,6 +86,7 @@ export default function ResultsReportPage() {
   }, [classroomId, termId])
 
   const subjectHeaders = useMemo(() => data?.subjects || [], [data])
+  const hasComputedResults = (data?.results || []).some((row) => row.average != null)
 
   if (loading) return <LoadingPage />
 
@@ -122,7 +133,10 @@ export default function ResultsReportPage() {
                 <Badge variant={getStatusVariant(data.publicationStatus)}>
                   {getStatusLabel(data.publicationStatus)}
                 </Badge>
-                <p className="mt-2 text-sm text-gray-500">كشف نتائج قسم</p>
+                <p className="mt-2 text-sm text-gray-500">{data.template.title}</p>
+                {data.template.subtitle && (
+                  <p className="mt-1 text-xs text-gray-400">{data.template.subtitle}</p>
+                )}
               </div>
             </div>
           </div>
@@ -150,32 +164,32 @@ export default function ResultsReportPage() {
             </div>
           </div>
 
-          {data.resultRule.notes && (
+          {data.template.showRuleNotes && data.resultRule.notes && (
             <div className="rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-900">
               {data.resultRule.notes}
             </div>
           )}
 
-          {data.results.length === 0 ? (
+          {!hasComputedResults ? (
             <p className="py-12 text-center text-gray-400">لا توجد نتائج كافية لتوليد كشف هذا القسم بعد.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b text-gray-500">
-                    <th className="px-3 py-2 text-right">الرتبة</th>
+                    {data.template.showRank && <th className="px-3 py-2 text-right">الرتبة</th>}
                     <th className="px-3 py-2 text-right">التلميذ</th>
                     {subjectHeaders.map((subject) => (
                       <th key={subject.id} className="px-3 py-2 text-center">{subject.nameAr}</th>
                     ))}
-                    <th className="px-3 py-2 text-center">المجموع الموزون</th>
+                    {data.template.showWeightedScore && <th className="px-3 py-2 text-center">المجموع الموزون</th>}
                     <th className="px-3 py-2 text-center">المعدل العام</th>
                   </tr>
                 </thead>
                 <tbody>
                   {data.results.map((row) => (
                     <tr key={row.studentId} className="border-b">
-                      <td className="px-3 py-2 font-semibold">{row.rank ?? "—"}</td>
+                      {data.template.showRank && <td className="px-3 py-2 font-semibold">{row.rank ?? "—"}</td>}
                       <td className="px-3 py-2">{row.studentName}</td>
                       {subjectHeaders.map((subject) => {
                         const subjectResult = row.subjectResults.find((item) => item.subjectId === subject.id)
@@ -190,7 +204,7 @@ export default function ResultsReportPage() {
                           </td>
                         )
                       })}
-                      <td className="px-3 py-2 text-center">{row.totalWeightedScore.toFixed(2)}</td>
+                      {data.template.showWeightedScore && <td className="px-3 py-2 text-center">{row.totalWeightedScore.toFixed(2)}</td>}
                       <td className="px-3 py-2 text-center font-semibold text-blue-700">{row.average != null ? row.average.toFixed(2) : "—"}</td>
                     </tr>
                   ))}
@@ -199,13 +213,19 @@ export default function ResultsReportPage() {
             </div>
           )}
 
+          {data.template.footerNote && (
+            <div className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-700">
+              {data.template.footerNote}
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-6 pt-8 text-sm text-gray-600">
             <div className="space-y-3">
-              <p>ملاحظات الإدارة</p>
+              <p>{data.template.notesLabel}</p>
               <div className="h-20 rounded-xl border border-dashed border-gray-300" />
             </div>
             <div className="space-y-3">
-              <p>الختم والتوقيع</p>
+              <p>{data.template.signatureLabel}</p>
               <div className="h-20 rounded-xl border border-dashed border-gray-300" />
             </div>
           </div>

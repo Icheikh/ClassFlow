@@ -51,6 +51,30 @@ type StudentIdentity = {
   lastName: string
 }
 
+type SubjectIdentity = {
+  id: string
+  nameAr: string
+}
+
+export type ClassroomPublicationReadiness = {
+  publishable: boolean
+  studentsCount: number
+  fullyComputedStudents: number
+  assignedSubjectsCount: number
+  readySubjectsCount: number
+  missingCoefficientSubjects: {
+    subjectId: string
+    subjectName: string
+  }[]
+  incompleteSubjects: {
+    subjectId: string
+    subjectName: string
+    readyStudents: number
+    studentsCount: number
+    missingAssessmentTypes: string[]
+  }[]
+}
+
 export type StudentResultSummary = {
   studentId: string
   studentName: string
@@ -108,6 +132,14 @@ export function normalizeAssessmentType(type: string) {
   return type
 }
 
+function getAssessmentLabel(type: AssessmentType | string) {
+  if (type === ASSESSMENT_TYPES.TEST) return "الاختبارات"
+  if (type === ASSESSMENT_TYPES.EXAM_1) return "الامتحان الأول"
+  if (type === ASSESSMENT_TYPES.EXAM_2) return "الامتحان الثاني"
+  if (type === ASSESSMENT_TYPES.EXAM_3) return "الامتحان الثالث"
+  return type
+}
+
 export function computeSubjectAverage(options: {
   assessments: AssessmentRow[]
   studentId: string
@@ -160,10 +192,26 @@ export function resolveCoefficient(options: {
   streamId: string | null
   coefficients: CoefficientRule[]
 }) {
+  return resolveCoefficientRule(options).coefficient
+}
+
+export function resolveCoefficientRule(options: {
+  subjectId: string
+  classroomId: string
+  levelId: string
+  streamId: string | null
+  coefficients: CoefficientRule[]
+}) {
   const classroomSpecific = options.coefficients.find((rule) =>
     rule.subjectId === options.subjectId && rule.classroomId === options.classroomId
   )
-  if (classroomSpecific) return classroomSpecific.coefficient
+  if (classroomSpecific) {
+    return {
+      coefficient: classroomSpecific.coefficient,
+      source: "CLASSROOM" as const,
+      matched: true,
+    }
+  }
 
   const streamSpecific = options.coefficients.find((rule) =>
     rule.subjectId === options.subjectId &&
@@ -171,7 +219,13 @@ export function resolveCoefficient(options: {
     rule.streamId === options.streamId &&
     rule.classroomId == null
   )
-  if (streamSpecific) return streamSpecific.coefficient
+  if (streamSpecific) {
+    return {
+      coefficient: streamSpecific.coefficient,
+      source: "STREAM" as const,
+      matched: true,
+    }
+  }
 
   const levelSpecific = options.coefficients.find((rule) =>
     rule.subjectId === options.subjectId &&
@@ -179,7 +233,108 @@ export function resolveCoefficient(options: {
     rule.streamId == null &&
     rule.classroomId == null
   )
-  return levelSpecific?.coefficient ?? 1
+  if (levelSpecific) {
+    return {
+      coefficient: levelSpecific.coefficient,
+      source: "LEVEL" as const,
+      matched: true,
+    }
+  }
+
+  return {
+    coefficient: 1,
+    source: "DEFAULT" as const,
+    matched: false,
+  }
+}
+
+export function computeClassroomPublicationReadiness(options: {
+  students: StudentIdentity[]
+  assessments: AssessmentRow[]
+  coefficients: CoefficientRule[]
+  classroomId: string
+  levelId: string
+  streamId: string | null
+  rule: ResultRuleConfig
+  subjects: SubjectIdentity[]
+}): ClassroomPublicationReadiness {
+  const readinessByStudent = new Map(options.students.map((student) => [student.id, true]))
+  const missingCoefficientSubjects: ClassroomPublicationReadiness["missingCoefficientSubjects"] = []
+  const incompleteSubjects: ClassroomPublicationReadiness["incompleteSubjects"] = []
+  let readySubjectsCount = 0
+
+  for (const subject of options.subjects) {
+    const subjectAssessments = options.assessments.filter((assessment) => assessment.subjectId === subject.id)
+    const coefficient = resolveCoefficientRule({
+      subjectId: subject.id,
+      classroomId: options.classroomId,
+      levelId: options.levelId,
+      streamId: options.streamId,
+      coefficients: options.coefficients,
+    })
+
+    if (!coefficient.matched) {
+      missingCoefficientSubjects.push({
+        subjectId: subject.id,
+        subjectName: subject.nameAr,
+      })
+    }
+
+    const readyStudents = options.students.reduce((count, student) => {
+      const averages = computeSubjectAverage({
+        assessments: subjectAssessments,
+        studentId: student.id,
+        rule: options.rule,
+      })
+
+      if (averages.finalAverage == null || !coefficient.matched) {
+        readinessByStudent.set(student.id, false)
+        return count
+      }
+
+      return count + 1
+    }, 0)
+
+    const missingAssessmentTypes = [
+      { type: ASSESSMENT_TYPES.TEST, required: options.rule.requireTest },
+      { type: ASSESSMENT_TYPES.EXAM_1, required: options.rule.requireExam1 },
+      { type: ASSESSMENT_TYPES.EXAM_2, required: options.rule.requireExam2 },
+      { type: ASSESSMENT_TYPES.EXAM_3, required: options.rule.requireExam3 },
+    ]
+      .filter((item) => item.required)
+      .filter((item) => !subjectAssessments.some((assessment) => normalizeAssessmentType(assessment.type) === item.type))
+      .map((item) => getAssessmentLabel(item.type))
+
+    if (coefficient.matched && readyStudents === options.students.length && options.students.length > 0) {
+      readySubjectsCount += 1
+    } else {
+      incompleteSubjects.push({
+        subjectId: subject.id,
+        subjectName: subject.nameAr,
+        readyStudents,
+        studentsCount: options.students.length,
+        missingAssessmentTypes,
+      })
+    }
+  }
+
+  const fullyComputedStudents = options.students.filter((student) => readinessByStudent.get(student.id)).length
+  const publishable =
+    options.students.length > 0 &&
+    options.subjects.length > 0 &&
+    missingCoefficientSubjects.length === 0 &&
+    incompleteSubjects.length === 0 &&
+    fullyComputedStudents === options.students.length
+
+  return {
+    publishable,
+    studentsCount: options.students.length,
+    fullyComputedStudents,
+    assignedSubjectsCount: options.subjects.length,
+    readySubjectsCount,
+    missingCoefficientSubjects,
+    incompleteSubjects,
+  }
 }
 
 export function computeClassroomResults(options: {

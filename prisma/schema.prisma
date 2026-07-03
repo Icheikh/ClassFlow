@@ -24,6 +24,14 @@ model School {
   phone               String?
   email               String?
   logo                String?
+  resultReportTitle   String?  @default("كشف نتائج القسم")
+  resultReportSubtitle String?
+  resultReportFooterNote String?
+  resultReportNotesLabel String @default("ملاحظات الإدارة")
+  resultReportSignatureLabel String @default("الختم والتوقيع")
+  resultReportShowRank Boolean @default(true)
+  resultReportShowWeightedScore Boolean @default(true)
+  resultReportShowRuleNotes Boolean @default(true)
   subscriptionStatus  String   @default("TRIAL")
   billingStudentCount Int      @default(0)
   testWeight          Float    @default(0.5)

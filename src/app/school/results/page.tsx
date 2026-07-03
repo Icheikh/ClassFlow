@@ -44,12 +44,37 @@ type ResultRow = {
 
 type ResultsResponse = {
   school: { id: string; name: string | null; address: string | null; phone: string | null }
+  template: {
+    title: string
+    subtitle: string | null
+    footerNote: string | null
+    notesLabel: string
+    signatureLabel: string
+    showRank: boolean
+    showWeightedScore: boolean
+    showRuleNotes: boolean
+  }
   classroom: { id: string; name: string; level: { name: string; stage: { name: string } }; stream: { name: string } | null }
   term: { id: string; name: string }
   resultRule: { id: string; name: string; version: number; notes?: string | null }
   publicationStatus: string
   publication: { id: string; status: string; approvedAt: string | null; lockedAt: string | null } | null
   stats: { students: number; assessments: number; classAverage: number | null }
+  readiness: {
+    publishable: boolean
+    studentsCount: number
+    fullyComputedStudents: number
+    assignedSubjectsCount: number
+    readySubjectsCount: number
+    missingCoefficientSubjects: { subjectId: string; subjectName: string }[]
+    incompleteSubjects: {
+      subjectId: string
+      subjectName: string
+      readyStudents: number
+      studentsCount: number
+      missingAssessmentTypes: string[]
+    }[]
+  }
   subjects: { id: string; nameAr: string }[]
   results: ResultRow[]
 }
@@ -128,6 +153,7 @@ export default function SchoolResultsPage() {
 
   const subjectHeaders = useMemo(() => data?.subjects || [], [data])
   const hasComputedResults = (data?.results || []).some((row) => row.average != null)
+  const canApproveOrLock = data?.readiness.publishable && hasComputedResults
 
   if (loading) {
     return (
@@ -232,7 +258,7 @@ export default function SchoolResultsPage() {
                   {" · "}
                   {data.resultRule.name} (v{data.resultRule.version})
                 </p>
-                {data.resultRule.notes && (
+                {data.template.showRuleNotes && data.resultRule.notes && (
                   <p className="mt-1 text-xs text-gray-400">{data.resultRule.notes}</p>
                 )}
               </div>
@@ -254,18 +280,52 @@ export default function SchoolResultsPage() {
                   variant="secondary"
                   loading={saving}
                   onClick={() => updatePublicationStatus(RESULT_PUBLICATION_STATUSES.APPROVED)}
-                  disabled={data.publicationStatus === RESULT_PUBLICATION_STATUSES.APPROVED}
+                  disabled={data.publicationStatus === RESULT_PUBLICATION_STATUSES.APPROVED || !canApproveOrLock}
                 >
                   <CheckCircle2 className="h-4 w-4" /> اعتماد
                 </Button>
                 <Button
                   loading={saving}
                   onClick={() => updatePublicationStatus(RESULT_PUBLICATION_STATUSES.LOCKED)}
-                  disabled={data.publicationStatus === RESULT_PUBLICATION_STATUSES.LOCKED}
+                  disabled={data.publicationStatus === RESULT_PUBLICATION_STATUSES.LOCKED || !canApproveOrLock || data.publicationStatus !== RESULT_PUBLICATION_STATUSES.APPROVED}
                 >
                   <Lock className="h-4 w-4" /> قفل
                 </Button>
               </div>
+            </div>
+
+            <div className={`mb-4 rounded-xl border px-4 py-3 text-sm ${data.readiness.publishable ? "border-green-200 bg-green-50 text-green-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="font-semibold">
+                    {data.readiness.publishable ? "النتائج مكتملة وقابلة للاعتماد" : "النتائج غير مكتملة بعد"}
+                  </p>
+                  <p className="mt-1">
+                    المواد الجاهزة: {data.readiness.readySubjectsCount} من {data.readiness.assignedSubjectsCount}
+                    {" · "}
+                    التلاميذ المكتملون: {data.readiness.fullyComputedStudents} من {data.readiness.studentsCount}
+                  </p>
+                </div>
+                <Badge variant={data.readiness.publishable ? "success" : "warning"}>
+                  {data.readiness.publishable ? "جاهز للنشر" : "بانتظار الاستكمال"}
+                </Badge>
+              </div>
+
+              {!data.readiness.publishable && (
+                <div className="mt-3 space-y-2">
+                  {data.readiness.missingCoefficientSubjects.length > 0 && (
+                    <p>
+                      مواد بدون ضوارب: {data.readiness.missingCoefficientSubjects.map((item) => item.subjectName).join("، ")}
+                    </p>
+                  )}
+                  {data.readiness.incompleteSubjects.slice(0, 4).map((subject) => (
+                    <p key={subject.subjectId}>
+                      {subject.subjectName}: {subject.readyStudents}/{subject.studentsCount} تلميذ مكتمل
+                      {subject.missingAssessmentTypes.length > 0 ? ` · ينقص: ${subject.missingAssessmentTypes.join("، ")}` : ""}
+                    </p>
+                  ))}
+                </div>
+              )}
             </div>
 
             {!hasComputedResults ? (
@@ -275,19 +335,19 @@ export default function SchoolResultsPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b text-gray-500">
-                      <th className="text-right py-2 px-3">الرتبة</th>
+                      {data.template.showRank && <th className="text-right py-2 px-3">الرتبة</th>}
                       <th className="text-right py-2 px-3">التلميذ</th>
                       {subjectHeaders.map((subject) => (
                         <th key={subject.id} className="text-center py-2 px-3">{subject.nameAr}</th>
                       ))}
-                      <th className="text-center py-2 px-3">المجموع الموزون</th>
+                      {data.template.showWeightedScore && <th className="text-center py-2 px-3">المجموع الموزون</th>}
                       <th className="text-center py-2 px-3">المعدل العام</th>
                     </tr>
                   </thead>
                   <tbody>
                     {data.results.map((row) => (
                       <tr key={row.studentId} className="border-b hover:bg-gray-50">
-                        <td className="py-2 px-3 font-semibold">{row.rank ?? "—"}</td>
+                        {data.template.showRank && <td className="py-2 px-3 font-semibold">{row.rank ?? "—"}</td>}
                         <td className="py-2 px-3">{row.studentName}</td>
                         {subjectHeaders.map((subject) => {
                           const subjectResult = row.subjectResults.find((item) => item.subjectId === subject.id)
@@ -302,7 +362,7 @@ export default function SchoolResultsPage() {
                             </td>
                           )
                         })}
-                        <td className="py-2 px-3 text-center">{row.totalWeightedScore.toFixed(2)}</td>
+                        {data.template.showWeightedScore && <td className="py-2 px-3 text-center">{row.totalWeightedScore.toFixed(2)}</td>}
                         <td className="py-2 px-3 text-center font-semibold text-blue-700">{row.average != null ? row.average.toFixed(2) : "—"}</td>
                       </tr>
                     ))}

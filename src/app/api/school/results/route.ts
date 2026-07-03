@@ -3,7 +3,11 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { hasAnyPermission, hasPermission, PERMISSIONS } from "@/lib/permissions"
-import { computeClassroomResults, RESULT_PUBLICATION_STATUSES } from "@/lib/results"
+import {
+  computeClassroomPublicationReadiness,
+  computeClassroomResults,
+  RESULT_PUBLICATION_STATUSES,
+} from "@/lib/results"
 import { createResultAuditLog, ensurePublishedResultRule, serializeRule } from "@/lib/result-rules"
 
 const reviewRoles = ["SCHOOL_ADMIN", "STAFF", "SUPERVISOR"]
@@ -61,7 +65,24 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "القسم غير موجود" }, { status: 404 })
   }
 
-  const [enrollments, assessments, coefficients, publication, resultRule] = await Promise.all([
+  const [school, enrollments, assessments, coefficients, publication, resultRule] = await Promise.all([
+    prisma.school.findUnique({
+      where: { id: user.schoolId },
+      select: {
+        id: true,
+        name: true,
+        address: true,
+        phone: true,
+        resultReportTitle: true,
+        resultReportSubtitle: true,
+        resultReportFooterNote: true,
+        resultReportNotesLabel: true,
+        resultReportSignatureLabel: true,
+        resultReportShowRank: true,
+        resultReportShowWeightedScore: true,
+        resultReportShowRuleNotes: true,
+      },
+    }),
     prisma.enrollment.findMany({
       where: {
         schoolId: user.schoolId,
@@ -93,7 +114,8 @@ export async function GET(req: NextRequest) {
         academicYearId: context.activeYear.id,
         OR: [
           { classroomId },
-          { levelId: classroom.levelId },
+          { levelId: classroom.levelId, streamId: classroom.streamId, classroomId: null },
+          { levelId: classroom.levelId, streamId: null, classroomId: null },
         ],
       },
       select: {
@@ -116,6 +138,27 @@ export async function GET(req: NextRequest) {
     ensurePublishedResultRule(prisma, user.schoolId),
   ])
 
+  const teacherAssignments = await prisma.teacherAssignment.findMany({
+    where: {
+      schoolId: user.schoolId,
+      academicYearId: context.activeYear.id,
+      classroomId,
+      isActive: true,
+    },
+    select: {
+      subject: {
+        select: {
+          id: true,
+          nameAr: true,
+          code: true,
+        },
+      },
+    },
+  })
+  const assignedSubjects = Array.from(
+    new Map(teacherAssignments.map((assignment) => [assignment.subject.id, assignment.subject])).values()
+  )
+
   const results = computeClassroomResults({
     students: enrollments.map((enrollment) => enrollment.student),
     assessments: assessments.map((assessment) => ({
@@ -131,7 +174,32 @@ export async function GET(req: NextRequest) {
     rule: resultRule,
   })
 
-  const subjectMap = new Map(assessments.map((assessment) => [assessment.subjectId, assessment.subject]))
+  const subjectMap = new Map<string, { id: string; nameAr: string; code: string | null }>()
+  for (const subject of assignedSubjects) {
+    subjectMap.set(subject.id, subject)
+  }
+  for (const assessment of assessments) {
+    subjectMap.set(assessment.subjectId, assessment.subject)
+  }
+
+  const readiness = computeClassroomPublicationReadiness({
+    students: enrollments.map((enrollment) => enrollment.student),
+    assessments: assessments.map((assessment) => ({
+      subjectId: assessment.subjectId,
+      type: assessment.type,
+      maxScore: assessment.maxScore,
+      scores: assessment.scores,
+    })),
+    coefficients,
+    classroomId,
+    levelId: classroom.levelId,
+    streamId: classroom.streamId,
+    rule: resultRule,
+    subjects: Array.from(subjectMap.values()).map((subject) => ({
+      id: subject.id,
+      nameAr: subject.nameAr,
+    })),
+  })
   const computedRows = results.filter((row) => row.average != null)
   const classAverage = computedRows.length
     ? Math.round((computedRows.reduce((sum, row) => sum + (row.average || 0), 0) / computedRows.length) * 100) / 100
@@ -139,10 +207,20 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     school: {
-      id: user.schoolId,
-      name: user.school?.name || null,
-      address: user.school?.address || null,
-      phone: user.school?.phone || null,
+      id: school?.id || user.schoolId,
+      name: school?.name || null,
+      address: school?.address || null,
+      phone: school?.phone || null,
+    },
+    template: {
+      title: school?.resultReportTitle || "كشف نتائج القسم",
+      subtitle: school?.resultReportSubtitle || null,
+      footerNote: school?.resultReportFooterNote || null,
+      notesLabel: school?.resultReportNotesLabel || "ملاحظات الإدارة",
+      signatureLabel: school?.resultReportSignatureLabel || "الختم والتوقيع",
+      showRank: school?.resultReportShowRank !== false,
+      showWeightedScore: school?.resultReportShowWeightedScore !== false,
+      showRuleNotes: school?.resultReportShowRuleNotes !== false,
     },
     classroom: {
       id: classroom.id,
@@ -166,6 +244,7 @@ export async function GET(req: NextRequest) {
       assessments: assessments.length,
       classAverage,
     },
+    readiness,
     subjects: Array.from(subjectMap.values()),
     results: results.map((row) => ({
       ...row,
@@ -201,7 +280,7 @@ export async function PUT(req: NextRequest) {
 
   const classroom = await prisma.classroom.findFirst({
     where: { id: classroomId, schoolId: user.schoolId },
-    select: { id: true },
+    select: { id: true, levelId: true, streamId: true },
   })
   if (!classroom) {
     return NextResponse.json({ error: "القسم غير موجود" }, { status: 404 })
@@ -216,6 +295,92 @@ export async function PUT(req: NextRequest) {
   }
 
   const now = new Date()
+  const [enrollments, assessments, coefficients, teacherAssignments, resultRule] = await Promise.all([
+    prisma.enrollment.findMany({
+      where: {
+        schoolId: user.schoolId,
+        academicYearId: context.activeYear.id,
+        classroomId,
+        status: "ACTIVE",
+      },
+      include: {
+        student: { select: { id: true, firstName: true, lastName: true } },
+      },
+    }),
+    prisma.assessment.findMany({
+      where: {
+        schoolId: user.schoolId,
+        academicYearId: context.activeYear.id,
+        termId: context.term.id,
+        classroomId,
+      },
+      include: {
+        scores: { select: { studentId: true, score: true } },
+      },
+    }),
+    prisma.subjectCoefficient.findMany({
+      where: {
+        schoolId: user.schoolId,
+        academicYearId: context.activeYear.id,
+        OR: [
+          { classroomId },
+          { levelId: classroom.levelId, streamId: classroom.streamId, classroomId: null },
+          { levelId: classroom.levelId, streamId: null, classroomId: null },
+        ],
+      },
+      select: {
+        subjectId: true,
+        levelId: true,
+        streamId: true,
+        classroomId: true,
+        coefficient: true,
+      },
+    }),
+    prisma.teacherAssignment.findMany({
+      where: {
+        schoolId: user.schoolId,
+        academicYearId: context.activeYear.id,
+        classroomId,
+        isActive: true,
+      },
+      select: {
+        subject: {
+          select: {
+            id: true,
+            nameAr: true,
+          },
+        },
+      },
+    }),
+    ensurePublishedResultRule(prisma, user.schoolId),
+  ])
+  const assignedSubjects = Array.from(
+    new Map(teacherAssignments.map((assignment) => [assignment.subject.id, assignment.subject])).values()
+  )
+
+  const readiness = computeClassroomPublicationReadiness({
+    students: enrollments.map((enrollment) => enrollment.student),
+    assessments: assessments.map((assessment) => ({
+      subjectId: assessment.subjectId,
+      type: assessment.type,
+      maxScore: assessment.maxScore,
+      scores: assessment.scores,
+    })),
+    coefficients,
+    classroomId,
+    levelId: classroom.levelId,
+    streamId: classroom.streamId,
+    rule: resultRule,
+    subjects: assignedSubjects,
+  })
+
+  if ((status === RESULT_PUBLICATION_STATUSES.APPROVED || status === RESULT_PUBLICATION_STATUSES.LOCKED) && !readiness.publishable) {
+    return NextResponse.json({
+      error: "لا يمكن اعتماد أو قفل النتائج قبل اكتمال جميع مواد القسم وضواربها",
+      readiness,
+    }, { status: 400 })
+  }
+
   const existingPublication = await prisma.resultPublication.findUnique({
     where: {
       academicYearId_termId_classroomId: {
@@ -225,6 +390,11 @@ export async function PUT(req: NextRequest) {
       },
     },
   })
+
+  if (status === RESULT_PUBLICATION_STATUSES.LOCKED && existingPublication?.status !== RESULT_PUBLICATION_STATUSES.APPROVED) {
+    return NextResponse.json({ error: "يجب اعتماد النتائج أولاً قبل قفلها" }, { status: 400 })
+  }
+
   const publication = await prisma.resultPublication.upsert({
     where: {
       academicYearId_termId_classroomId: {

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { useSession } from "next-auth/react"
 import { useSearchParams } from "next/navigation"
 import { useClasses } from "@/hooks/useClasses"
 import { useStudents } from "@/hooks/useStudents"
@@ -57,6 +58,8 @@ const ASSESSMENT_TYPE_OPTIONS = [
 ]
 
 export function GradeBook() {
+  const { data: session } = useSession()
+  const user = session?.user as any
   const searchParams = useSearchParams()
   const { assignments, getSubjects, loading } = useClasses()
 
@@ -201,6 +204,8 @@ export function GradeBook() {
   const allScores = data?.assessments.flatMap((assessment) => assessment.scores.map((score) => (score.score / assessment.maxScore) * 20)) || []
   const overallAvg = allScores.length ? (allScores.reduce((sum, score) => sum + score, 0) / allScores.length).toFixed(2) : null
   const isLocked = data?.publicationStatus === RESULT_PUBLICATION_STATUSES.LOCKED
+  const canOverrideLockedResults = user?.role === "SCHOOL_ADMIN"
+  const editingDisabled = isLocked && !canOverrideLockedResults
   const readyAverages = data?.subjectProgress.filter((row) => row.ready) || []
   const currentSubjectAverage = readyAverages.length
     ? (readyAverages.reduce((sum, row) => sum + (row.finalAverage || 0), 0) / readyAverages.length).toFixed(2)
@@ -219,7 +224,7 @@ export function GradeBook() {
           )}
         </div>
         {classroomId && subjectId && (
-          <Button onClick={openCreateForm} disabled={isLocked}>
+          <Button onClick={openCreateForm} disabled={editingDisabled}>
             <Plus className="h-5 w-5" /> تقويم جديد
           </Button>
         )}
@@ -272,9 +277,14 @@ export function GradeBook() {
           <Badge variant="default">
             {data.resultRule.name} (v{data.resultRule.version})
           </Badge>
-          {isLocked && (
+          {isLocked && !canOverrideLockedResults && (
             <span className="text-sm text-red-500 flex items-center gap-1">
               <Lock className="h-4 w-4" /> لا يمكن تعديل النقاط بعد القفل
+            </span>
+          )}
+          {isLocked && canOverrideLockedResults && (
+            <span className="text-sm text-amber-600 flex items-center gap-1">
+              <Lock className="h-4 w-4" /> النتائج مقفولة، لكن حساب المدير يمكنه التعديل مع تسجيل العملية في السجل
             </span>
           )}
         </div>
@@ -401,7 +411,7 @@ export function GradeBook() {
                 <Button type="button" variant="secondary" fullWidth onClick={() => { setShowForm(false); resetForm() }}>
                   إلغاء
                 </Button>
-                <Button fullWidth loading={saving} disabled={students.length === 0 || studentsLoading || isLocked}>
+                <Button fullWidth loading={saving} disabled={students.length === 0 || studentsLoading || editingDisabled}>
                   <Save className="h-5 w-5" /> {editingAssessment ? "حفظ التعديل" : "حفظ التقويم"}
                 </Button>
               </div>
@@ -452,7 +462,7 @@ export function GradeBook() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-500">{assessment.scores.length} تلميذ</span>
-                  {!isLocked && (
+                  {!editingDisabled && (
                     <>
                       <button
                         onClick={(e) => {
