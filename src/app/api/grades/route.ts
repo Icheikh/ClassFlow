@@ -9,6 +9,7 @@ import {
   buildTermCalculationNote,
   computeSubjectAverage,
   getTermAssessmentRequirements,
+  isCumulativeResultTerm,
   isAssessmentTypeAllowedForTerm,
   RESULT_PUBLICATION_STATUSES,
 } from "@/lib/results"
@@ -430,7 +431,11 @@ export async function GET(req: NextRequest) {
     where.teacherId = teacherId
   }
 
-  const [assessments, publication, classroom, enrollments, resultRule] = await Promise.all([
+  const progressWhere = isCumulativeResultTerm(context.activeTerm.order)
+    ? { ...where, termId: undefined }
+    : where
+
+  const [assessments, progressAssessments, publication, classroom, enrollments, resultRule] = await Promise.all([
     prisma.assessment.findMany({
       where,
       include: {
@@ -446,6 +451,20 @@ export async function GET(req: NextRequest) {
       },
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
     }),
+    classroomId && subjectId
+      ? prisma.assessment.findMany({
+          where: progressWhere,
+          include: {
+            scores: {
+              select: {
+                studentId: true,
+                score: true,
+              },
+            },
+          },
+          orderBy: [{ date: "asc" }, { createdAt: "asc" }],
+        })
+      : Promise.resolve([]),
     classroomId
       ? getResultPublication({
           schoolId: user.schoolId,
@@ -479,7 +498,7 @@ export async function GET(req: NextRequest) {
     ensurePublishedResultRule(prisma, user.schoolId),
   ])
 
-  const normalizedAssessments = assessments.map((assessment) => ({
+  const normalizedAssessments = progressAssessments.map((assessment) => ({
     subjectId: assessment.subjectId,
     type: assessment.type,
     maxScore: assessment.maxScore,

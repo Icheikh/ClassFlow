@@ -65,11 +65,15 @@ type RuleForm = {
   term2Denominator: string
   term2RequireTest: boolean
   term2RequireExam: boolean
-  term3TestWeight: string
-  term3ExamWeight: string
-  term3Denominator: string
-  term3RequireTest: boolean
-  term3RequireExam: boolean
+  testWeight: string
+  exam1Weight: string
+  exam2Weight: string
+  exam3Weight: string
+  denominator: string
+  requireTest: boolean
+  requireExam1: boolean
+  requireExam2: boolean
+  requireExam3: boolean
   notes: string
 }
 
@@ -86,11 +90,15 @@ function ruleToForm(rule: ResultRule): RuleForm {
     term2Denominator: String(rule.term2Denominator),
     term2RequireTest: rule.term2RequireTest,
     term2RequireExam: rule.term2RequireExam,
-    term3TestWeight: String(rule.term3TestWeight),
-    term3ExamWeight: String(rule.term3ExamWeight),
-    term3Denominator: String(rule.term3Denominator),
-    term3RequireTest: rule.term3RequireTest,
-    term3RequireExam: rule.term3RequireExam,
+    testWeight: String(rule.testWeight),
+    exam1Weight: String(rule.exam1Weight),
+    exam2Weight: String(rule.exam2Weight),
+    exam3Weight: String(rule.exam3Weight),
+    denominator: String(rule.denominator),
+    requireTest: rule.requireTest,
+    requireExam1: rule.requireExam1,
+    requireExam2: rule.requireExam2,
+    requireExam3: rule.requireExam3,
     notes: rule.notes || "",
   }
 }
@@ -108,21 +116,56 @@ function buildRulePayload(form: RuleForm) {
     term2Denominator: form.term2Denominator,
     term2RequireTest: form.term2RequireTest,
     term2RequireExam: form.term2RequireExam,
-    term3TestWeight: form.term3TestWeight,
-    term3ExamWeight: form.term3ExamWeight,
-    term3Denominator: form.term3Denominator,
-    term3RequireTest: form.term3RequireTest,
-    term3RequireExam: form.term3RequireExam,
-    testWeight: form.term1TestWeight,
-    exam1Weight: form.term1ExamWeight,
-    exam2Weight: form.term2ExamWeight,
-    exam3Weight: form.term3ExamWeight,
-    denominator: form.term1Denominator,
-    requireTest: form.term1RequireTest,
-    requireExam1: form.term1RequireExam,
-    requireExam2: form.term2RequireExam,
-    requireExam3: form.term3RequireExam,
+    term3TestWeight: form.testWeight,
+    term3ExamWeight: form.exam3Weight,
+    term3Denominator: form.denominator,
+    term3RequireTest: form.requireTest,
+    term3RequireExam: form.requireExam3,
+    testWeight: form.testWeight,
+    exam1Weight: form.exam1Weight,
+    exam2Weight: form.exam2Weight,
+    exam3Weight: form.exam3Weight,
+    denominator: form.denominator,
+    requireTest: form.requireTest,
+    requireExam1: form.requireExam1,
+    requireExam2: form.requireExam2,
+    requireExam3: form.requireExam3,
     notes: form.notes,
+  }
+}
+
+function buildPreviewRule(form: RuleForm): ResultRule {
+  return {
+    id: "",
+    name: form.name,
+    term1TestWeight: Number(form.term1TestWeight),
+    term1ExamWeight: Number(form.term1ExamWeight),
+    term1Denominator: Number(form.term1Denominator),
+    term1RequireTest: form.term1RequireTest,
+    term1RequireExam: form.term1RequireExam,
+    term2TestWeight: Number(form.term2TestWeight),
+    term2ExamWeight: Number(form.term2ExamWeight),
+    term2Denominator: Number(form.term2Denominator),
+    term2RequireTest: form.term2RequireTest,
+    term2RequireExam: form.term2RequireExam,
+    term3TestWeight: Number(form.testWeight),
+    term3ExamWeight: Number(form.exam3Weight),
+    term3Denominator: Number(form.denominator),
+    term3RequireTest: form.requireTest,
+    term3RequireExam: form.requireExam3,
+    testWeight: Number(form.testWeight),
+    exam1Weight: Number(form.exam1Weight),
+    exam2Weight: Number(form.exam2Weight),
+    exam3Weight: Number(form.exam3Weight),
+    denominator: Number(form.denominator),
+    requireTest: form.requireTest,
+    requireExam1: form.requireExam1,
+    requireExam2: form.requireExam2,
+    requireExam3: form.requireExam3,
+    status: "DRAFT",
+    version: 0,
+    notes: form.notes,
+    publishedAt: null,
   }
 }
 
@@ -143,11 +186,15 @@ export default function SchoolResultRulesPage() {
     term2Denominator: "5",
     term2RequireTest: true,
     term2RequireExam: true,
-    term3TestWeight: "3",
-    term3ExamWeight: "3",
-    term3Denominator: "6",
-    term3RequireTest: true,
-    term3RequireExam: true,
+    testWeight: "3",
+    exam1Weight: "1",
+    exam2Weight: "2",
+    exam3Weight: "3",
+    denominator: "9",
+    requireTest: true,
+    requireExam1: true,
+    requireExam2: true,
+    requireExam3: true,
     notes: "",
   })
 
@@ -209,91 +256,17 @@ export default function SchoolResultRulesPage() {
     )
   }
 
-  const previewTerm1 = buildTermCalculationNote({
-    term1TestWeight: Number(form.term1TestWeight),
-    term1ExamWeight: Number(form.term1ExamWeight),
-    term1Denominator: Number(form.term1Denominator),
-    term1RequireTest: form.term1RequireTest,
-    term1RequireExam: form.term1RequireExam,
-    term2TestWeight: Number(form.term2TestWeight),
-    term2ExamWeight: Number(form.term2ExamWeight),
-    term2Denominator: Number(form.term2Denominator),
-    term2RequireTest: form.term2RequireTest,
-    term2RequireExam: form.term2RequireExam,
-    term3TestWeight: Number(form.term3TestWeight),
-    term3ExamWeight: Number(form.term3ExamWeight),
-    term3Denominator: Number(form.term3Denominator),
-    term3RequireTest: form.term3RequireTest,
-    term3RequireExam: form.term3RequireExam,
-    testWeight: Number(form.term1TestWeight),
-    exam1Weight: Number(form.term1ExamWeight),
-    exam2Weight: Number(form.term2ExamWeight),
-    exam3Weight: Number(form.term3ExamWeight),
-    denominator: Number(form.term1Denominator),
-    requireTest: form.term1RequireTest,
-    requireExam1: form.term1RequireExam,
-    requireExam2: form.term2RequireExam,
-    requireExam3: form.term3RequireExam,
-  }, 1)
-  const previewTerm2 = buildTermCalculationNote({
-    term1TestWeight: Number(form.term1TestWeight),
-    term1ExamWeight: Number(form.term1ExamWeight),
-    term1Denominator: Number(form.term1Denominator),
-    term1RequireTest: form.term1RequireTest,
-    term1RequireExam: form.term1RequireExam,
-    term2TestWeight: Number(form.term2TestWeight),
-    term2ExamWeight: Number(form.term2ExamWeight),
-    term2Denominator: Number(form.term2Denominator),
-    term2RequireTest: form.term2RequireTest,
-    term2RequireExam: form.term2RequireExam,
-    term3TestWeight: Number(form.term3TestWeight),
-    term3ExamWeight: Number(form.term3ExamWeight),
-    term3Denominator: Number(form.term3Denominator),
-    term3RequireTest: form.term3RequireTest,
-    term3RequireExam: form.term3RequireExam,
-    testWeight: Number(form.term1TestWeight),
-    exam1Weight: Number(form.term1ExamWeight),
-    exam2Weight: Number(form.term2ExamWeight),
-    exam3Weight: Number(form.term3ExamWeight),
-    denominator: Number(form.term1Denominator),
-    requireTest: form.term1RequireTest,
-    requireExam1: form.term1RequireExam,
-    requireExam2: form.term2RequireExam,
-    requireExam3: form.term3RequireExam,
-  }, 2)
-  const previewTerm3 = buildTermCalculationNote({
-    term1TestWeight: Number(form.term1TestWeight),
-    term1ExamWeight: Number(form.term1ExamWeight),
-    term1Denominator: Number(form.term1Denominator),
-    term1RequireTest: form.term1RequireTest,
-    term1RequireExam: form.term1RequireExam,
-    term2TestWeight: Number(form.term2TestWeight),
-    term2ExamWeight: Number(form.term2ExamWeight),
-    term2Denominator: Number(form.term2Denominator),
-    term2RequireTest: form.term2RequireTest,
-    term2RequireExam: form.term2RequireExam,
-    term3TestWeight: Number(form.term3TestWeight),
-    term3ExamWeight: Number(form.term3ExamWeight),
-    term3Denominator: Number(form.term3Denominator),
-    term3RequireTest: form.term3RequireTest,
-    term3RequireExam: form.term3RequireExam,
-    testWeight: Number(form.term1TestWeight),
-    exam1Weight: Number(form.term1ExamWeight),
-    exam2Weight: Number(form.term2ExamWeight),
-    exam3Weight: Number(form.term3ExamWeight),
-    denominator: Number(form.term1Denominator),
-    requireTest: form.term1RequireTest,
-    requireExam1: form.term1RequireExam,
-    requireExam2: form.term2RequireExam,
-    requireExam3: form.term3RequireExam,
-  }, 3)
+  const previewRule = buildPreviewRule(form)
+  const previewTerm1 = buildTermCalculationNote(previewRule, 1)
+  const previewTerm2 = buildTermCalculationNote(previewRule, 2)
+  const previewTerm3 = buildTermCalculationNote(previewRule, 3)
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">قواعد النتائج</h1>
-          <p className="text-sm text-gray-500">المدير يضبط أوزان الاختبارات وامتحانات الفصول، ثم ينشر القاعدة بعد المعاينة</p>
+          <p className="text-sm text-gray-500">المدير يضبط أوزان الفصلين الأول والثاني، ثم يحدد صيغة النتيجة النهائية للفصل الثالث وينشر القاعدة بعد المعاينة</p>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="success">المنشورة: الإصدار {data.publishedRule.version}</Badge>
@@ -346,19 +319,32 @@ export default function SchoolResultRulesPage() {
               </div>
 
               <div className="rounded-xl border border-gray-200 p-4">
-                <h3 className="font-semibold mb-3">الفصل الثالث</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Input label="وزن الاختبارات" type="number" step="0.1" min="0" value={form.term3TestWeight} onChange={(e) => setForm({ ...form, term3TestWeight: e.target.value })} />
-                  <Input label="وزن الامتحان الأخير" type="number" step="0.1" min="0" value={form.term3ExamWeight} onChange={(e) => setForm({ ...form, term3ExamWeight: e.target.value })} />
-                  <Input label="المقام" type="number" step="0.1" min="0.1" value={form.term3Denominator} onChange={(e) => setForm({ ...form, term3Denominator: e.target.value })} />
+                <h3 className="font-semibold mb-3">الفصل الثالث / النتيجة النهائية</h3>
+                <p className="text-sm text-gray-500 mb-3">
+                  في هذا الفصل تُدخل اختبارات الفصل الثالث والامتحان الأخير، لكن حساب النتيجة النهائية يمكن أن يجمع أيضاً الامتحان الأول والثاني حسب القاعدة أدناه.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                  <Input label="وزن الاختبارات" type="number" step="0.1" min="0" value={form.testWeight} onChange={(e) => setForm({ ...form, testWeight: e.target.value })} />
+                  <Input label="وزن الامتحان الأول" type="number" step="0.1" min="0" value={form.exam1Weight} onChange={(e) => setForm({ ...form, exam1Weight: e.target.value })} />
+                  <Input label="وزن الامتحان الثاني" type="number" step="0.1" min="0" value={form.exam2Weight} onChange={(e) => setForm({ ...form, exam2Weight: e.target.value })} />
+                  <Input label="وزن الامتحان الأخير" type="number" step="0.1" min="0" value={form.exam3Weight} onChange={(e) => setForm({ ...form, exam3Weight: e.target.value })} />
+                  <Input label="المقام" type="number" step="0.1" min="0.1" value={form.denominator} onChange={(e) => setForm({ ...form, denominator: e.target.value })} />
                 </div>
                 <div className="mt-3 flex flex-wrap gap-4 text-sm">
                   <label className="flex items-center gap-2">
-                    <input type="checkbox" checked={form.term3RequireTest} onChange={(e) => setForm({ ...form, term3RequireTest: e.target.checked })} />
+                    <input type="checkbox" checked={form.requireTest} onChange={(e) => setForm({ ...form, requireTest: e.target.checked })} />
                     الاختبارات إجبارية
                   </label>
                   <label className="flex items-center gap-2">
-                    <input type="checkbox" checked={form.term3RequireExam} onChange={(e) => setForm({ ...form, term3RequireExam: e.target.checked })} />
+                    <input type="checkbox" checked={form.requireExam1} onChange={(e) => setForm({ ...form, requireExam1: e.target.checked })} />
+                    الامتحان الأول إجباري
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={form.requireExam2} onChange={(e) => setForm({ ...form, requireExam2: e.target.checked })} />
+                    الامتحان الثاني إجباري
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={form.requireExam3} onChange={(e) => setForm({ ...form, requireExam3: e.target.checked })} />
                     الامتحان الأخير إجباري
                   </label>
                 </div>

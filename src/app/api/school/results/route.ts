@@ -8,6 +8,7 @@ import {
   buildTermCalculationNote,
   computeClassroomPublicationReadiness,
   computeClassroomResults,
+  isCumulativeResultTerm,
   RESULT_PUBLICATION_STATUSES,
 } from "@/lib/results"
 import { createResultAuditLog, ensurePublishedResultRule, serializeRule } from "@/lib/result-rules"
@@ -67,6 +68,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "القسم غير موجود" }, { status: 404 })
   }
 
+  const calculationAssessmentWhere = {
+    schoolId: user.schoolId,
+    academicYearId: context.activeYear.id,
+    classroomId,
+    ...(isCumulativeResultTerm(context.term.order) ? {} : { termId: context.term.id }),
+  }
+
   const [school, enrollments, assessments, coefficients, publication, resultRule] = await Promise.all([
     prisma.school.findUnique({
       where: { id: user.schoolId },
@@ -98,12 +106,7 @@ export async function GET(req: NextRequest) {
       orderBy: [{ student: { firstName: "asc" } }, { student: { lastName: "asc" } }],
     }),
     prisma.assessment.findMany({
-      where: {
-        schoolId: user.schoolId,
-        academicYearId: context.activeYear.id,
-        termId: context.term.id,
-        classroomId,
-      },
+      where: calculationAssessmentWhere,
       include: {
         subject: { select: { id: true, nameAr: true, code: true } },
         scores: { select: { studentId: true, score: true } },
@@ -292,6 +295,13 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "القسم غير موجود" }, { status: 404 })
   }
 
+  const calculationAssessmentWhere = {
+    schoolId: user.schoolId,
+    academicYearId: context.activeYear.id,
+    classroomId,
+    ...(isCumulativeResultTerm(context.term.order) ? {} : { termId: context.term.id }),
+  }
+
   if (status === RESULT_PUBLICATION_STATUSES.LOCKED && !hasPermission(user, PERMISSIONS.LOCK_GRADES) && user.role !== "SCHOOL_ADMIN") {
     return NextResponse.json({ error: "ليس لديك صلاحية قفل النتائج" }, { status: 403 })
   }
@@ -314,12 +324,7 @@ export async function PUT(req: NextRequest) {
       },
     }),
     prisma.assessment.findMany({
-      where: {
-        schoolId: user.schoolId,
-        academicYearId: context.activeYear.id,
-        termId: context.term.id,
-        classroomId,
-      },
+      where: calculationAssessmentWhere,
       include: {
         scores: { select: { studentId: true, score: true } },
       },

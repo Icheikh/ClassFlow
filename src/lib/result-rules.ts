@@ -32,7 +32,7 @@ export const DEFAULT_RESULT_RULE = {
   requireExam1: true,
   requireExam2: true,
   requireExam3: true,
-  notes: "في كل فصل: اختبار واحد على الأقل ويمكن إضافة أكثر من اختبار. يحسب معدل الفصل باستعمال معدل الاختبارات وامتحان ذلك الفصل فقط.",
+  notes: "في الفصلين الأول والثاني يحسب معدل المادة باستعمال معدل اختبارات الفصل وامتحانه. وفي الفصل الثالث تحسب النتيجة النهائية باستعمال معدل جميع الاختبارات مع الامتحان الأول والثاني والأخير.",
 } as const
 
 type ResultRuleInput = {
@@ -86,8 +86,8 @@ export function validateResultRuleInput(rule: ResultRuleInput) {
   if (numericFields.some((value) => !Number.isFinite(value) || value < 0)) {
     return "جميع الأوزان يجب أن تكون أرقاماً صالحة"
   }
-  if ([rule.term1Denominator, rule.term2Denominator, rule.term3Denominator].some((value) => value <= 0)) {
-    return "مقام كل فصل يجب أن يكون أكبر من صفر"
+  if ([rule.term1Denominator, rule.term2Denominator, rule.term3Denominator, rule.denominator].some((value) => value <= 0)) {
+    return "كل مقام يجب أن يكون أكبر من صفر"
   }
 
   const termRules = [
@@ -122,6 +122,16 @@ export function validateResultRuleInput(rule: ResultRuleInput) {
     if (requiredWeight <= 0) {
       return `${termRule.name} يجب أن يحتوي على عنصر حساب واحد على الأقل`
     }
+  }
+
+  const finalRequiredWeight =
+    (rule.requireTest ? rule.testWeight : 0) +
+    (rule.requireExam1 ? rule.exam1Weight : 0) +
+    (rule.requireExam2 ? rule.exam2Weight : 0) +
+    (rule.requireExam3 ? rule.exam3Weight : 0)
+
+  if (finalRequiredWeight <= 0) {
+    return "النتيجة النهائية يجب أن تحتوي على عنصر حساب واحد على الأقل"
   }
 
   return null
