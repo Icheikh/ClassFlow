@@ -75,6 +75,14 @@ export type ClassroomPublicationReadiness = {
   }[]
 }
 
+export type TermAssessmentRequirement = {
+  type: AssessmentType | string
+  label: string
+  required: boolean
+  weight: number
+  minimumCount: number
+}
+
 export type StudentResultSummary = {
   studentId: string
   studentName: string
@@ -136,19 +144,137 @@ function getAssessmentLabel(type: AssessmentType | string) {
   if (type === ASSESSMENT_TYPES.TEST) return "الاختبارات"
   if (type === ASSESSMENT_TYPES.EXAM_1) return "الامتحان الأول"
   if (type === ASSESSMENT_TYPES.EXAM_2) return "الامتحان الثاني"
-  if (type === ASSESSMENT_TYPES.EXAM_3) return "الامتحان الثالث"
+  if (type === ASSESSMENT_TYPES.EXAM_3) return "الامتحان الأخير"
   return type
+}
+
+export function getTermExamType(termOrder?: number | null) {
+  if (termOrder === 1) return ASSESSMENT_TYPES.EXAM_1
+  if (termOrder === 2) return ASSESSMENT_TYPES.EXAM_2
+  return ASSESSMENT_TYPES.EXAM_3
+}
+
+export function getTermAssessmentRequirements(rule: ResultRuleConfig, termOrder?: number | null): TermAssessmentRequirement[] {
+  const examType = getTermExamType(termOrder)
+  const examWeight =
+    examType === ASSESSMENT_TYPES.EXAM_1
+      ? rule.exam1Weight
+      : examType === ASSESSMENT_TYPES.EXAM_2
+        ? rule.exam2Weight
+        : rule.exam3Weight
+  const examRequired =
+    examType === ASSESSMENT_TYPES.EXAM_1
+      ? rule.requireExam1
+      : examType === ASSESSMENT_TYPES.EXAM_2
+        ? rule.requireExam2
+        : rule.requireExam3
+
+  return [
+    {
+      type: ASSESSMENT_TYPES.TEST,
+      label: getAssessmentLabel(ASSESSMENT_TYPES.TEST),
+      required: rule.requireTest,
+      weight: rule.testWeight,
+      minimumCount: rule.requireTest ? 1 : 0,
+    },
+    {
+      type: examType,
+      label: getAssessmentLabel(examType),
+      required: examRequired,
+      weight: examWeight,
+      minimumCount: examRequired ? 1 : 0,
+    },
+  ]
+}
+
+export function isAssessmentTypeAllowedForTerm(type: string, termOrder?: number | null) {
+  const normalizedType = normalizeAssessmentType(type)
+  const allowedTypes = new Set(getTermAssessmentRequirements({
+    testWeight: 3,
+    exam1Weight: 1,
+    exam2Weight: 2,
+    exam3Weight: 3,
+    denominator: 9,
+    requireTest: true,
+    requireExam1: true,
+    requireExam2: true,
+    requireExam3: true,
+  }, termOrder).map((item) => item.type))
+
+  return allowedTypes.has(normalizedType)
+}
+
+export function buildTermCalculationNote(rule: ResultRuleConfig, termOrder?: number | null) {
+  const requirements = getTermAssessmentRequirements(rule, termOrder)
+  const numerator = requirements
+    .filter((item) => item.weight > 0)
+    .map((item) => `${item.label} × ${item.weight}`)
+    .join(" + ")
+  const denominator = requirements.reduce((sum, item) => sum + item.weight, 0)
+  return `في هذا الفصل: (${numerator}) ÷ ${denominator}`
+}
+
+export function buildTermAssessmentPolicyNote(rule: ResultRuleConfig, termOrder?: number | null) {
+  const currentExam = getTermAssessmentRequirements(rule, termOrder).find((item) => item.type !== ASSESSMENT_TYPES.TEST)
+  return `في كل فصل يجب تسجيل اختبار واحد على الأقل ويمكن إضافة أكثر من اختبار، ثم ${currentExam?.label || "امتحان الفصل"} لهذا الفصل.`
 }
 
 export function computeSubjectAverage(options: {
   assessments: AssessmentRow[]
   studentId: string
   rule: ResultRuleConfig
+  termOrder?: number | null
 }) {
   const testAverage = computeAssessmentAverage(options.assessments, options.studentId, ASSESSMENT_TYPES.TEST)
   const exam1Average = computeAssessmentAverage(options.assessments, options.studentId, ASSESSMENT_TYPES.EXAM_1)
   const exam2Average = computeAssessmentAverage(options.assessments, options.studentId, ASSESSMENT_TYPES.EXAM_2)
   const exam3Average = computeAssessmentAverage(options.assessments, options.studentId, ASSESSMENT_TYPES.EXAM_3)
+
+  if (options.termOrder != null) {
+    const termRequirements = getTermAssessmentRequirements(options.rule, options.termOrder)
+    const termExamType = getTermExamType(options.termOrder)
+    const termExamAverage =
+      termExamType === ASSESSMENT_TYPES.EXAM_1
+        ? exam1Average
+        : termExamType === ASSESSMENT_TYPES.EXAM_2
+          ? exam2Average
+          : exam3Average
+
+    const hasMissingRequired = termRequirements.some((item) => {
+      if (!item.required) return false
+      if (item.type === ASSESSMENT_TYPES.TEST) return testAverage == null
+      return termExamAverage == null
+    })
+
+    if (hasMissingRequired) {
+      return {
+        testAverage,
+        exam1Average,
+        exam2Average,
+        exam3Average,
+        finalAverage: null,
+      }
+    }
+
+    const denominator = termRequirements.reduce((sum, item) => {
+      if (item.type === ASSESSMENT_TYPES.TEST) {
+        return testAverage != null ? sum + item.weight : sum
+      }
+      return termExamAverage != null ? sum + item.weight : sum
+    }, 0)
+
+    const weightedSum =
+      ((testAverage ?? 0) * options.rule.testWeight) +
+      ((termExamAverage ?? 0) * (termRequirements.find((item) => item.type === termExamType)?.weight || 0))
+
+    return {
+      testAverage,
+      exam1Average,
+      exam2Average,
+      exam3Average,
+      finalAverage: denominator > 0 ? roundScore(weightedSum / denominator) : null,
+    }
+  }
 
   if (
     (options.rule.requireTest && testAverage == null) ||
@@ -257,6 +383,7 @@ export function computeClassroomPublicationReadiness(options: {
   streamId: string | null
   rule: ResultRuleConfig
   subjects: SubjectIdentity[]
+  termOrder?: number | null
 }): ClassroomPublicationReadiness {
   const readinessByStudent = new Map(options.students.map((student) => [student.id, true]))
   const missingCoefficientSubjects: ClassroomPublicationReadiness["missingCoefficientSubjects"] = []
@@ -285,6 +412,7 @@ export function computeClassroomPublicationReadiness(options: {
         assessments: subjectAssessments,
         studentId: student.id,
         rule: options.rule,
+        termOrder: options.termOrder,
       })
 
       if (averages.finalAverage == null || !coefficient.matched) {
@@ -295,15 +423,10 @@ export function computeClassroomPublicationReadiness(options: {
       return count + 1
     }, 0)
 
-    const missingAssessmentTypes = [
-      { type: ASSESSMENT_TYPES.TEST, required: options.rule.requireTest },
-      { type: ASSESSMENT_TYPES.EXAM_1, required: options.rule.requireExam1 },
-      { type: ASSESSMENT_TYPES.EXAM_2, required: options.rule.requireExam2 },
-      { type: ASSESSMENT_TYPES.EXAM_3, required: options.rule.requireExam3 },
-    ]
+    const missingAssessmentTypes = getTermAssessmentRequirements(options.rule, options.termOrder)
       .filter((item) => item.required)
       .filter((item) => !subjectAssessments.some((assessment) => normalizeAssessmentType(assessment.type) === item.type))
-      .map((item) => getAssessmentLabel(item.type))
+      .map((item) => item.label)
 
     if (coefficient.matched && readyStudents === options.students.length && options.students.length > 0) {
       readySubjectsCount += 1
@@ -345,6 +468,7 @@ export function computeClassroomResults(options: {
   levelId: string
   streamId: string | null
   rule: ResultRuleConfig
+  termOrder?: number | null
 }) {
   const subjectIds = [...new Set(options.assessments.map((assessment) => assessment.subjectId))]
 
@@ -355,6 +479,7 @@ export function computeClassroomResults(options: {
         assessments: subjectAssessments,
         studentId: student.id,
         rule: options.rule,
+        termOrder: options.termOrder,
       })
 
       const coefficient = resolveCoefficient({

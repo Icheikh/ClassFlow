@@ -21,6 +21,7 @@ import {
 import toast from "react-hot-toast"
 import { api } from "@/lib/api"
 import { Badge, Button, Card, Input, LoadingPage, Modal } from "@/components/ui"
+import { getTermAssessmentRequirements } from "@/lib/results"
 
 type ClassroomResponse = {
   classroom: {
@@ -53,7 +54,7 @@ type ClassroomResponse = {
     subject: { nameAr: string }
     teacher: { user: { name: string | null } }
   }[]
-  activeTerm: { id: string; name: string } | null
+  activeTerm: { id: string; name: string; order: number } | null
   resultPublication: {
     id: string
     status: string
@@ -110,13 +111,6 @@ type AssessmentForm = {
   scores: Record<string, string>
 }
 
-const ASSESSMENT_TYPE_OPTIONS = [
-  { value: "TEST", label: "الاختبارات" },
-  { value: "EXAM_1", label: "الامتحان الأول" },
-  { value: "EXAM_2", label: "الامتحان الثاني" },
-  { value: "EXAM_3", label: "الامتحان الثالث" },
-]
-
 function formatDate(value: string | null | undefined) {
   if (!value) return "غير محدد"
   return new Intl.DateTimeFormat("ar", {
@@ -127,7 +121,11 @@ function formatDate(value: string | null | undefined) {
 }
 
 function getAssessmentTypeLabel(type: string) {
-  return ASSESSMENT_TYPE_OPTIONS.find((option) => option.value === type)?.label || type
+  if (type === "TEST") return "الاختبارات"
+  if (type === "EXAM_1") return "الامتحان الأول"
+  if (type === "EXAM_2") return "الامتحان الثاني"
+  if (type === "EXAM_3") return "الامتحان الأخير"
+  return type
 }
 
 function getPublicationStatus(status?: string | null) {
@@ -196,6 +194,26 @@ export default function ClassroomDetailsPage() {
       return items
     }, [])
   }, [data])
+  const assessmentTypeOptions = useMemo(() => {
+    if (!data?.activeTerm) {
+      return [{ value: "TEST", label: "الاختبارات" }]
+    }
+
+    return getTermAssessmentRequirements({
+      testWeight: 3,
+      exam1Weight: 1,
+      exam2Weight: 2,
+      exam3Weight: 3,
+      denominator: 9,
+      requireTest: true,
+      requireExam1: true,
+      requireExam2: true,
+      requireExam3: true,
+    }, data.activeTerm.order).map((item) => ({
+      value: item.type,
+      label: item.label,
+    }))
+  }, [data?.activeTerm])
 
   function buildEmptyScores() {
     const scores: Record<string, string> = {}
@@ -356,7 +374,7 @@ export default function ClassroomDetailsPage() {
               <GraduationCap className="h-4 w-4" /> النتائج
             </Button>
           </Link>
-          <Button onClick={openCreateAssessment} disabled={subjectOptions.length === 0}>
+          <Button onClick={openCreateAssessment} disabled={subjectOptions.length === 0 || !data.activeTerm}>
             <Plus className="h-4 w-4" /> إضافة اختبار أو امتحان
           </Button>
         </div>
@@ -513,14 +531,14 @@ export default function ClassroomDetailsPage() {
           <div>
             <h2 className="text-xl font-semibold">الاختبارات والامتحانات</h2>
             <p className="text-sm text-gray-500">
-              مدير المدرسة يرى جميع التقويمات ويمكنه تعديلها أو حذفها مع تسجيل ذلك في السجل.
+              مدير المدرسة يرى جميع التقويمات ويمكنه تعديلها أو حذفها مع تسجيل ذلك في السجل. في كل فصل يوجد اختبار واحد على الأقل ويمكن إضافة أكثر من اختبار، مع امتحان ذلك الفصل فقط.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant={publicationStatus.variant}>
               حالة النتائج: {publicationStatus.label}
             </Badge>
-            <Button onClick={openCreateAssessment} disabled={subjectOptions.length === 0}>
+            <Button onClick={openCreateAssessment} disabled={subjectOptions.length === 0 || !data.activeTerm}>
               <Plus className="h-4 w-4" /> إضافة تقويم
             </Button>
           </div>
@@ -680,7 +698,7 @@ export default function ClassroomDetailsPage() {
                 onChange={(event) => setAssessmentForm((current) => ({ ...current, assessmentType: event.target.value }))}
                 className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                {ASSESSMENT_TYPE_OPTIONS.map((option) => (
+                {assessmentTypeOptions.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
@@ -709,7 +727,7 @@ export default function ClassroomDetailsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-semibold">نقاط التلاميذ</h3>
-                <p className="text-sm text-gray-500">كل النقاط تحتسب على 20 بعد التطبيع داخل النظام.</p>
+                <p className="text-sm text-gray-500">كل النقاط تحتسب على 20 بعد التطبيع داخل النظام. في هذا الفصل يجب تسجيل اختبار واحد على الأقل ويمكن إضافة أكثر من اختبار.</p>
               </div>
               <Badge variant="info">
                 التلاميذ: {data.enrollments.length}

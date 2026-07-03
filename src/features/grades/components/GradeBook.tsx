@@ -26,6 +26,7 @@ type AssessmentRequirement = {
   label: string
   required: boolean
   weight: number
+  minimumCount: number
   count: number
   ready: boolean
 }
@@ -42,20 +43,17 @@ type SubjectProgressRow = {
 }
 
 type GradeData = {
-  term: { id: string; name: string }
+  term: { id: string; name: string; order: number }
+  currentExamType: string | null
+  currentExamLabel: string | null
+  termCalculationNote: string
+  termPolicyNote: string
   resultRule: { id: string; name: string; version: number }
   publicationStatus: string
   requiredAssessments: AssessmentRequirement[]
   subjectProgress: SubjectProgressRow[]
   assessments: Assessment[]
 }
-
-const ASSESSMENT_TYPE_OPTIONS = [
-  { value: ASSESSMENT_TYPES.TEST, label: "اختبارات" },
-  { value: ASSESSMENT_TYPES.EXAM_1, label: "الامتحان الأول" },
-  { value: ASSESSMENT_TYPES.EXAM_2, label: "الامتحان الثاني" },
-  { value: ASSESSMENT_TYPES.EXAM_3, label: "الامتحان الثالث" },
-]
 
 export function GradeBook() {
   const { data: session } = useSession()
@@ -82,6 +80,14 @@ export function GradeBook() {
   const [saving, setSaving] = useState(false)
 
   const subjects = getSubjects(classroomId)
+  const assessmentTypeOptions = data
+    ? [
+        { value: ASSESSMENT_TYPES.TEST, label: "الاختبارات" },
+        ...(data.currentExamType && data.currentExamLabel
+          ? [{ value: data.currentExamType, label: data.currentExamLabel }]
+          : []),
+      ]
+    : [{ value: ASSESSMENT_TYPES.TEST, label: "الاختبارات" }]
 
   const classroomOptions = useMemo(
     () => [...new Map(assignments.map((assignment) => [assignment.classroom.id, assignment.classroom])).values()],
@@ -211,6 +217,7 @@ export function GradeBook() {
     ? (readyAverages.reduce((sum, row) => sum + (row.finalAverage || 0), 0) / readyAverages.length).toFixed(2)
     : null
   const missingRequirements = data?.requiredAssessments.filter((item) => item.required && !item.ready).length || 0
+  const currentExamLabel = data?.currentExamLabel || "امتحان الفصل"
 
   return (
     <div>
@@ -224,7 +231,7 @@ export function GradeBook() {
           )}
         </div>
         {classroomId && subjectId && (
-          <Button onClick={openCreateForm} disabled={editingDisabled}>
+          <Button onClick={openCreateForm} disabled={editingDisabled || !data}>
             <Plus className="h-5 w-5" /> تقويم جديد
           </Button>
         )}
@@ -274,9 +281,9 @@ export function GradeBook() {
           <Badge variant={isLocked ? "danger" : data.publicationStatus === RESULT_PUBLICATION_STATUSES.APPROVED ? "success" : "info"}>
             {isLocked ? "النتائج مقفولة" : data.publicationStatus === RESULT_PUBLICATION_STATUSES.APPROVED ? "النتائج معتمدة" : "النتائج مفتوحة"}
           </Badge>
-          <Badge variant="default">
-            {data.resultRule.name} (v{data.resultRule.version})
-          </Badge>
+              <Badge variant="default">
+                {data.resultRule.name} (v{data.resultRule.version})
+              </Badge>
           {isLocked && !canOverrideLockedResults && (
             <span className="text-sm text-red-500 flex items-center gap-1">
               <Lock className="h-4 w-4" /> لا يمكن تعديل النقاط بعد القفل
@@ -317,7 +324,7 @@ export function GradeBook() {
           <div className="mb-4">
             <h3 className="font-semibold text-lg">حالة اكتمال المادة</h3>
             <p className="text-sm text-gray-500">
-              عند اكتمال العناصر المطلوبة، يحسب النظام معدل المادة تلقائياً وفق القاعدة المعتمدة.
+              {data.termPolicyNote}
             </p>
           </div>
 
@@ -332,6 +339,7 @@ export function GradeBook() {
                 </div>
                 <div className="mt-2 text-sm text-gray-500 space-y-1">
                   <p>الوزن: {requirement.weight}</p>
+                  <p>الحد الأدنى: {requirement.minimumCount}</p>
                   <p>عدد التقويمات: {requirement.count}</p>
                 </div>
               </div>
@@ -340,7 +348,7 @@ export function GradeBook() {
         </Card>
       )}
 
-      {showForm && (
+      {showForm && data && (
         <form onSubmit={handleSubmit} className="mb-6">
           <Card>
             <div className="space-y-4">
@@ -350,7 +358,7 @@ export function GradeBook() {
                   onChange={(e) => setAssessmentType(e.target.value)}
                   className="px-4 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 >
-                  {ASSESSMENT_TYPE_OPTIONS.map((type) => (
+                  {assessmentTypeOptions.map((type) => (
                     <option key={type.value} value={type.value}>
                       {type.label}
                     </option>
@@ -376,7 +384,7 @@ export function GradeBook() {
                 />
               </div>
               <p className="text-xs text-gray-500">
-                معدل المادة النهائي يُحسب فقط بعد اكتمال الاختبارات والامتحانات الثلاثة وفق الصيغة: معدل الاختبارات × 3 + الامتحان 1 + الامتحان 2 × 2 + الامتحان 3 × 3 ثم القسمة على 9.
+                {data.termCalculationNote}. يجب تسجيل اختبار واحد على الأقل في هذا الفصل، ويمكن إضافة أكثر من اختبار ثم يحسب النظام معدل الاختبارات تلقائياً.
               </p>
 
               <div className="bg-gray-50 rounded-lg p-4">
@@ -452,7 +460,7 @@ export function GradeBook() {
                     <h3 className="font-semibold">{assessment.title}</h3>
                     <div className="flex items-center gap-2 text-xs text-gray-400">
                       <Badge variant="default">
-                        {ASSESSMENT_TYPE_OPTIONS.find((type) => type.value === assessment.type)?.label || assessment.type}
+                        {assessmentTypeOptions.find((type) => type.value === assessment.type)?.label || assessment.type}
                       </Badge>
                       <span>{new Date(assessment.date).toLocaleDateString("ar-MR")}</span>
                       <span>المعدل: {avg}</span>
@@ -534,9 +542,7 @@ export function GradeBook() {
                   <tr className="border-b text-gray-500">
                     <th className="px-3 py-2 text-right">التلميذ</th>
                     <th className="px-3 py-2 text-center">الاختبارات</th>
-                    <th className="px-3 py-2 text-center">امتحان 1</th>
-                    <th className="px-3 py-2 text-center">امتحان 2</th>
-                    <th className="px-3 py-2 text-center">امتحان 3</th>
+                    <th className="px-3 py-2 text-center">{currentExamLabel}</th>
                     <th className="px-3 py-2 text-center">معدل المادة</th>
                   </tr>
                 </thead>
@@ -545,9 +551,13 @@ export function GradeBook() {
                     <tr key={row.studentId} className="border-b hover:bg-gray-50">
                       <td className="px-3 py-2 font-medium">{row.studentName}</td>
                       <td className="px-3 py-2 text-center">{row.testAverage?.toFixed(2) || "—"}</td>
-                      <td className="px-3 py-2 text-center">{row.exam1Average?.toFixed(2) || "—"}</td>
-                      <td className="px-3 py-2 text-center">{row.exam2Average?.toFixed(2) || "—"}</td>
-                      <td className="px-3 py-2 text-center">{row.exam3Average?.toFixed(2) || "—"}</td>
+                      <td className="px-3 py-2 text-center">
+                        {data.currentExamType === ASSESSMENT_TYPES.EXAM_1
+                          ? row.exam1Average?.toFixed(2) || "—"
+                          : data.currentExamType === ASSESSMENT_TYPES.EXAM_2
+                            ? row.exam2Average?.toFixed(2) || "—"
+                            : row.exam3Average?.toFixed(2) || "—"}
+                      </td>
                       <td className="px-3 py-2 text-center">
                         {row.finalAverage != null ? (
                           <span className="font-semibold text-blue-700">{row.finalAverage.toFixed(2)}</span>

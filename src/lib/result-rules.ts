@@ -17,7 +17,7 @@ export const DEFAULT_RESULT_RULE = {
   requireExam1: true,
   requireExam2: true,
   requireExam3: true,
-  notes: "معدل المادة = (معدل الاختبارات × 3 + الامتحان الأول × 1 + الامتحان الثاني × 2 + الامتحان الثالث × 3) ÷ 9",
+  notes: "في كل فصل: اختبار واحد على الأقل ويمكن إضافة أكثر من اختبار. يحسب معدل الفصل باستعمال معدل الاختبارات وامتحان ذلك الفصل فقط.",
 } as const
 
 type ResultRuleInput = {

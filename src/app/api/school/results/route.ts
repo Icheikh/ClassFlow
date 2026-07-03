@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { hasAnyPermission, hasPermission, PERMISSIONS } from "@/lib/permissions"
 import {
+  buildTermAssessmentPolicyNote,
+  buildTermCalculationNote,
   computeClassroomPublicationReadiness,
   computeClassroomResults,
   RESULT_PUBLICATION_STATUSES,
@@ -172,6 +174,7 @@ export async function GET(req: NextRequest) {
     levelId: classroom.levelId,
     streamId: classroom.streamId,
     rule: resultRule,
+    termOrder: context.term.order,
   })
 
   const subjectMap = new Map<string, { id: string; nameAr: string; code: string | null }>()
@@ -199,6 +202,7 @@ export async function GET(req: NextRequest) {
       id: subject.id,
       nameAr: subject.nameAr,
     })),
+    termOrder: context.term.order,
   })
   const computedRows = results.filter((row) => row.average != null)
   const classAverage = computedRows.length
@@ -229,6 +233,8 @@ export async function GET(req: NextRequest) {
       stream: classroom.stream,
     },
     term: context.term,
+    termCalculationNote: buildTermCalculationNote(resultRule, context.term.order),
+    termPolicyNote: buildTermAssessmentPolicyNote(resultRule, context.term.order),
     resultRule: serializeRule(resultRule),
     publicationStatus: publication?.status || RESULT_PUBLICATION_STATUSES.OPEN,
     publication: publication
@@ -372,6 +378,7 @@ export async function PUT(req: NextRequest) {
     streamId: classroom.streamId,
     rule: resultRule,
     subjects: assignedSubjects,
+    termOrder: context.term.order,
   })
 
   if ((status === RESULT_PUBLICATION_STATUSES.APPROVED || status === RESULT_PUBLICATION_STATUSES.LOCKED) && !readiness.publishable) {

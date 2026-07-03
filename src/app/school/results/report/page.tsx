@@ -38,6 +38,8 @@ type ReportResponse = {
   }
   classroom: { id: string; name: string; level: { name: string; stage: { name: string } }; stream: { name: string } | null }
   term: { id: string; name: string }
+  termCalculationNote: string
+  termPolicyNote: string
   resultRule: { id: string; name: string; version: number; notes?: string | null }
   publicationStatus: string
   publication: { id: string; status: string; approvedAt: string | null; lockedAt: string | null } | null
@@ -164,11 +166,15 @@ export default function ResultsReportPage() {
             </div>
           </div>
 
-          {data.template.showRuleNotes && data.resultRule.notes && (
+          {data.template.showRuleNotes && (
             <div className="rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-900">
-              {data.resultRule.notes}
+              {data.termCalculationNote}
             </div>
           )}
+
+          <div className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-700">
+            {data.termPolicyNote}
+          </div>
 
           {!hasComputedResults ? (
             <p className="py-12 text-center text-gray-400">لا توجد نتائج كافية لتوليد كشف هذا القسم بعد.</p>

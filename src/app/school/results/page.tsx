@@ -56,6 +56,8 @@ type ResultsResponse = {
   }
   classroom: { id: string; name: string; level: { name: string; stage: { name: string } }; stream: { name: string } | null }
   term: { id: string; name: string }
+  termCalculationNote: string
+  termPolicyNote: string
   resultRule: { id: string; name: string; version: number; notes?: string | null }
   publicationStatus: string
   publication: { id: string; status: string; approvedAt: string | null; lockedAt: string | null } | null
@@ -258,8 +260,8 @@ export default function SchoolResultsPage() {
                   {" · "}
                   {data.resultRule.name} (v{data.resultRule.version})
                 </p>
-                {data.template.showRuleNotes && data.resultRule.notes && (
-                  <p className="mt-1 text-xs text-gray-400">{data.resultRule.notes}</p>
+                {data.template.showRuleNotes && (
+                  <p className="mt-1 text-xs text-gray-400">{data.termCalculationNote}</p>
                 )}
               </div>
               <div className="flex gap-2">
@@ -305,6 +307,7 @@ export default function SchoolResultsPage() {
                     {" · "}
                     التلاميذ المكتملون: {data.readiness.fullyComputedStudents} من {data.readiness.studentsCount}
                   </p>
+                  <p className="mt-1">{data.termPolicyNote}</p>
                 </div>
                 <Badge variant={data.readiness.publishable ? "success" : "warning"}>
                   {data.readiness.publishable ? "جاهز للنشر" : "بانتظار الاستكمال"}

@@ -3,8 +3,20 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { hasPermission, PERMISSIONS } from "@/lib/permissions"
-import { ASSESSMENT_TYPES, computeSubjectAverage, RESULT_PUBLICATION_STATUSES } from "@/lib/results"
+import {
+  ASSESSMENT_TYPES,
+  buildTermAssessmentPolicyNote,
+  buildTermCalculationNote,
+  computeSubjectAverage,
+  getTermAssessmentRequirements,
+  isAssessmentTypeAllowedForTerm,
+  RESULT_PUBLICATION_STATUSES,
+} from "@/lib/results"
 import { createResultAuditLog, ensurePublishedResultRule, serializeRule } from "@/lib/result-rules"
+
+function getAllowedAssessmentError(termName: string, termOrder: number) {
+  return `في ${termName} يسمح فقط بالاختبارات و${termOrder === 1 ? "الامتحان الأول" : termOrder === 2 ? "الامتحان الثاني" : "الامتحان الأخير"}`
+}
 
 const legacyRoles = ["TEACHER", "SCHOOL_ADMIN", "SUPERVISOR", "STAFF"]
 
@@ -139,6 +151,9 @@ export async function POST(req: NextRequest) {
   const context = await getActiveYearAndTerm(user.schoolId, termId)
   if ("error" in context) {
     return NextResponse.json({ error: context.error }, { status: 400 })
+  }
+  if (!isAssessmentTypeAllowedForTerm(assessmentType, context.activeTerm.order)) {
+    return NextResponse.json({ error: getAllowedAssessmentError(context.activeTerm.name, context.activeTerm.order) }, { status: 400 })
   }
 
   const access = await ensureAssignmentAccess({
@@ -276,6 +291,17 @@ export async function PUT(req: NextRequest) {
   })
   if (!access.allowed) {
     return NextResponse.json({ error: access.error }, { status: 403 })
+  }
+
+  const term = await prisma.term.findUnique({
+    where: { id: existing.termId },
+    select: { id: true, name: true, order: true },
+  })
+  if (!term) {
+    return NextResponse.json({ error: "الفصل الدراسي غير موجود" }, { status: 404 })
+  }
+  if (!isAssessmentTypeAllowedForTerm(assessmentType, term.order)) {
+    return NextResponse.json({ error: getAllowedAssessmentError(term.name, term.order) }, { status: 400 })
   }
 
   const publicationState = await ensurePublicationIsEditable({
@@ -463,44 +489,20 @@ export async function GET(req: NextRequest) {
     })),
   }))
 
-  const typeCounts = Object.values(ASSESSMENT_TYPES).reduce<Record<string, number>>((accumulator, type) => {
-    accumulator[type] = assessments.filter((assessment) => assessment.type === type).length
+  const termRequirements = getTermAssessmentRequirements(resultRule, context.activeTerm.order)
+  const typeCounts = termRequirements.reduce<Record<string, number>>((accumulator, item) => {
+    accumulator[item.type] = assessments.filter((assessment) => assessment.type === item.type).length
     return accumulator
   }, {})
 
-  const requiredAssessments = [
-    {
-      type: ASSESSMENT_TYPES.TEST,
-      label: "الاختبارات",
-      required: resultRule.requireTest,
-      weight: resultRule.testWeight,
-      count: typeCounts[ASSESSMENT_TYPES.TEST] || 0,
-    },
-    {
-      type: ASSESSMENT_TYPES.EXAM_1,
-      label: "الامتحان الأول",
-      required: resultRule.requireExam1,
-      weight: resultRule.exam1Weight,
-      count: typeCounts[ASSESSMENT_TYPES.EXAM_1] || 0,
-    },
-    {
-      type: ASSESSMENT_TYPES.EXAM_2,
-      label: "الامتحان الثاني",
-      required: resultRule.requireExam2,
-      weight: resultRule.exam2Weight,
-      count: typeCounts[ASSESSMENT_TYPES.EXAM_2] || 0,
-    },
-    {
-      type: ASSESSMENT_TYPES.EXAM_3,
-      label: "الامتحان الثالث",
-      required: resultRule.requireExam3,
-      weight: resultRule.exam3Weight,
-      count: typeCounts[ASSESSMENT_TYPES.EXAM_3] || 0,
-    },
-  ].map((item) => ({
-    ...item,
-    ready: item.required ? item.count > 0 : true,
-  }))
+  const requiredAssessments = termRequirements.map((item) => {
+    const count = typeCounts[item.type] || 0
+    return {
+      ...item,
+      count,
+      ready: item.required ? count > 0 : true,
+    }
+  })
 
   const subjectProgress = classroom && subjectId
     ? enrollments.map((enrollment) => {
@@ -508,6 +510,7 @@ export async function GET(req: NextRequest) {
           assessments: normalizedAssessments,
           studentId: enrollment.student.id,
           rule: resultRule,
+          termOrder: context.activeTerm.order,
         })
 
         return {
@@ -521,6 +524,10 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     term: context.activeTerm,
+    currentExamType: termRequirements.find((item) => item.type !== ASSESSMENT_TYPES.TEST)?.type || null,
+    currentExamLabel: termRequirements.find((item) => item.type !== ASSESSMENT_TYPES.TEST)?.label || null,
+    termCalculationNote: buildTermCalculationNote(resultRule, context.activeTerm.order),
+    termPolicyNote: buildTermAssessmentPolicyNote(resultRule, context.activeTerm.order),
     resultRule: serializeRule(resultRule),
     publicationStatus: publication?.status || RESULT_PUBLICATION_STATUSES.OPEN,
     requiredAssessments,

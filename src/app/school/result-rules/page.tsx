@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { api } from "@/lib/api"
 import { Button, Card, Input, Textarea, Badge } from "@/components/ui"
+import { buildTermCalculationNote } from "@/lib/results"
 import toast from "react-hot-toast"
 
 type ResultRule = {
@@ -156,14 +157,46 @@ export default function SchoolResultRulesPage() {
     )
   }
 
-  const preview = `(${form.testWeight} × معدل الاختبارات + ${form.exam1Weight} × الامتحان الأول + ${form.exam2Weight} × الامتحان الثاني + ${form.exam3Weight} × الامتحان الثالث) ÷ ${form.denominator}`
+  const previewTerm1 = buildTermCalculationNote({
+    testWeight: Number(form.testWeight),
+    exam1Weight: Number(form.exam1Weight),
+    exam2Weight: Number(form.exam2Weight),
+    exam3Weight: Number(form.exam3Weight),
+    denominator: Number(form.denominator),
+    requireTest: form.requireTest,
+    requireExam1: form.requireExam1,
+    requireExam2: form.requireExam2,
+    requireExam3: form.requireExam3,
+  }, 1)
+  const previewTerm2 = buildTermCalculationNote({
+    testWeight: Number(form.testWeight),
+    exam1Weight: Number(form.exam1Weight),
+    exam2Weight: Number(form.exam2Weight),
+    exam3Weight: Number(form.exam3Weight),
+    denominator: Number(form.denominator),
+    requireTest: form.requireTest,
+    requireExam1: form.requireExam1,
+    requireExam2: form.requireExam2,
+    requireExam3: form.requireExam3,
+  }, 2)
+  const previewTerm3 = buildTermCalculationNote({
+    testWeight: Number(form.testWeight),
+    exam1Weight: Number(form.exam1Weight),
+    exam2Weight: Number(form.exam2Weight),
+    exam3Weight: Number(form.exam3Weight),
+    denominator: Number(form.denominator),
+    requireTest: form.requireTest,
+    requireExam1: form.requireExam1,
+    requireExam2: form.requireExam2,
+    requireExam3: form.requireExam3,
+  }, 3)
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">قواعد النتائج</h1>
-          <p className="text-sm text-gray-500">المدير يضبط قاعدة الحساب لكل مدرسة، ثم ينشرها بعد المعاينة</p>
+          <p className="text-sm text-gray-500">المدير يضبط أوزان الاختبارات وامتحانات الفصول، ثم ينشر القاعدة بعد المعاينة</p>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="success">المنشورة: الإصدار {data.publishedRule.version}</Badge>
@@ -180,10 +213,10 @@ export default function SchoolResultRulesPage() {
               <Input label="وزن الاختبارات" type="number" step="0.1" min="0" value={form.testWeight} onChange={(e) => setForm({ ...form, testWeight: e.target.value })} />
               <Input label="وزن الامتحان الأول" type="number" step="0.1" min="0" value={form.exam1Weight} onChange={(e) => setForm({ ...form, exam1Weight: e.target.value })} />
               <Input label="وزن الامتحان الثاني" type="number" step="0.1" min="0" value={form.exam2Weight} onChange={(e) => setForm({ ...form, exam2Weight: e.target.value })} />
-              <Input label="وزن الامتحان الثالث" type="number" step="0.1" min="0" value={form.exam3Weight} onChange={(e) => setForm({ ...form, exam3Weight: e.target.value })} />
+              <Input label="وزن الامتحان الأخير" type="number" step="0.1" min="0" value={form.exam3Weight} onChange={(e) => setForm({ ...form, exam3Weight: e.target.value })} />
             </div>
 
-            <Input label="المقام" type="number" step="0.1" min="0.1" value={form.denominator} onChange={(e) => setForm({ ...form, denominator: e.target.value })} />
+            <Input label="المقام السنوي المرجعي" type="number" step="0.1" min="0.1" value={form.denominator} onChange={(e) => setForm({ ...form, denominator: e.target.value })} />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
               <label className="flex items-center gap-2">
@@ -200,7 +233,7 @@ export default function SchoolResultRulesPage() {
               </label>
               <label className="flex items-center gap-2">
                 <input type="checkbox" checked={form.requireExam3} onChange={(e) => setForm({ ...form, requireExam3: e.target.checked })} />
-                وجود الامتحان الثالث إجباري
+                وجود الامتحان الأخير إجباري
               </label>
             </div>
 
@@ -208,7 +241,11 @@ export default function SchoolResultRulesPage() {
 
             <div className="rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-700">
               <div className="font-medium mb-1">معاينة القاعدة</div>
-              <div>{preview}</div>
+              <div className="space-y-1">
+                <div>الفصل الأول: {previewTerm1}</div>
+                <div>الفصل الثاني: {previewTerm2}</div>
+                <div>الفصل الثالث: {previewTerm3}</div>
+              </div>
             </div>
 
             <div className="flex gap-3">
@@ -225,7 +262,9 @@ export default function SchoolResultRulesPage() {
             <div className="space-y-2 text-sm text-gray-600">
               <div>الاسم: <span className="font-medium text-gray-900">{data.publishedRule.name}</span></div>
               <div>الإصدار: <span className="font-medium text-gray-900">{data.publishedRule.version}</span></div>
-              <div>المعادلة: <span className="font-medium text-gray-900">{`(${data.publishedRule.testWeight} × الاختبارات + ${data.publishedRule.exam1Weight} × امتحان1 + ${data.publishedRule.exam2Weight} × امتحان2 + ${data.publishedRule.exam3Weight} × امتحان3) ÷ ${data.publishedRule.denominator}`}</span></div>
+              <div>الفصل الأول: <span className="font-medium text-gray-900">{buildTermCalculationNote(data.publishedRule, 1)}</span></div>
+              <div>الفصل الثاني: <span className="font-medium text-gray-900">{buildTermCalculationNote(data.publishedRule, 2)}</span></div>
+              <div>الفصل الثالث: <span className="font-medium text-gray-900">{buildTermCalculationNote(data.publishedRule, 3)}</span></div>
               {data.publishedRule.publishedAt && (
                 <div>تاريخ النشر: <span className="font-medium text-gray-900">{new Date(data.publishedRule.publishedAt).toLocaleString("ar-MR")}</span></div>
               )}
