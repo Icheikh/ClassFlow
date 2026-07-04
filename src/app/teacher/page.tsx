@@ -4,9 +4,8 @@ import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
 import { api } from "@/lib/api"
 import { Card, Badge, Button, LoadingPage } from "@/components/ui"
-import { ClipboardCheck, BookOpen, GraduationCap, Clock, LogIn, LogOut, Calendar, UserCheck, ArrowLeft } from "lucide-react"
+import { ClipboardCheck, BookOpen, GraduationCap, Clock, Calendar, UserCheck, ShieldCheck, AlertTriangle } from "lucide-react"
 import Link from "next/link"
-import toast from "react-hot-toast"
 
 type Assignment = {
   id: string
@@ -28,7 +27,6 @@ export default function TeacherPage() {
   const [assignments, setAssignments] = useState<Assignment[]>([])
   const [attendance, setAttendance] = useState<AttendanceStatus | null>(null)
   const [loading, setLoading] = useState(true)
-  const [checking, setChecking] = useState(false)
 
   const fetchData = async () => {
     const [aRes, attRes] = await Promise.all([
@@ -42,29 +40,22 @@ export default function TeacherPage() {
 
   useEffect(() => { fetchData() }, [])
 
-  async function handleCheckin() {
-    setChecking(true)
-    const { error } = await api.post("/api/teacher-attendance", { action: "checkin" })
-    if (error) toast.error(error)
-    else { toast.success("تم تسجيل الحضور"); fetchData() }
-    setChecking(false)
-  }
-
-  async function handleCheckout() {
-    setChecking(true)
-    const { error } = await api.post("/api/teacher-attendance", { action: "checkout" })
-    if (error) toast.error(error)
-    else { toast.success("تم تسجيل الانصراف"); fetchData() }
-    setChecking(false)
-  }
-
   if (loading) return <LoadingPage />
 
   const uniqueClassrooms = [...new Map(assignments.map((a) => [a.classroom.id, a.classroom])).values()]
+  const attendanceBadge = attendance?.status === "PRESENT"
+    ? { label: "حضور مؤكد", variant: "success" as const, icon: ShieldCheck }
+    : attendance?.status === "ABSENT"
+      ? { label: "مسجل غياب", variant: "danger" as const, icon: AlertTriangle }
+      : attendance?.status === "LATE"
+        ? { label: "مسجل تأخر", variant: "warning" as const, icon: AlertTriangle }
+        : attendance?.status === "EXCUSED"
+          ? { label: "بعذر", variant: "info" as const, icon: ShieldCheck }
+          : { label: "بانتظار تأكيد الإدارة", variant: "default" as const, icon: Clock }
+  const AttendanceIcon = attendanceBadge.icon
 
   return (
     <div>
-      {/* Welcome + Check-in */}
       <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">مرحباً، {session?.user?.name}</h1>
@@ -73,27 +64,18 @@ export default function TeacherPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {attendance?.checkedIn ? (
-            <>
-              <Badge variant="success">
-                <UserCheck className="h-3 w-3" /> تم تسجيل الحضور
-              </Badge>
-              <span className="text-xs text-gray-400">
-                {attendance.checkIn && `دخول: ${new Date(attendance.checkIn).toLocaleTimeString("ar", { hour: "2-digit", minute: "2-digit" })}`}
-              </span>
-              <Button variant="secondary" size="sm" onClick={handleCheckout} loading={checking}>
-                <LogOut className="h-4 w-4" /> تسجيل الخروج
-              </Button>
-            </>
-          ) : (
-            <Button onClick={handleCheckin} loading={checking}>
-              <LogIn className="h-4 w-4" /> تسجيل الحضور
-            </Button>
-          )}
+          <Badge variant={attendanceBadge.variant}>
+            <AttendanceIcon className="h-3 w-3" /> {attendanceBadge.label}
+          </Badge>
         </div>
       </div>
 
-      {/* Today's Stats */}
+      <Card padding="md" className="mb-6 bg-blue-50 border-blue-100">
+        <p className="text-sm text-blue-700">
+          يتم تأكيد حضور الأساتذة يومياً من قبل مدير الدروس أو مدير المدرسة، وهذه الصفحة تعرض حالة اليوم فقط.
+        </p>
+      </Card>
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <Card padding="md">
           <div className="flex items-center gap-3">
@@ -117,14 +99,13 @@ export default function TeacherPage() {
           <div className="flex items-center gap-3">
             <div className="p-2 bg-amber-50 rounded-lg"><Clock className="h-5 w-5 text-amber-600" /></div>
             <div>
-              <p className="text-2xl font-bold">{attendance?.checkedIn ? "نعم" : "لا"}</p>
-              <p className="text-xs text-gray-500">مسجل الحضور</p>
+              <p className="text-sm font-bold">{attendanceBadge.label}</p>
+              <p className="text-xs text-gray-500">حالة الحضور اليوم</p>
             </div>
           </div>
         </Card>
       </div>
 
-      {/* Today's Schedule */}
       <Card padding="lg" className="mb-6">
         <h2 className="font-semibold mb-4">تكليفاتي</h2>
         {assignments.length === 0 ? (

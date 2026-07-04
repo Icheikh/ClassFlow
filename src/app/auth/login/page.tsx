@@ -10,7 +10,7 @@ const roleRoutes: Record<string, string> = {
   STAFF: "/school",
   TEACHER: "/teacher",
   ACCOUNTANT: "/finance",
-  SUPERVISOR: "/supervision",
+  SUPERVISOR: "/school/teacher-attendance",
   SUPER_ADMIN: "/admin",
   PARENT: "/parent",
 }

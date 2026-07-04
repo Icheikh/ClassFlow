@@ -228,7 +228,7 @@ export default function TeachingHoursPage() {
           <p className="text-sm text-blue-700">
             إذا كان الأستاذ مسجلاً غائباً فلن يسمح النظام بحفظ ساعات موجبة له في هذا اليوم.
           </p>
-          <Link href="/teacher/roster" className="text-sm font-medium text-blue-700 hover:underline">
+          <Link href="/school/teacher-attendance" className="text-sm font-medium text-blue-700 hover:underline">
             فتح سجل حضور الأساتذة
           </Link>
         </div>

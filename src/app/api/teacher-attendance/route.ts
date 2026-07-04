@@ -163,26 +163,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, count: teachers.length })
   }
 
-  // Teacher self check-in/check-out (original behavior)
   if (action === "checkin" || action === "checkout") {
-    const teacher = await prisma.teacher.findUnique({ where: { userId: user.id } })
-    if (!teacher) return NextResponse.json({ error: "غير موجود" }, { status: 404 })
-
-    const record = await prisma.teacherAttendance.upsert({
-      where: { teacherId_date: { teacherId: teacher.id, date: today } },
-      update: action === "checkin" ? { checkIn: new Date(), status: "PRESENT" } : { checkOut: new Date() },
-      create: {
-        schoolId: user.schoolId,
-        teacherId: teacher.id,
-        userId: user.id,
-        date: today,
-        checkIn: action === "checkin" ? new Date() : undefined,
-        checkOut: action === "checkout" ? new Date() : undefined,
-        status: "PRESENT",
-      },
-    })
-
-    return NextResponse.json(record)
+    return NextResponse.json(
+      { error: "يتم تسجيل حضور الأساتذة من قبل الإدارة أو مدير الدروس" },
+      { status: 403 }
+    )
   }
 
   return NextResponse.json({ error: "إجراء غير معروف" }, { status: 400 })

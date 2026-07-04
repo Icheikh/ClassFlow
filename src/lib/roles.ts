@@ -20,10 +20,10 @@ export const roleTranslations: Record<string, string> = {
 
 export const roleRoutes: Record<string, string> = {
   SUPER_ADMIN: "/admin",
-  SCHOOL_ADMIN: "/dashboard",
+  SCHOOL_ADMIN: "/school",
   STAFF: "/school",
   ACCOUNTANT: "/finance",
-  SUPERVISOR: "/supervision",
+  SUPERVISOR: "/school/teacher-attendance",
   TEACHER: "/teacher",
   PARENT: "/parent",
 }

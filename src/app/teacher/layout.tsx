@@ -2,7 +2,7 @@
 
 import { signOut, useSession } from "next-auth/react"
 import { SessionProvider } from "next-auth/react"
-import { redirect } from "next/navigation"
+import { redirect, usePathname } from "next/navigation"
 import { useState } from "react"
 import {
   BookOpen,
@@ -29,6 +29,7 @@ const navItems = [
 function TeacherLayoutContent({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const pathname = usePathname()
 
   if (status === "loading") {
     return (
@@ -41,6 +42,11 @@ function TeacherLayoutContent({ children }: { children: React.ReactNode }) {
   const user = session?.user as any
   if (!session || !allowedRoles.includes(user?.role)) {
     redirect("/auth/login")
+  }
+
+  const isRosterPath = pathname === "/teacher/roster"
+  if (user?.role !== "TEACHER" && !isRosterPath) {
+    redirect("/school")
   }
 
   return (
@@ -81,7 +87,7 @@ function TeacherLayoutContent({ children }: { children: React.ReactNode }) {
               </a>
             ))}
             {user?.role !== "TEACHER" && (
-              <a href="/dashboard" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
+              <a href="/school" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
                 <LayoutDashboard className="h-5 w-5" />
                 لوحة التحكم
               </a>
