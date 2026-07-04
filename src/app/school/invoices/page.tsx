@@ -1,10 +1,11 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { api } from "@/lib/api"
 import { Button, Card, Input, Select, Badge, LoadingPage } from "@/components/ui"
-import { DollarSign, Search } from "lucide-react"
+import { DollarSign, Search, BellRing, FilePlus2, ReceiptText } from "lucide-react"
 import toast from "react-hot-toast"
+import { generateRecentMonthOptions, getMonthLabel } from "@/lib/finance"
 
 type Invoice = {
   id: string
@@ -22,16 +23,7 @@ type Classroom = { id: string; name: string }
 
 const monthOptions = [
   { value: "", label: "كل الأشهر" },
-  { value: "2026-09", label: "سبتمبر 2026" },
-  { value: "2026-10", label: "أكتوبر 2026" },
-  { value: "2026-11", label: "نوفمبر 2026" },
-  { value: "2026-12", label: "ديسمبر 2026" },
-  { value: "2027-01", label: "يناير 2027" },
-  { value: "2027-02", label: "فبراير 2027" },
-  { value: "2027-03", label: "مارس 2027" },
-  { value: "2027-04", label: "أبريل 2027" },
-  { value: "2027-05", label: "مايو 2027" },
-  { value: "2027-06", label: "يونيو 2027" },
+  ...generateRecentMonthOptions(18),
 ]
 
 const statusLabels: Record<string, { label: string; variant: "success" | "warning" | "default" | "danger" }> = {
@@ -45,6 +37,11 @@ export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [classrooms, setClassrooms] = useState<Classroom[]>([])
   const [loading, setLoading] = useState(true)
+  const [generating, setGenerating] = useState(false)
+  const [sendingReminders, setSendingReminders] = useState(false)
+  const [generateMonth, setGenerateMonth] = useState(monthOptions[1]?.value || "")
+  const [generateClassroomId, setGenerateClassroomId] = useState("")
+  const [generateDueDate, setGenerateDueDate] = useState("")
 
   // Filters
   const [classroomId, setClassroomId] = useState("")
@@ -56,12 +53,12 @@ export default function InvoicesPage() {
   const [payMethod, setPayMethod] = useState("CASH")
   const [paying, setPaying] = useState(false)
 
-  async function loadClassrooms() {
+  const loadClassrooms = useCallback(async () => {
     const { data } = await api.get<Classroom[]>("/api/school/classrooms")
     setClassrooms(data || [])
-  }
+  }, [])
 
-  async function loadInvoices() {
+  const loadInvoices = useCallback(async () => {
     setLoading(true)
     const q = new URLSearchParams()
     if (classroomId) q.set("classroomId", classroomId)
@@ -69,17 +66,17 @@ export default function InvoicesPage() {
     const { data } = await api.get<Invoice[]>(`/api/school/invoices?${q}`)
     setInvoices(data || [])
     setLoading(false)
-  }
+  }, [classroomId, month])
 
-  useEffect(() => { loadClassrooms() }, [])
-  useEffect(() => { loadInvoices() }, [classroomId, month])
+  useEffect(() => { void loadClassrooms() }, [loadClassrooms])
+  useEffect(() => { void loadInvoices() }, [loadInvoices])
 
   async function recordPayment() {
     if (!payInvoiceId || !payAmount) { toast.error("المبلغ مطلوب"); return }
     const invoice = invoices.find((i) => i.id === payInvoiceId)
     if (!invoice) return
     setPaying(true)
-    const { error } = await api.post("/api/school/payments", {
+    const { data, error } = await api.post<{ receiptNumber?: string }>("/api/school/payments", {
       amount: parseFloat(payAmount),
       method: payMethod,
       studentId: invoice.student.id,
@@ -88,24 +85,82 @@ export default function InvoicesPage() {
     })
     if (error) toast.error(error)
     else {
-      toast.success("تم تسجيل الدفعة")
+      toast.success(data?.receiptNumber ? `تم تسجيل الدفعة - ${data.receiptNumber}` : "تم تسجيل الدفعة")
       setPayInvoiceId(null)
       loadInvoices()
     }
     setPaying(false)
   }
 
+  async function generateInvoices() {
+    if (!generateMonth) {
+      toast.error("اختر الشهر")
+      return
+    }
+    setGenerating(true)
+    const { data, error } = await api.post<{
+      created: number
+      skippedExisting: number
+      skippedByFrequency: number
+      total: number
+    }>("/api/school/invoices/generate", {
+      month: generateMonth,
+      classroomId: generateClassroomId || null,
+      dueDate: generateDueDate || null,
+    })
+
+    if (error) {
+      toast.error(error)
+    } else {
+      toast.success(`تم توليد ${data?.created || 0} فاتورة لشهر ${getMonthLabel(generateMonth)}`)
+      if (month === generateMonth || !month) {
+        void loadInvoices()
+      }
+    }
+    setGenerating(false)
+  }
+
+  async function sendReminders() {
+    if (!month) {
+      toast.error("اختر الشهر أولاً لإرسال التنبيهات")
+      return
+    }
+
+    setSendingReminders(true)
+    const { data, error } = await api.post<{ queued: number; invoices: number }>("/api/school/invoices/reminders", {
+      month,
+      classroomId: classroomId || null,
+    })
+
+    if (error) {
+      toast.error(error)
+    } else {
+      toast.success(`تم تجهيز ${data?.queued || 0} تنبيهًا للواتساب`)
+    }
+    setSendingReminders(false)
+  }
+
   const totalDue = invoices.reduce((s, i) => s + (i.status === "PAID" ? 0 : i.amount), 0)
   const totalPaid = invoices.reduce((s, i) => s + i.payments.reduce((ps, p) => ps + p.amount, 0), 0)
+  const unpaidCount = invoices.filter((i) => i.status === "PENDING").length
+  const partialCount = invoices.filter((i) => i.status === "PARTIAL").length
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">الفواتير</h1>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" loading={sendingReminders} onClick={sendReminders}>
+            <BellRing className="h-4 w-4" /> تنبيهات المتأخرات
+          </Button>
+          <Button loading={generating} onClick={generateInvoices}>
+            <FilePlus2 className="h-4 w-4" /> توليد شهري
+          </Button>
+        </div>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-5 gap-4 mb-6">
         <Card padding="md">
           <p className="text-sm text-gray-400">إجمالي الفواتير</p>
           <p className="text-2xl font-bold">{invoices.length}</p>
@@ -118,7 +173,43 @@ export default function InvoicesPage() {
           <p className="text-sm text-gray-400">المتبقي</p>
           <p className="text-2xl font-bold text-red-600">{totalDue} MRU</p>
         </Card>
+        <Card padding="md">
+          <p className="text-sm text-gray-400">غير مدفوع</p>
+          <p className="text-2xl font-bold text-red-600">{unpaidCount}</p>
+        </Card>
+        <Card padding="md">
+          <p className="text-sm text-gray-400">مدفوع جزئياً</p>
+          <p className="text-2xl font-bold text-amber-600">{partialCount}</p>
+        </Card>
       </div>
+
+      <Card padding="md" className="mb-6 bg-blue-50 border-blue-100">
+        <div className="grid gap-4 md:grid-cols-4">
+          <Select
+            label="شهر التوليد"
+            value={generateMonth}
+            onChange={setGenerateMonth}
+            options={monthOptions.filter((option) => option.value)}
+          />
+          <Select
+            label="القسم (اختياري)"
+            value={generateClassroomId}
+            onChange={setGenerateClassroomId}
+            options={[{ value: "", label: "كل الأقسام" }, ...classrooms.map((c) => ({ value: c.id, label: c.name }))]}
+          />
+          <Input
+            label="تاريخ الاستحقاق (اختياري)"
+            type="date"
+            value={generateDueDate}
+            onChange={(e) => setGenerateDueDate(e.target.value)}
+          />
+          <div className="flex items-end">
+            <div className="rounded-xl border border-blue-200 bg-white px-4 py-3 text-sm text-blue-700 w-full">
+              الرسوم الشهرية تولد كل شهر. الرسوم السنوية تولد مرة واحدة في السنة، ورسوم المرة الواحدة لا تتكرر.
+            </div>
+          </div>
+        </div>
+      </Card>
 
       {/* Filters */}
       <Card padding="md" className="mb-6">
@@ -185,7 +276,7 @@ export default function InvoicesPage() {
                           setPayAmount(String(inv.amount - paid))
                           setPayMethod("CASH")
                         }}>
-                          <DollarSign className="h-4 w-4" /> تسديد
+                          <ReceiptText className="h-4 w-4" /> تسديد
                         </Button>
                       )}
                     </td>

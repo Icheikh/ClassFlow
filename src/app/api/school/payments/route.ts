@@ -3,6 +3,13 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { hasPermission, PERMISSIONS } from "@/lib/permissions"
+import { Prisma } from "@prisma/client"
+
+async function buildReceiptNumber(tx: Prisma.TransactionClient, schoolId: string) {
+  const count = await tx.payment.count({ where: { schoolId } })
+  const today = new Date().toISOString().slice(0, 10).replace(/-/g, "")
+  return `RCPT-${today}-${String(count + 1).padStart(4, "0")}`
+}
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
@@ -46,12 +53,14 @@ export async function POST(req: NextRequest) {
   if (!amount || !studentId) return NextResponse.json({ error: "المبلغ والطالب مطلوبان" }, { status: 400 })
 
   const payment = await prisma.$transaction(async (tx) => {
+    const receiptNumber = await buildReceiptNumber(tx, user.schoolId)
     const p = await tx.payment.create({
       data: {
         schoolId: user.schoolId,
         amount: parseFloat(amount),
         date: new Date(),
         method: method || "CASH",
+        receiptNumber,
         notes: notes || null,
         studentId,
         feeId: feeId || null,
@@ -69,6 +78,35 @@ export async function POST(req: NextRequest) {
         })
         const newStatus = (totalPaid._sum.amount || 0) >= invoice.amount ? "PAID" : "PARTIAL"
         await tx.invoice.update({ where: { id: invoiceId }, data: { status: newStatus } })
+      }
+    }
+
+    if (feeId) {
+      const fee = await tx.fee.findUnique({ where: { id: feeId } })
+      const student = await tx.student.findUnique({
+        where: { id: studentId },
+        include: {
+          studentParents: {
+            where: { receiveNotifications: true },
+            include: { parent: { include: { user: true } } },
+          },
+        },
+      })
+
+      if (student && fee) {
+        for (const link of student.studentParents) {
+          await tx.notification.create({
+            data: {
+              schoolId: user.schoolId,
+              userId: link.parent.userId,
+              title: "إيصال تسديد الرسوم",
+              message: `تم تسجيل دفعة بقيمة ${amount} أوقية للرسم ${fee.name}. رقم الإيصال ${receiptNumber}.`,
+              type: "PAYMENT_RECEIPT",
+              channel: "WHATSAPP",
+              status: "PENDING",
+            },
+          })
+        }
       }
     }
 
