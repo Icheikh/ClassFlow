@@ -11,7 +11,11 @@ import {
   RESULT_PUBLICATION_STATUSES,
 } from "@/lib/results"
 import { createResultAuditLog, ensurePublishedResultRule, serializeRule } from "@/lib/result-rules"
-import { ensureActiveResultReportTemplate, serializeResultReportTemplate } from "@/lib/result-report-templates"
+import {
+  ensureActiveResultReportTemplate,
+  renderResultReportTemplate,
+  serializeResultReportTemplate,
+} from "@/lib/result-report-templates"
 
 const reviewRoles = ["SCHOOL_ADMIN", "STAFF", "SUPERVISOR"]
 
@@ -47,6 +51,7 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url)
   const classroomId = url.searchParams.get("classroomId")
   const termId = url.searchParams.get("termId")
+  const templateId = url.searchParams.get("templateId")
 
   if (!classroomId) {
     return NextResponse.json({ error: "classroomId required" }, { status: 400 })
@@ -85,7 +90,7 @@ export async function GET(req: NextRequest) {
     termId: { in: calculationTermIds },
   }
 
-  const [school, enrollments, assessments, coefficients, publication, resultRule, template] = await Promise.all([
+  const [school, enrollments, assessments, coefficients, publication, resultRule, activeTemplate] = await Promise.all([
     prisma.school.findUnique({
       where: { id: user.schoolId },
       select: {
@@ -218,9 +223,37 @@ export async function GET(req: NextRequest) {
     ? Math.round((computedRows.reduce((sum, row) => sum + (row.average || 0), 0) / computedRows.length) * 100) / 100
     : null
 
+  const template =
+    templateId && user.role === "SCHOOL_ADMIN"
+      ? await prisma.resultReportTemplate.findFirst({
+          where: { id: templateId, schoolId: user.schoolId },
+        })
+      : activeTemplate
+
   if (!template) {
     return NextResponse.json({ error: "لا يوجد قالب نتائج نشط" }, { status: 500 })
   }
+
+  const serializedTemplate = serializeResultReportTemplate(template)
+  const renderedTemplate = renderResultReportTemplate(serializedTemplate, {
+    school: {
+      name: school?.name || null,
+      address: school?.address || null,
+      phone: school?.phone || null,
+    },
+    classroom: {
+      name: classroom.name,
+      level: classroom.level,
+      stream: classroom.stream,
+    },
+    term: context.term,
+    resultRule: serializeRule(resultRule),
+    stats: {
+      students: results.length,
+      classAverage,
+    },
+    publicationStatus: publication?.status || RESULT_PUBLICATION_STATUSES.OPEN,
+  })
 
   return NextResponse.json({
     school: {
@@ -229,7 +262,7 @@ export async function GET(req: NextRequest) {
       address: school?.address || null,
       phone: school?.phone || null,
     },
-    template: serializeResultReportTemplate(template),
+    template: renderedTemplate,
     classroom: {
       id: classroom.id,
       name: classroom.name,

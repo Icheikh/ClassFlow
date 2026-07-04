@@ -32,6 +32,11 @@ type ReportResponse = {
     footerNote: string | null
     notesLabel: string
     signatureLabel: string
+    classroomLabel: string
+    termLabel: string
+    statsLabel: string
+    studentsCountLabel: string
+    classAverageLabel: string
     showRank: boolean
     showWeightedScore: boolean
     showRuleNotes: boolean
@@ -67,8 +72,10 @@ function getStatusVariant(status: string) {
 
 export default function ResultsReportPage() {
   const searchParams = useSearchParams()
-  const classroomId = searchParams.get("classroomId") || ""
-  const termId = searchParams.get("termId") || ""
+  const classroomId = searchParams?.get("classroomId") || ""
+  const termId = searchParams?.get("termId") || ""
+  const templateId = searchParams?.get("templateId") || ""
+  const isPreview = searchParams?.get("preview") === "1"
 
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<ReportResponse | null>(null)
@@ -80,7 +87,9 @@ export default function ResultsReportPage() {
         return
       }
 
-      const { data: response, error } = await api.get<ReportResponse>(`/api/school/results?classroomId=${classroomId}&termId=${termId}`)
+      const query = new URLSearchParams({ classroomId, termId })
+      if (templateId) query.set("templateId", templateId)
+      const { data: response, error } = await api.get<ReportResponse>(`/api/school/results?${query.toString()}`)
       if (error) {
         toast.error(error)
       } else if (response) {
@@ -90,7 +99,7 @@ export default function ResultsReportPage() {
     }
 
     void loadReport()
-  }, [classroomId, termId])
+  }, [classroomId, termId, templateId])
 
   const subjectHeaders = useMemo(() => data?.subjects || [], [data])
   const hasComputedResults = (data?.results || []).some((row) => row.average != null)
@@ -119,9 +128,9 @@ export default function ResultsReportPage() {
   return (
     <div className="space-y-6 print:space-y-4">
       <div className="flex items-center justify-between print:hidden">
-        <Link href="/school/results">
+        <Link href={isPreview ? "/school/settings" : "/school/results"}>
           <Button variant="secondary">
-            <ArrowLeft className="h-4 w-4" /> العودة إلى النتائج
+            <ArrowLeft className="h-4 w-4" /> {isPreview ? "العودة إلى الإعدادات" : "العودة إلى النتائج"}
           </Button>
         </Link>
         <Button onClick={() => window.print()}>
@@ -131,6 +140,11 @@ export default function ResultsReportPage() {
 
       <Card className="print:shadow-none print:border-0 print:p-0">
         <div className="space-y-6 print:space-y-4">
+          {isPreview && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              هذه معاينة مباشرة للقالب المختار قبل اعتماده على كشف النتائج النهائي.
+            </div>
+          )}
           <div className="border-b pb-4 print:pb-3">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -156,7 +170,7 @@ export default function ResultsReportPage() {
 
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <div className="rounded-xl border border-gray-200 px-4 py-3">
-              <p className="text-sm text-gray-500">القسم</p>
+              <p className="text-sm text-gray-500">{data.template.classroomLabel}</p>
               <p className="font-semibold">{data.classroom.name}</p>
               <p className="text-sm text-gray-500">
                 {data.classroom.level.stage.name} - {data.classroom.level.name}
@@ -165,15 +179,15 @@ export default function ResultsReportPage() {
             </div>
 
             <div className="rounded-xl border border-gray-200 px-4 py-3">
-              <p className="text-sm text-gray-500">الفصل</p>
+              <p className="text-sm text-gray-500">{data.template.termLabel}</p>
               <p className="font-semibold">{data.term.name}</p>
               <p className="text-sm text-gray-500">{data.resultRule.name} (v{data.resultRule.version})</p>
             </div>
 
             <div className="rounded-xl border border-gray-200 px-4 py-3">
-              <p className="text-sm text-gray-500">إحصاءات</p>
-              <p className="font-semibold">عدد التلاميذ: {data.stats.students}</p>
-              <p className="text-sm text-gray-500">معدل القسم: {data.stats.classAverage != null ? data.stats.classAverage.toFixed(2) : "—"}</p>
+              <p className="text-sm text-gray-500">{data.template.statsLabel}</p>
+              <p className="font-semibold">{data.template.studentsCountLabel}: {data.stats.students}</p>
+              <p className="text-sm text-gray-500">{data.template.classAverageLabel}: {data.stats.classAverage != null ? data.stats.classAverage.toFixed(2) : "—"}</p>
             </div>
           </div>
 

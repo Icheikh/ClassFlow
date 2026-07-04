@@ -27,6 +27,11 @@ type TemplateDetail = {
   footerNote: string | null
   notesLabel: string
   signatureLabel: string
+  classroomLabel: string
+  termLabel: string
+  statsLabel: string
+  studentsCountLabel: string
+  classAverageLabel: string
   showRank: boolean
   showWeightedScore: boolean
   showRuleNotes: boolean
@@ -49,6 +54,19 @@ type SettingsResponse = {
   template: TemplateDetail
 }
 
+type ClassroomOption = {
+  id: string
+  name: string
+  level: { name: string; stage: { name: string } }
+  stream: { name: string } | null
+}
+
+type TermOption = {
+  id: string
+  name: string
+  isActive: boolean
+}
+
 const EMPTY_TEMPLATE: TemplateDetail = {
   id: "",
   name: "القالب الرئيسي",
@@ -62,6 +80,11 @@ const EMPTY_TEMPLATE: TemplateDetail = {
   footerNote: "",
   notesLabel: "ملاحظات الإدارة",
   signatureLabel: "الختم والتوقيع",
+  classroomLabel: "القسم",
+  termLabel: "الفصل",
+  statsLabel: "إحصاءات",
+  studentsCountLabel: "عدد التلاميذ",
+  classAverageLabel: "معدل القسم",
   showRank: true,
   showWeightedScore: true,
   showRuleNotes: true,
@@ -92,12 +115,34 @@ const SOURCE_OPTIONS = [
   { value: "JSON_IMPORT", label: "استيراد JSON" },
 ]
 
+const TEMPLATE_PLACEHOLDERS = [
+  "{{school.name}}",
+  "{{school.address}}",
+  "{{school.phone}}",
+  "{{school.contacts}}",
+  "{{classroom.name}}",
+  "{{classroom.stage}}",
+  "{{classroom.level}}",
+  "{{classroom.stream}}",
+  "{{classroom.fullLabel}}",
+  "{{term.name}}",
+  "{{resultRule.name}}",
+  "{{resultRule.fullName}}",
+  "{{stats.students}}",
+  "{{stats.classAverage}}",
+  "{{publication.status}}",
+]
+
 export default function SchoolSettingsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [templateBusy, setTemplateBusy] = useState(false)
   const [importPayload, setImportPayload] = useState("")
   const [exportPayload, setExportPayload] = useState("")
+  const [classrooms, setClassrooms] = useState<ClassroomOption[]>([])
+  const [terms, setTerms] = useState<TermOption[]>([])
+  const [previewClassroomId, setPreviewClassroomId] = useState("")
+  const [previewTermId, setPreviewTermId] = useState("")
   const [form, setForm] = useState<SettingsResponse>(EMPTY_FORM)
 
   function updateTemplate<Key extends keyof TemplateDetail>(key: Key, value: TemplateDetail[Key]) {
@@ -135,12 +180,29 @@ export default function SchoolSettingsPage() {
 
   useEffect(() => {
     async function loadInitialSettings() {
-      const { data, error } = await api.get<SettingsResponse>("/api/school/settings")
-      if (error) {
-        toast.error(error)
-      } else if (data) {
-        applySettings(data)
+      const [settingsRes, classroomsRes, termsRes] = await Promise.all([
+        api.get<SettingsResponse>("/api/school/settings"),
+        api.get<ClassroomOption[]>("/api/school/classrooms"),
+        api.get<TermOption[]>("/api/school/terms"),
+      ])
+
+      if (settingsRes.error) toast.error(settingsRes.error)
+      else if (settingsRes.data) applySettings(settingsRes.data)
+
+      if (classroomsRes.error) toast.error(classroomsRes.error)
+      else if (classroomsRes.data) {
+        setClassrooms(classroomsRes.data)
+        if (classroomsRes.data[0]) setPreviewClassroomId(classroomsRes.data[0].id)
       }
+
+      if (termsRes.error) toast.error(termsRes.error)
+      else if (termsRes.data) {
+        setTerms(termsRes.data)
+        const activeTerm = termsRes.data.find((term) => term.isActive)
+        if (activeTerm) setPreviewTermId(activeTerm.id)
+        else if (termsRes.data[0]) setPreviewTermId(termsRes.data[0].id)
+      }
+
       setLoading(false)
     }
 
@@ -308,6 +370,22 @@ export default function SchoolSettingsPage() {
     setTemplateBusy(false)
   }
 
+  function openPreview() {
+    if (!previewClassroomId || !previewTermId || !form.activeTemplateId) {
+      toast.error("اختر قسماً وفصلاً للمعاينة أولاً")
+      return
+    }
+
+    const params = new URLSearchParams({
+      classroomId: previewClassroomId,
+      termId: previewTermId,
+      templateId: form.activeTemplateId,
+      preview: "1",
+    })
+
+    window.open(`/school/results/report?${params.toString()}`, "_blank", "noopener,noreferrer")
+  }
+
   if (loading) return <LoadingPage />
 
   return (
@@ -368,6 +446,46 @@ export default function SchoolSettingsPage() {
                 <p className="mt-2">المصدر: {SOURCE_OPTIONS.find((item) => item.value === form.template.sourceType)?.label || form.template.sourceType}</p>
                 <p className="mt-1">آخر تعديل: {form.template.updatedAt ? new Date(form.template.updatedAt).toLocaleString("ar") : "—"}</p>
                 <p className="mt-1">المرجع الأصلي: {form.template.sourceFileName || "غير محدد"}</p>
+              </div>
+
+              <div className="rounded-xl border border-gray-200 p-4 text-sm text-gray-700">
+                <p className="font-medium text-gray-900">معاينة القالب</p>
+                <div className="mt-3 space-y-3">
+                  <div className="space-y-1">
+                    <label className="block text-sm font-medium text-gray-700">قسم المعاينة</label>
+                    <select
+                      value={previewClassroomId}
+                      onChange={(e) => setPreviewClassroomId(e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">اختر القسم</option>
+                      {classrooms.map((classroom) => (
+                        <option key={classroom.id} value={classroom.id}>
+                          {classroom.name} · {classroom.level.stage.name} - {classroom.level.name}
+                          {classroom.stream ? ` - ${classroom.stream.name}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="block text-sm font-medium text-gray-700">فصل المعاينة</label>
+                    <select
+                      value={previewTermId}
+                      onChange={(e) => setPreviewTermId(e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">اختر الفصل</option>
+                      {terms.map((term) => (
+                        <option key={term.id} value={term.id}>
+                          {term.name} {term.isActive ? "• نشط" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <Button variant="secondary" onClick={openPreview}>
+                    فتح المعاينة الحية
+                  </Button>
+                </div>
               </div>
             </div>
 
@@ -438,6 +556,52 @@ export default function SchoolSettingsPage() {
               rows={3}
               placeholder="مثال: مبني على الكشف القديم للمدرسة من ملف Word لسنة 2025"
             />
+          </div>
+
+          <div>
+            <h3 className="font-medium text-gray-900">ربط الحقول ببيانات النظام</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              يمكنك إدخال متغيرات مثل {`{{school.name}}`} أو {`{{classroom.fullLabel}}`} داخل العناوين والنصوص، وسيتم استبدالها تلقائياً عند المعاينة والطباعة.
+            </p>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <Input
+              label="عنوان بطاقة القسم"
+              value={form.template.classroomLabel}
+              onChange={(e) => updateTemplate("classroomLabel", e.target.value)}
+            />
+            <Input
+              label="عنوان بطاقة الفصل"
+              value={form.template.termLabel}
+              onChange={(e) => updateTemplate("termLabel", e.target.value)}
+            />
+            <Input
+              label="عنوان بطاقة الإحصاءات"
+              value={form.template.statsLabel}
+              onChange={(e) => updateTemplate("statsLabel", e.target.value)}
+            />
+            <Input
+              label="نص عدد التلاميذ"
+              value={form.template.studentsCountLabel}
+              onChange={(e) => updateTemplate("studentsCountLabel", e.target.value)}
+            />
+            <Input
+              label="نص معدل القسم"
+              value={form.template.classAverageLabel}
+              onChange={(e) => updateTemplate("classAverageLabel", e.target.value)}
+            />
+          </div>
+
+          <div className="rounded-xl border border-dashed border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+            <p className="font-medium">المتغيرات المتاحة داخل القالب</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {TEMPLATE_PLACEHOLDERS.map((placeholder) => (
+                <code key={placeholder} className="rounded bg-white px-2 py-1 text-xs text-blue-800">
+                  {placeholder}
+                </code>
+              ))}
+            </div>
           </div>
 
           <Textarea

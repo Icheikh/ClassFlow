@@ -30,6 +30,11 @@ model School {
   resultReportFooterNote String?
   resultReportNotesLabel String @default("ملاحظات الإدارة")
   resultReportSignatureLabel String @default("الختم والتوقيع")
+  resultReportClassroomLabel String @default("القسم")
+  resultReportTermLabel String @default("الفصل")
+  resultReportStatsLabel String @default("إحصاءات")
+  resultReportStudentsCountLabel String @default("عدد التلاميذ")
+  resultReportClassAverageLabel String @default("معدل القسم")
   resultReportShowRank Boolean @default(true)
   resultReportShowWeightedScore Boolean @default(true)
   resultReportShowRuleNotes Boolean @default(true)
@@ -91,6 +96,11 @@ model ResultReportTemplate {
   footerNote              String?
   notesLabel              String   @default("ملاحظات الإدارة")
   signatureLabel          String   @default("الختم والتوقيع")
+  classroomLabel          String   @default("القسم")
+  termLabel               String   @default("الفصل")
+  statsLabel              String   @default("إحصاءات")
+  studentsCountLabel      String   @default("عدد التلاميذ")
+  classAverageLabel       String   @default("معدل القسم")
   showRank                Boolean  @default(true)
   showWeightedScore       Boolean  @default(true)
   showRuleNotes           Boolean  @default(true)

@@ -36,7 +36,8 @@ type Classroom = { id: string; name: string; level: { id: string; name: string }
 type AcademicYear = { id: string; name: string; isActive: boolean }
 
 export default function StudentDetailPage() {
-  const { id } = useParams()
+  const params = useParams()
+  const id = typeof params?.id === "string" ? params.id : ""
   const router = useRouter()
   const [data, setData] = useState<StudentDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -51,6 +52,11 @@ export default function StudentDetailPage() {
   const [form, setForm] = useState({ firstName: "", lastName: "", gender: "", birthDate: "", studentNumber: "", address: "", phone: "", parentName: "", parentPhone: "", parentEmail: "" })
 
   const fetchStudent = async () => {
+    if (!id) {
+      setLoading(false)
+      return
+    }
+
     const [sRes, cRes, yRes] = await Promise.all([
       api.get<StudentDetail>(`/api/school/students/${id}`),
       api.get<Classroom[]>("/api/school/classrooms"),

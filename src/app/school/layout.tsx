@@ -51,7 +51,7 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
     redirect("/auth/login")
   }
 
-  if (user?.role !== "SCHOOL_ADMIN" && adminOnlyPaths.some((path) => pathname.startsWith(path))) {
+  if (user?.role !== "SCHOOL_ADMIN" && pathname && adminOnlyPaths.some((path) => pathname.startsWith(path))) {
     redirect("/school")
   }
 

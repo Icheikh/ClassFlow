@@ -37,7 +37,7 @@ type AcademicYear = { id: string; name: string; isActive: boolean }
 
 export default function StudentsPage() {
   const searchParams = useSearchParams()
-  const classroomIdFromQuery = searchParams.get("classroomId") || ""
+  const classroomIdFromQuery = searchParams?.get("classroomId") || ""
   const [students, setStudents] = useState<StudentData[]>([])
   const [total, setTotal] = useState(0)
   const [classrooms, setClassrooms] = useState<Classroom[]>([])

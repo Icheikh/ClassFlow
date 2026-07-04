@@ -90,8 +90,8 @@ type ResultsResponse = {
 
 export default function SchoolResultsPage() {
   const searchParams = useSearchParams()
-  const initialClassroomId = searchParams.get("classroomId") || ""
-  const initialTermId = searchParams.get("termId") || ""
+  const initialClassroomId = searchParams?.get("classroomId") || ""
+  const initialTermId = searchParams?.get("termId") || ""
 
   const [classrooms, setClassrooms] = useState<Classroom[]>([])
   const [terms, setTerms] = useState<Term[]>([])

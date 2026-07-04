@@ -16,12 +16,18 @@ type DetailData = {
 }
 
 export default function TeacherDetailPage() {
-  const { id } = useParams()
+  const params = useParams()
+  const id = typeof params?.id === "string" ? params.id : ""
   const [data, setData] = useState<DetailData | null>(null)
   const [loading, setLoading] = useState(true)
   const [editAssign, setEditAssign] = useState<{ id: string; hourlyRate: string; weeklyHours: string } | null>(null)
 
   const fetchData = useCallback(async () => {
+    if (!id) {
+      setLoading(false)
+      return
+    }
+
     const { data } = await api.get<DetailData>(`/api/school/teachers/${id}`)
     if (data) setData(data)
     setLoading(false)

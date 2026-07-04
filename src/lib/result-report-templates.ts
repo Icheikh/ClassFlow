@@ -15,6 +15,11 @@ export type SerializedResultReportTemplate = {
   footerNote: string | null
   notesLabel: string
   signatureLabel: string
+  classroomLabel: string
+  termLabel: string
+  statsLabel: string
+  studentsCountLabel: string
+  classAverageLabel: string
   showRank: boolean
   showWeightedScore: boolean
   showRuleNotes: boolean
@@ -33,6 +38,11 @@ type LegacySchoolTemplateFields = {
   resultReportFooterNote: string | null
   resultReportNotesLabel: string
   resultReportSignatureLabel: string
+  resultReportClassroomLabel?: string | null
+  resultReportTermLabel?: string | null
+  resultReportStatsLabel?: string | null
+  resultReportStudentsCountLabel?: string | null
+  resultReportClassAverageLabel?: string | null
   resultReportShowRank: boolean
   resultReportShowWeightedScore: boolean
   resultReportShowRuleNotes: boolean
@@ -53,6 +63,11 @@ type TemplateContentInput = {
   footerNote?: string | null
   notesLabel?: string
   signatureLabel?: string
+  classroomLabel?: string
+  termLabel?: string
+  statsLabel?: string
+  studentsCountLabel?: string
+  classAverageLabel?: string
   showRank?: boolean
   showWeightedScore?: boolean
   showRuleNotes?: boolean
@@ -74,6 +89,11 @@ function normalizeTemplateContent(template: TemplateContentInput) {
     footerNote: template.footerNote?.trim() || null,
     notesLabel: template.notesLabel?.trim() || "ملاحظات الإدارة",
     signatureLabel: template.signatureLabel?.trim() || "الختم والتوقيع",
+    classroomLabel: template.classroomLabel?.trim() || "القسم",
+    termLabel: template.termLabel?.trim() || "الفصل",
+    statsLabel: template.statsLabel?.trim() || "إحصاءات",
+    studentsCountLabel: template.studentsCountLabel?.trim() || "عدد التلاميذ",
+    classAverageLabel: template.classAverageLabel?.trim() || "معدل القسم",
     showRank: template.showRank !== false,
     showWeightedScore: template.showWeightedScore !== false,
     showRuleNotes: template.showRuleNotes !== false,
@@ -94,6 +114,11 @@ function buildTemplateFromLegacyFields(school: LegacySchoolTemplateFields) {
     footerNote: school.resultReportFooterNote || null,
     notesLabel: school.resultReportNotesLabel || "ملاحظات الإدارة",
     signatureLabel: school.resultReportSignatureLabel || "الختم والتوقيع",
+    classroomLabel: school.resultReportClassroomLabel || "القسم",
+    termLabel: school.resultReportTermLabel || "الفصل",
+    statsLabel: school.resultReportStatsLabel || "إحصاءات",
+    studentsCountLabel: school.resultReportStudentsCountLabel || "عدد التلاميذ",
+    classAverageLabel: school.resultReportClassAverageLabel || "معدل القسم",
     showRank: school.resultReportShowRank !== false,
     showWeightedScore: school.resultReportShowWeightedScore !== false,
     showRuleNotes: school.resultReportShowRuleNotes !== false,
@@ -119,6 +144,11 @@ export function serializeResultReportTemplate(template: any): SerializedResultRe
     footerNote: template.footerNote || null,
     notesLabel: template.notesLabel || "ملاحظات الإدارة",
     signatureLabel: template.signatureLabel || "الختم والتوقيع",
+    classroomLabel: template.classroomLabel || "القسم",
+    termLabel: template.termLabel || "الفصل",
+    statsLabel: template.statsLabel || "إحصاءات",
+    studentsCountLabel: template.studentsCountLabel || "عدد التلاميذ",
+    classAverageLabel: template.classAverageLabel || "معدل القسم",
     showRank: template.showRank !== false,
     showWeightedScore: template.showWeightedScore !== false,
     showRuleNotes: template.showRuleNotes !== false,
@@ -147,6 +177,11 @@ async function syncLegacyTemplateFields(schoolId: string, templateId: string) {
       resultReportFooterNote: template.footerNote,
       resultReportNotesLabel: template.notesLabel,
       resultReportSignatureLabel: template.signatureLabel,
+      resultReportClassroomLabel: template.classroomLabel,
+      resultReportTermLabel: template.termLabel,
+      resultReportStatsLabel: template.statsLabel,
+      resultReportStudentsCountLabel: template.studentsCountLabel,
+      resultReportClassAverageLabel: template.classAverageLabel,
       resultReportShowRank: template.showRank,
       resultReportShowWeightedScore: template.showWeightedScore,
       resultReportShowRuleNotes: template.showRuleNotes,
@@ -172,6 +207,11 @@ export async function ensureActiveResultReportTemplate(schoolId: string) {
       resultReportFooterNote: true,
       resultReportNotesLabel: true,
       resultReportSignatureLabel: true,
+      resultReportClassroomLabel: true,
+      resultReportTermLabel: true,
+      resultReportStatsLabel: true,
+      resultReportStudentsCountLabel: true,
+      resultReportClassAverageLabel: true,
       resultReportShowRank: true,
       resultReportShowWeightedScore: true,
       resultReportShowRuleNotes: true,
@@ -353,6 +393,11 @@ export function buildResultReportTemplateExport(template: SerializedResultReport
       footerNote: template.footerNote,
       notesLabel: template.notesLabel,
       signatureLabel: template.signatureLabel,
+      classroomLabel: template.classroomLabel,
+      termLabel: template.termLabel,
+      statsLabel: template.statsLabel,
+      studentsCountLabel: template.studentsCountLabel,
+      classAverageLabel: template.classAverageLabel,
       showRank: template.showRank,
       showWeightedScore: template.showWeightedScore,
       showRuleNotes: template.showRuleNotes,
@@ -382,4 +427,91 @@ export function parseImportedResultReportTemplate(payload: string) {
     ...template,
     sourceType: template.sourceType || "JSON_IMPORT",
   })
+}
+
+export const RESULT_REPORT_TEMPLATE_PLACEHOLDERS = [
+  "{{school.name}}",
+  "{{school.address}}",
+  "{{school.phone}}",
+  "{{school.contacts}}",
+  "{{classroom.name}}",
+  "{{classroom.stage}}",
+  "{{classroom.level}}",
+  "{{classroom.stream}}",
+  "{{classroom.fullLabel}}",
+  "{{term.name}}",
+  "{{resultRule.name}}",
+  "{{resultRule.fullName}}",
+  "{{stats.students}}",
+  "{{stats.classAverage}}",
+  "{{publication.status}}",
+] as const
+
+type ResultReportRenderContext = {
+  school: { name: string | null; address: string | null; phone: string | null }
+  classroom: { name: string; level: { name: string; stage: { name: string } }; stream: { name: string } | null }
+  term: { name: string }
+  resultRule: { name: string; version: number }
+  stats: { students: number; classAverage: number | null }
+  publicationStatus: string
+}
+
+function getPublicationStatusLabel(status: string) {
+  if (status === "LOCKED") return "مقفول"
+  if (status === "APPROVED") return "معتمد"
+  return "مفتوح"
+}
+
+function buildResultReportPlaceholderMap(context: ResultReportRenderContext) {
+  const schoolContacts = [context.school.address, context.school.phone].filter(Boolean).join(" · ")
+  const classroomFullLabel = [
+    context.classroom.level.stage.name,
+    context.classroom.level.name,
+    context.classroom.stream?.name || null,
+  ]
+    .filter(Boolean)
+    .join(" - ")
+
+  return {
+    "school.name": context.school.name || "المدرسة",
+    "school.address": context.school.address || "بدون عنوان",
+    "school.phone": context.school.phone || "بدون هاتف",
+    "school.contacts": schoolContacts || "بدون بيانات اتصال",
+    "classroom.name": context.classroom.name,
+    "classroom.stage": context.classroom.level.stage.name,
+    "classroom.level": context.classroom.level.name,
+    "classroom.stream": context.classroom.stream?.name || "بدون شعبة",
+    "classroom.fullLabel": classroomFullLabel,
+    "term.name": context.term.name,
+    "resultRule.name": context.resultRule.name,
+    "resultRule.fullName": `${context.resultRule.name} (v${context.resultRule.version})`,
+    "stats.students": String(context.stats.students),
+    "stats.classAverage": context.stats.classAverage != null ? context.stats.classAverage.toFixed(2) : "—",
+    "publication.status": getPublicationStatusLabel(context.publicationStatus),
+  }
+}
+
+export function renderResultReportText(value: string | null | undefined, context: ResultReportRenderContext) {
+  if (!value) return value || null
+
+  const placeholders = buildResultReportPlaceholderMap(context)
+  return value.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_match, key) => {
+    return placeholders[key as keyof typeof placeholders] || ""
+  })
+}
+
+export function renderResultReportTemplate(template: SerializedResultReportTemplate, context: ResultReportRenderContext) {
+  return {
+    ...template,
+    title: renderResultReportText(template.title, context) || "كشف نتائج القسم",
+    subtitle: renderResultReportText(template.subtitle, context),
+    footerNote: renderResultReportText(template.footerNote, context),
+    notesLabel: renderResultReportText(template.notesLabel, context) || "ملاحظات الإدارة",
+    signatureLabel: renderResultReportText(template.signatureLabel, context) || "الختم والتوقيع",
+    classroomLabel: renderResultReportText(template.classroomLabel, context) || "القسم",
+    termLabel: renderResultReportText(template.termLabel, context) || "الفصل",
+    statsLabel: renderResultReportText(template.statsLabel, context) || "إحصاءات",
+    studentsCountLabel: renderResultReportText(template.studentsCountLabel, context) || "عدد التلاميذ",
+    classAverageLabel: renderResultReportText(template.classAverageLabel, context) || "معدل القسم",
+  }
 }

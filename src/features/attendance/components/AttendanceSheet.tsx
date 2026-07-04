@@ -25,8 +25,8 @@ export function AttendanceSheet() {
   const router = useRouter()
   const { assignments, classrooms, getSubjects, loading: loadingClasses } = useClasses()
 
-  const initialClassroom = searchParams.get("classroomId") || ""
-  const initialSubject = searchParams.get("subjectId") || ""
+  const initialClassroom = searchParams?.get("classroomId") || ""
+  const initialSubject = searchParams?.get("subjectId") || ""
 
   const [classroomId, setClassroomId] = useState(initialClassroom)
   const [subjectId, setSubjectId] = useState(initialSubject)

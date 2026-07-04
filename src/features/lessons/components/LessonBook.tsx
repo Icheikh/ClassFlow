@@ -25,8 +25,8 @@ export function LessonBook() {
   const searchParams = useSearchParams()
   const { assignments, getSubjects, loading } = useClasses()
 
-  const initialClassroom = searchParams.get("classroomId") || ""
-  const initialSubject = searchParams.get("subjectId") || ""
+  const initialClassroom = searchParams?.get("classroomId") || ""
+  const initialSubject = searchParams?.get("subjectId") || ""
 
   const [classroomId, setClassroomId] = useState(initialClassroom)
   const [subjectId, setSubjectId] = useState(initialSubject)
