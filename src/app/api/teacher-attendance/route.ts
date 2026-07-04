@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { parseDateOnly } from "@/lib/date"
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
@@ -102,8 +103,7 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json()
   const { action, teacherId, status: attStatus } = body
-
-  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const today = parseDateOnly(body.date)
 
   // Supervisor marks a teacher's attendance
   if (action === "mark" && teacherId) {

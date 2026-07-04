@@ -53,7 +53,7 @@ export default function TeacherRosterPage() {
   async function markTeacher(teacherId: string, status: string) {
     setSaving(teacherId)
     const { error } = await api.post("/api/teacher-attendance", {
-      action: "mark", teacherId, status,
+      action: "mark", teacherId, status, date: dateStr,
     })
     if (error) toast.error(error)
     else { toast.success("تم التحديث"); fetchData() }
@@ -64,7 +64,7 @@ export default function TeacherRosterPage() {
     if (!confirm(`تأكيد تسجيل جميع الأساتذة كـ "${STATUS_OPTIONS.find(s => s.value === status)?.label}"؟`)) return
     setLoading(true)
     const { error } = await api.post("/api/teacher-attendance", {
-      action: "bulk-mark", status,
+      action: "bulk-mark", status, date: dateStr,
     })
     if (error) toast.error(error)
     else { toast.success("تم تسجيل الجميع"); fetchData() }

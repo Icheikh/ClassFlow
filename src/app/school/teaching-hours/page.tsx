@@ -1,0 +1,315 @@
+"use client"
+
+import { useEffect, useMemo, useState } from "react"
+import Link from "next/link"
+import toast from "react-hot-toast"
+import { api } from "@/lib/api"
+import { Button, Card, Input, LoadingPage } from "@/components/ui"
+import { formatDateOnly, parseDateOnly } from "@/lib/date"
+import { BookOpen, Calendar, Clock, Save, UserCheck, Wallet } from "lucide-react"
+
+type TeachingHourRow = {
+  teacherAssignmentId: string
+  teacherId: string
+  teacherName: string
+  subjectName: string
+  subjectCode: string | null
+  classroomName: string
+  levelName: string
+  streamName: string | null
+  hourlyRate: number | null
+  weeklyHours: number | null
+  attendanceStatus: string | null
+  hoursTaught: number
+  notes: string
+  recordedBy: string | null
+}
+
+type TeachingHoursData = {
+  date: string
+  academicYear: { id: string; name: string }
+  rows: TeachingHourRow[]
+}
+
+type DraftEntry = {
+  hoursTaught: string
+  notes: string
+}
+
+const ATTENDANCE_LABELS: Record<string, string> = {
+  PRESENT: "حاضر",
+  ABSENT: "غائب",
+  LATE: "متأخر",
+  EXCUSED: "بعذر",
+}
+
+export default function TeachingHoursPage() {
+  const [data, setData] = useState<TeachingHoursData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [dateStr, setDateStr] = useState(() => formatDateOnly(parseDateOnly()))
+  const [draft, setDraft] = useState<Record<string, DraftEntry>>({})
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function load() {
+      setLoading(true)
+      const { data: response, error } = await api.get<TeachingHoursData>(`/api/school/teaching-hours?date=${dateStr}`)
+      if (cancelled) return
+
+      if (error) {
+        toast.error(error)
+      } else if (response) {
+        setData(response)
+        setDraft(
+          Object.fromEntries(
+            response.rows.map((row) => [
+              row.teacherAssignmentId,
+              { hoursTaught: row.hoursTaught ? String(row.hoursTaught) : "", notes: row.notes || "" },
+            ])
+          )
+        )
+      }
+
+      setLoading(false)
+    }
+
+    void load()
+
+    return () => {
+      cancelled = true
+    }
+  }, [dateStr])
+
+  const groupedTeachers = useMemo(() => {
+    if (!data) return []
+
+    const teacherMap = new Map<string, { teacherId: string; teacherName: string; rows: TeachingHourRow[] }>()
+
+    for (const row of data.rows) {
+      if (!teacherMap.has(row.teacherId)) {
+        teacherMap.set(row.teacherId, {
+          teacherId: row.teacherId,
+          teacherName: row.teacherName,
+          rows: [],
+        })
+      }
+
+      teacherMap.get(row.teacherId)!.rows.push(row)
+    }
+
+    return Array.from(teacherMap.values())
+  }, [data])
+
+  const recordedAssignments = Object.values(draft).filter((entry) => Number(entry.hoursTaught || 0) > 0).length
+  const totalHours = Object.values(draft).reduce((sum, entry) => sum + (Number(entry.hoursTaught || 0) || 0), 0)
+
+  function updateDraft(teacherAssignmentId: string, patch: Partial<DraftEntry>) {
+    setDraft((current) => ({
+      ...current,
+      [teacherAssignmentId]: {
+        hoursTaught: current[teacherAssignmentId]?.hoursTaught ?? "",
+        notes: current[teacherAssignmentId]?.notes ?? "",
+        ...patch,
+      },
+    }))
+  }
+
+  async function saveAll() {
+    if (!data) return
+
+    setSaving(true)
+
+    const entries = data.rows.map((row) => ({
+      teacherAssignmentId: row.teacherAssignmentId,
+      hoursTaught: draft[row.teacherAssignmentId]?.hoursTaught ?? "",
+      notes: draft[row.teacherAssignmentId]?.notes ?? "",
+    }))
+
+    const { error } = await api.post("/api/school/teaching-hours", {
+      date: dateStr,
+      entries,
+    })
+
+    if (error) {
+      toast.error(error)
+    } else {
+      toast.success("تم حفظ الساعات اليومية")
+      const { data: refreshed } = await api.get<TeachingHoursData>(`/api/school/teaching-hours?date=${dateStr}`)
+      if (refreshed) {
+        setData(refreshed)
+        setDraft(
+          Object.fromEntries(
+            refreshed.rows.map((row) => [
+              row.teacherAssignmentId,
+              { hoursTaught: row.hoursTaught ? String(row.hoursTaught) : "", notes: row.notes || "" },
+            ])
+          )
+        )
+      }
+    }
+
+    setSaving(false)
+  }
+
+  if (loading) return <LoadingPage />
+
+  if (!data) {
+    return (
+      <Card>
+        <p className="py-8 text-center text-gray-500">تعذر تحميل الساعات اليومية</p>
+      </Card>
+    )
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold">الساعات اليومية للأساتذة</h1>
+          <p className="text-sm text-gray-500">مدير المدرسة أو مدير الدروس يسجل عدد الساعات المنجزة لكل تكليف في هذا اليوم</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            value={dateStr}
+            onChange={(e) => setDateStr(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+          />
+          <Button onClick={saveAll} loading={saving}>
+            <Save className="h-4 w-4" />
+            حفظ الكل
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-4 gap-4 mb-6">
+        <Card padding="md">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-50 rounded-lg"><Clock className="h-5 w-5 text-blue-600" /></div>
+            <div>
+              <p className="text-2xl font-bold">{totalHours}</p>
+              <p className="text-xs text-gray-500">إجمالي الساعات المدخلة</p>
+            </div>
+          </div>
+        </Card>
+        <Card padding="md">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-green-50 rounded-lg"><BookOpen className="h-5 w-5 text-green-600" /></div>
+            <div>
+              <p className="text-2xl font-bold">{recordedAssignments}</p>
+              <p className="text-xs text-gray-500">تكليفات مسجلة</p>
+            </div>
+          </div>
+        </Card>
+        <Card padding="md">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-purple-50 rounded-lg"><Calendar className="h-5 w-5 text-purple-600" /></div>
+            <div>
+              <p className="text-2xl font-bold">{groupedTeachers.length}</p>
+              <p className="text-xs text-gray-500">عدد الأساتذة</p>
+            </div>
+          </div>
+        </Card>
+        <Card padding="md">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-amber-50 rounded-lg"><Wallet className="h-5 w-5 text-amber-600" /></div>
+            <div>
+              <p className="text-sm font-semibold">{data.academicYear.name}</p>
+              <p className="text-xs text-gray-500">السنة الدراسية النشطة</p>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      <Card padding="md" className="mb-6 bg-blue-50 border-blue-100">
+        <div className="flex items-center justify-between gap-4">
+          <p className="text-sm text-blue-700">
+            إذا كان الأستاذ مسجلاً غائباً فلن يسمح النظام بحفظ ساعات موجبة له في هذا اليوم.
+          </p>
+          <Link href="/teacher/roster" className="text-sm font-medium text-blue-700 hover:underline">
+            فتح سجل حضور الأساتذة
+          </Link>
+        </div>
+      </Card>
+
+      <div className="space-y-4">
+        {groupedTeachers.map((teacher) => (
+          <Card key={teacher.teacherId} padding="lg">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="font-semibold text-lg">{teacher.teacherName}</h2>
+                <p className="text-xs text-gray-500">{teacher.rows.length} تكليفات في هذا اليوم</p>
+              </div>
+              <Link href={`/school/teachers/${teacher.teacherId}`} className="text-sm text-blue-700 hover:underline">
+                فتح ملف الأستاذ
+              </Link>
+            </div>
+
+            <div className="space-y-3">
+              {teacher.rows.map((row) => {
+                const entry = draft[row.teacherAssignmentId] || { hoursTaught: "", notes: "" }
+                const attendanceLabel = row.attendanceStatus ? ATTENDANCE_LABELS[row.attendanceStatus] || row.attendanceStatus : "غير مسجل"
+
+                return (
+                  <div key={row.teacherAssignmentId} className="rounded-xl border border-gray-200 p-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_120px_120px_minmax(0,1fr)] gap-3 items-start">
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-medium">{row.subjectName}</p>
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                            {row.classroomName}
+                          </span>
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                            {row.streamName || row.levelName}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-4 text-xs text-gray-500 mt-2 flex-wrap">
+                          <span className="inline-flex items-center gap-1">
+                            <UserCheck className="h-3.5 w-3.5" />
+                            {attendanceLabel}
+                          </span>
+                          <span>الأجر/ساعة: {row.hourlyRate != null ? `${row.hourlyRate} MRU` : "غير محدد"}</span>
+                          <span>المتوقع أسبوعياً: {row.weeklyHours != null ? row.weeklyHours : "—"} ساعة</span>
+                          {row.recordedBy && <span>آخر حفظ: {row.recordedBy}</span>}
+                        </div>
+                      </div>
+
+                      <Input
+                        label="الساعات"
+                        type="number"
+                        step="0.25"
+                        min="0"
+                        max="24"
+                        value={entry.hoursTaught}
+                        onChange={(e) => updateDraft(row.teacherAssignmentId, { hoursTaught: e.target.value })}
+                        placeholder="0"
+                      />
+
+                      <div className="space-y-1">
+                        <label className="block text-sm font-medium text-gray-700">قيمة اليوم</label>
+                        <div className="h-[42px] px-4 rounded-lg border border-gray-200 bg-gray-50 flex items-center text-sm text-gray-700">
+                          {row.hourlyRate != null && Number(entry.hoursTaught || 0) > 0
+                            ? `${(Number(entry.hoursTaught || 0) * row.hourlyRate).toLocaleString()} MRU`
+                            : "—"}
+                        </div>
+                      </div>
+
+                      <Input
+                        label="ملاحظات"
+                        value={entry.notes}
+                        onChange={(e) => updateDraft(row.teacherAssignmentId, { notes: e.target.value })}
+                        placeholder="اختياري"
+                      />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  )
+}
