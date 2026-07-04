@@ -12,6 +12,7 @@ import {
 import { cn } from "@/lib/utils"
 
 const allowedRoles = ["SCHOOL_ADMIN", "STAFF", "SUPERVISOR"]
+const adminOnlyPaths = ["/school/result-rules", "/school/staff", "/school/settings"]
 
 type NavItem = {
   href: string; label: string; icon: React.ComponentType<{ className?: string }>; adminOnly?: boolean
@@ -30,7 +31,7 @@ const nav: NavItem[] = [
   { href: "/school/students", label: "الطلاب", icon: Users },
   { href: "/school/results", label: "النتائج", icon: GraduationCap },
   { href: "/school/staff", label: "الموظفون", icon: Shield, adminOnly: true },
-  { href: "/school/settings", label: "الإعدادات", icon: Settings },
+  { href: "/school/settings", label: "الإعدادات", icon: Settings, adminOnly: true },
 ]
 
 function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
@@ -48,6 +49,10 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
 
   if (!session || !allowedRoles.includes(user?.role)) {
     redirect("/auth/login")
+  }
+
+  if (user?.role !== "SCHOOL_ADMIN" && adminOnlyPaths.some((path) => pathname.startsWith(path))) {
+    redirect("/school")
   }
 
   return (
