@@ -9,7 +9,6 @@ import {
   buildTermCalculationNote,
   computeSubjectAverage,
   getTermAssessmentRequirements,
-  isCumulativeResultTerm,
   isAssessmentTypeAllowedForTerm,
   RESULT_PUBLICATION_STATUSES,
 } from "@/lib/results"
@@ -153,6 +152,16 @@ export async function POST(req: NextRequest) {
   if ("error" in context) {
     return NextResponse.json({ error: context.error }, { status: 400 })
   }
+
+  const calculationTerms = await prisma.term.findMany({
+    where: {
+      schoolId: user.schoolId,
+      academicYearId: context.activeYear.id,
+      order: { lte: context.activeTerm.order },
+    },
+    select: { id: true },
+  })
+  const calculationTermIds = calculationTerms.map((term) => term.id)
   if (!isAssessmentTypeAllowedForTerm(assessmentType, context.activeTerm.order)) {
     return NextResponse.json({ error: getAllowedAssessmentError(context.activeTerm.name, context.activeTerm.order) }, { status: 400 })
   }
@@ -417,6 +426,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: context.error }, { status: 400 })
   }
 
+  const calculationTerms = await prisma.term.findMany({
+    where: {
+      schoolId: user.schoolId,
+      academicYearId: context.activeYear.id,
+      order: { lte: context.activeTerm.order },
+    },
+    select: { id: true },
+  })
+  const calculationTermIds = calculationTerms.map((term) => term.id)
+
   const where: any = {
     schoolId: user.schoolId,
     academicYearId: context.activeYear.id,
@@ -431,9 +450,10 @@ export async function GET(req: NextRequest) {
     where.teacherId = teacherId
   }
 
-  const progressWhere = isCumulativeResultTerm(context.activeTerm.order)
-    ? { ...where, termId: undefined }
-    : where
+  const progressWhere = {
+    ...where,
+    termId: { in: calculationTermIds },
+  }
 
   const [assessments, progressAssessments, publication, classroom, enrollments, resultRule] = await Promise.all([
     prisma.assessment.findMany({
@@ -455,6 +475,11 @@ export async function GET(req: NextRequest) {
       ? prisma.assessment.findMany({
           where: progressWhere,
           include: {
+            term: {
+              select: {
+                order: true,
+              },
+            },
             scores: {
               select: {
                 studentId: true,
@@ -501,6 +526,7 @@ export async function GET(req: NextRequest) {
   const normalizedAssessments = progressAssessments.map((assessment) => ({
     subjectId: assessment.subjectId,
     type: assessment.type,
+    termOrder: assessment.term.order,
     maxScore: assessment.maxScore,
     scores: assessment.scores.map((score) => ({
       studentId: score.studentId,

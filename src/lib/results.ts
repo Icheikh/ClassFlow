@@ -48,6 +48,7 @@ type ScoreRow = {
 type AssessmentRow = {
   subjectId: string
   type: AssessmentType | string
+  termOrder?: number | null
   maxScore: number
   scores: ScoreRow[]
 }
@@ -148,6 +149,51 @@ export function computeAssessmentAverage(
 
   const result = average(normalizedScores)
   return result == null ? null : roundScore(result)
+}
+
+function computeAssessmentAverageForTerm(
+  assessments: AssessmentRow[],
+  studentId: string,
+  type: AssessmentType | string,
+  termOrder?: number | null
+) {
+  return computeAssessmentAverage(
+    assessments.filter((assessment) => {
+      if (termOrder == null || assessment.termOrder == null) return true
+      return assessment.termOrder === termOrder
+    }),
+    studentId,
+    type
+  )
+}
+
+function computeCumulativeTestAverage(
+  assessments: AssessmentRow[],
+  studentId: string,
+  termOrder?: number | null
+) {
+  return computeAssessmentAverage(
+    assessments.filter((assessment) => {
+      if (normalizeAssessmentType(assessment.type) !== ASSESSMENT_TYPES.TEST) return false
+      if (termOrder == null || assessment.termOrder == null) return true
+      return assessment.termOrder <= termOrder
+    }),
+    studentId,
+    ASSESSMENT_TYPES.TEST
+  )
+}
+
+function hasAssessmentRequirementInTerm(
+  assessments: AssessmentRow[],
+  type: AssessmentType | string,
+  termOrder?: number | null
+) {
+  return assessments.some((assessment) => {
+    if (normalizeAssessmentType(assessment.type) !== type) return false
+    if (type !== ASSESSMENT_TYPES.TEST) return true
+    if (termOrder == null || assessment.termOrder == null) return true
+    return assessment.termOrder === termOrder
+  })
 }
 
 export function normalizeAssessmentType(type: string) {
@@ -290,11 +336,11 @@ export function buildTermCalculationNote(rule: ResultRuleConfig, termOrder?: num
 
 export function buildTermAssessmentPolicyNote(rule: ResultRuleConfig, termOrder?: number | null) {
   if (isCumulativeResultTerm(termOrder)) {
-    return "في الفصل الثالث يسجل اختبار واحد على الأقل ويمكن إضافة أكثر من اختبار، ثم الامتحان الأخير. وعند توليد النتيجة النهائية يجمع النظام معدل جميع الاختبارات مع الامتحان الأول والثاني والأخير حسب الأوزان المحددة."
+    return "في الفصل الثالث يسجل اختبار واحد على الأقل ويمكن إضافة أكثر من اختبار، ثم الامتحان الأخير. معدل الاختبارات هنا يحسب من جميع اختبارات السنة من بدايتها حتى هذا الفصل، ثم تجمع النتيجة النهائية مع الامتحان الأول والثاني والأخير حسب الأوزان المحددة."
   }
 
   const currentExam = getTermAssessmentRequirements(rule, termOrder).find((item) => item.type !== ASSESSMENT_TYPES.TEST)
-  return `في كل فصل يجب تسجيل اختبار واحد على الأقل ويمكن إضافة أكثر من اختبار، ثم ${currentExam?.label || "امتحان الفصل"} لهذا الفصل.`
+  return `في كل فصل يجب تسجيل اختبار واحد على الأقل ويمكن إضافة أكثر من اختبار، ثم ${currentExam?.label || "امتحان الفصل"} لهذا الفصل. معدل الاختبارات يحسب من جميع اختبارات السنة من بدايتها حتى هذا الفصل.`
 }
 
 export function computeSubjectAverage(options: {
@@ -303,7 +349,13 @@ export function computeSubjectAverage(options: {
   rule: ResultRuleConfig
   termOrder?: number | null
 }) {
-  const testAverage = computeAssessmentAverage(options.assessments, options.studentId, ASSESSMENT_TYPES.TEST)
+  const testAverage = computeCumulativeTestAverage(options.assessments, options.studentId, options.termOrder)
+  const currentTermTestAverage = computeAssessmentAverageForTerm(
+    options.assessments,
+    options.studentId,
+    ASSESSMENT_TYPES.TEST,
+    options.termOrder
+  )
   const exam1Average = computeAssessmentAverage(options.assessments, options.studentId, ASSESSMENT_TYPES.EXAM_1)
   const exam2Average = computeAssessmentAverage(options.assessments, options.studentId, ASSESSMENT_TYPES.EXAM_2)
   const exam3Average = computeAssessmentAverage(options.assessments, options.studentId, ASSESSMENT_TYPES.EXAM_3)
@@ -312,15 +364,11 @@ export function computeSubjectAverage(options: {
     const termRequirements = getTermAssessmentRequirements(options.rule, options.termOrder)
     const termExamType = getTermExamType(options.termOrder)
     const termExamAverage =
-      termExamType === ASSESSMENT_TYPES.EXAM_1
-        ? exam1Average
-        : termExamType === ASSESSMENT_TYPES.EXAM_2
-          ? exam2Average
-          : exam3Average
+      computeAssessmentAverageForTerm(options.assessments, options.studentId, termExamType, options.termOrder)
 
     const hasMissingRequired = termRequirements.some((item) => {
       if (!item.required) return false
-      if (item.type === ASSESSMENT_TYPES.TEST) return testAverage == null
+      if (item.type === ASSESSMENT_TYPES.TEST) return currentTermTestAverage == null || testAverage == null
       return termExamAverage == null
     })
 
@@ -350,7 +398,7 @@ export function computeSubjectAverage(options: {
   }
 
   if (
-    (options.rule.requireTest && testAverage == null) ||
+    (options.rule.requireTest && (currentTermTestAverage == null || testAverage == null)) ||
     (options.rule.requireExam1 && exam1Average == null) ||
     (options.rule.requireExam2 && exam2Average == null) ||
     (options.rule.requireExam3 && exam3Average == null)
@@ -498,7 +546,7 @@ export function computeClassroomPublicationReadiness(options: {
 
     const missingAssessmentTypes = getResultComputationRequirements(options.rule, options.termOrder)
       .filter((item) => item.required)
-      .filter((item) => !subjectAssessments.some((assessment) => normalizeAssessmentType(assessment.type) === item.type))
+      .filter((item) => !hasAssessmentRequirementInTerm(subjectAssessments, item.type, options.termOrder))
       .map((item) => item.label)
 
     if (coefficient.matched && readyStudents === options.students.length && options.students.length > 0) {

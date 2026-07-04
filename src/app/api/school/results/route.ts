@@ -8,7 +8,6 @@ import {
   buildTermCalculationNote,
   computeClassroomPublicationReadiness,
   computeClassroomResults,
-  isCumulativeResultTerm,
   RESULT_PUBLICATION_STATUSES,
 } from "@/lib/results"
 import { createResultAuditLog, ensurePublishedResultRule, serializeRule } from "@/lib/result-rules"
@@ -57,6 +56,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: context.error }, { status: 400 })
   }
 
+  const calculationTerms = await prisma.term.findMany({
+    where: {
+      schoolId: user.schoolId,
+      academicYearId: context.activeYear.id,
+      order: { lte: context.term.order },
+    },
+    select: { id: true },
+  })
+  const calculationTermIds = calculationTerms.map((term) => term.id)
+
   const classroom = await prisma.classroom.findFirst({
     where: { id: classroomId, schoolId: user.schoolId },
     include: {
@@ -72,7 +81,7 @@ export async function GET(req: NextRequest) {
     schoolId: user.schoolId,
     academicYearId: context.activeYear.id,
     classroomId,
-    ...(isCumulativeResultTerm(context.term.order) ? {} : { termId: context.term.id }),
+    termId: { in: calculationTermIds },
   }
 
   const [school, enrollments, assessments, coefficients, publication, resultRule] = await Promise.all([
@@ -108,6 +117,7 @@ export async function GET(req: NextRequest) {
     prisma.assessment.findMany({
       where: calculationAssessmentWhere,
       include: {
+        term: { select: { order: true } },
         subject: { select: { id: true, nameAr: true, code: true } },
         scores: { select: { studentId: true, score: true } },
       },
@@ -169,6 +179,7 @@ export async function GET(req: NextRequest) {
     assessments: assessments.map((assessment) => ({
       subjectId: assessment.subjectId,
       type: assessment.type,
+      termOrder: assessment.term.order,
       maxScore: assessment.maxScore,
       scores: assessment.scores,
     })),
@@ -193,6 +204,7 @@ export async function GET(req: NextRequest) {
     assessments: assessments.map((assessment) => ({
       subjectId: assessment.subjectId,
       type: assessment.type,
+      termOrder: assessment.term.order,
       maxScore: assessment.maxScore,
       scores: assessment.scores,
     })),
@@ -287,6 +299,16 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: context.error }, { status: 400 })
   }
 
+  const calculationTerms = await prisma.term.findMany({
+    where: {
+      schoolId: user.schoolId,
+      academicYearId: context.activeYear.id,
+      order: { lte: context.term.order },
+    },
+    select: { id: true },
+  })
+  const calculationTermIds = calculationTerms.map((term) => term.id)
+
   const classroom = await prisma.classroom.findFirst({
     where: { id: classroomId, schoolId: user.schoolId },
     select: { id: true, levelId: true, streamId: true },
@@ -299,7 +321,7 @@ export async function PUT(req: NextRequest) {
     schoolId: user.schoolId,
     academicYearId: context.activeYear.id,
     classroomId,
-    ...(isCumulativeResultTerm(context.term.order) ? {} : { termId: context.term.id }),
+    termId: { in: calculationTermIds },
   }
 
   if (status === RESULT_PUBLICATION_STATUSES.LOCKED && !hasPermission(user, PERMISSIONS.LOCK_GRADES) && user.role !== "SCHOOL_ADMIN") {
@@ -326,6 +348,7 @@ export async function PUT(req: NextRequest) {
     prisma.assessment.findMany({
       where: calculationAssessmentWhere,
       include: {
+        term: { select: { order: true } },
         scores: { select: { studentId: true, score: true } },
       },
     }),
@@ -374,6 +397,7 @@ export async function PUT(req: NextRequest) {
     assessments: assessments.map((assessment) => ({
       subjectId: assessment.subjectId,
       type: assessment.type,
+      termOrder: assessment.term.order,
       maxScore: assessment.maxScore,
       scores: assessment.scores,
     })),
