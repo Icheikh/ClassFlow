@@ -21,6 +21,7 @@ import {
   UserCheck,
   ChevronLeft,
   ChevronRight as ChevronWeek,
+  Printer,
 } from "lucide-react"
 import Link from "next/link"
 import toast from "react-hot-toast"
@@ -227,6 +228,11 @@ export default function TeacherDetailPage() {
             <Button variant="secondary" size="sm" onClick={() => shiftWeek(7)}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
+            <Link href={`/school/teachers/${t.id}/weekly-report?weekStart=${weekStart}`} target="_blank">
+              <Button variant="secondary" size="sm">
+                <Printer className="h-4 w-4" />
+              </Button>
+            </Link>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <Badge variant="success"><UserCheck className="h-3 w-3" /> {payroll.attendanceSummary.presentDays} حضور</Badge>
