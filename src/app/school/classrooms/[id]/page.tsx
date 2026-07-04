@@ -101,6 +101,52 @@ type ClassroomResponse = {
   }
 }
 
+type ClassroomResultOverview = {
+  classroom: {
+    id: string
+    name: string
+  }
+  term: {
+    id: string
+    name: string
+  }
+  termCalculationNote: string
+  termPolicyNote: string
+  resultRule: {
+    id: string
+    name: string
+    version: number
+  }
+  publicationStatus: string
+  stats: {
+    students: number
+    assessments: number
+    classAverage: number | null
+  }
+  readiness: {
+    publishable: boolean
+    studentsCount: number
+    fullyComputedStudents: number
+    assignedSubjectsCount: number
+    readySubjectsCount: number
+    missingCoefficientSubjects: { subjectId: string; subjectName: string }[]
+    incompleteSubjects: {
+      subjectId: string
+      subjectName: string
+      readyStudents: number
+      studentsCount: number
+      missingAssessmentTypes: string[]
+    }[]
+  }
+  subjects: { id: string; nameAr: string }[]
+  results: {
+    studentId: string
+    studentName: string
+    average: number | null
+    rank: number | null
+  }[]
+}
+
 type AssessmentForm = {
   id: string | null
   title: string
@@ -154,6 +200,8 @@ export default function ClassroomDetailsPage() {
   const [savingAssessment, setSavingAssessment] = useState(false)
   const [deletingAssessmentId, setDeletingAssessmentId] = useState<string | null>(null)
   const [expandedAssessmentId, setExpandedAssessmentId] = useState<string | null>(null)
+  const [resultOverview, setResultOverview] = useState<ClassroomResultOverview | null>(null)
+  const [resultOverviewLoading, setResultOverviewLoading] = useState(false)
   const [assessmentModalOpen, setAssessmentModalOpen] = useState(false)
   const [assessmentForm, setAssessmentForm] = useState<AssessmentForm>({
     id: null,
@@ -165,6 +213,25 @@ export default function ClassroomDetailsPage() {
     scores: {},
   })
 
+  const loadResultOverview = useCallback(async (nextClassroomId: string, nextTermId?: string | null) => {
+    if (!nextTermId) {
+      setResultOverview(null)
+      setResultOverviewLoading(false)
+      return
+    }
+
+    setResultOverviewLoading(true)
+    const { data: response, error } = await api.get<ClassroomResultOverview>(`/api/school/results?classroomId=${nextClassroomId}&termId=${nextTermId}`)
+    if (error || !response) {
+      setResultOverview(null)
+      setResultOverviewLoading(false)
+      return
+    }
+
+    setResultOverview(response)
+    setResultOverviewLoading(false)
+  }, [])
+
   const fetchData = useCallback(async () => {
     if (!classroomId) return
     setLoading(true)
@@ -175,8 +242,9 @@ export default function ClassroomDetailsPage() {
       return
     }
     setData(response)
+    await loadResultOverview(response.classroom.id, response.activeTerm?.id)
     setLoading(false)
-  }, [classroomId])
+  }, [classroomId, loadResultOverview])
 
   useEffect(() => {
     void fetchData()
@@ -359,6 +427,7 @@ export default function ClassroomDetailsPage() {
   }
 
   const publicationStatus = getPublicationStatus(data.resultPublication?.status)
+  const topStudents = resultOverview?.results.filter((row) => row.average != null).slice(0, 3) || []
 
   return (
     <div className="space-y-6">
@@ -389,6 +458,13 @@ export default function ClassroomDetailsPage() {
               <GraduationCap className="h-4 w-4" /> النتائج
             </Button>
           </Link>
+          {data.activeTerm && (
+            <Link href={`/school/results?classroomId=${data.classroom.id}&termId=${data.activeTerm.id}`}>
+              <Button variant="secondary">
+                <Eye className="h-4 w-4" /> معاينة نتائج هذا القسم
+              </Button>
+            </Link>
+          )}
           <Button onClick={openCreateAssessment} disabled={subjectOptions.length === 0 || !data.activeTerm}>
             <Plus className="h-4 w-4" /> إضافة اختبار أو امتحان
           </Button>
@@ -436,6 +512,134 @@ export default function ClassroomDetailsPage() {
           </div>
           <p className="text-3xl font-bold">{data.stats.presentToday}</p>
           <p className="text-sm text-gray-500">غياب اليوم: {data.stats.absentToday}</p>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.5fr_1fr]">
+        <Card className="space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-semibold">معاينة النتائج الحالية</h2>
+              <p className="text-sm text-gray-500">
+                ملخص جاهزية النتائج لهذا القسم في الفصل النشط مع القاعدة المعتمدة حالياً.
+              </p>
+            </div>
+            {resultOverview && (
+              <Badge variant={resultOverview.readiness.publishable ? "success" : "warning"}>
+                {resultOverview.readiness.publishable ? "جاهزة للاعتماد" : "بانتظار الاستكمال"}
+              </Badge>
+            )}
+          </div>
+
+          {resultOverviewLoading ? (
+            <p className="rounded-xl border border-dashed border-gray-200 px-4 py-8 text-center text-gray-500">
+              جاري تحميل ملخص النتائج...
+            </p>
+          ) : !resultOverview ? (
+            <p className="rounded-xl border border-dashed border-gray-200 px-4 py-8 text-center text-gray-500">
+              لا يوجد فصل نشط أو لم يتم توليد أي ملخص نتائج لهذا القسم بعد.
+            </p>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div className="rounded-xl bg-blue-50 px-4 py-3">
+                  <p className="text-sm text-blue-700">معدل القسم</p>
+                  <p className="text-2xl font-bold text-blue-900">{resultOverview.stats.classAverage?.toFixed(2) || "—"}</p>
+                </div>
+                <div className="rounded-xl bg-green-50 px-4 py-3">
+                  <p className="text-sm text-green-700">مواد جاهزة</p>
+                  <p className="text-2xl font-bold text-green-900">
+                    {resultOverview.readiness.readySubjectsCount}/{resultOverview.readiness.assignedSubjectsCount}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-amber-50 px-4 py-3">
+                  <p className="text-sm text-amber-700">تلاميذ مكتملون</p>
+                  <p className="text-2xl font-bold text-amber-900">
+                    {resultOverview.readiness.fullyComputedStudents}/{resultOverview.readiness.studentsCount}
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-gray-200 px-4 py-3">
+                <p className="font-medium">{resultOverview.resultRule.name} (v{resultOverview.resultRule.version})</p>
+                <p className="mt-1 text-sm text-gray-500">{resultOverview.termCalculationNote}</p>
+                <p className="mt-1 text-sm text-gray-500">{resultOverview.termPolicyNote}</p>
+              </div>
+
+              <div className="space-y-3">
+                {resultOverview.subjects.map((subject) => {
+                  const incomplete = resultOverview.readiness.incompleteSubjects.find((item) => item.subjectId === subject.id)
+                  const missingCoefficient = resultOverview.readiness.missingCoefficientSubjects.some((item) => item.subjectId === subject.id)
+                  const ready = !incomplete && !missingCoefficient
+
+                  return (
+                    <div key={subject.id} className="rounded-xl border border-gray-200 px-4 py-3">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="font-semibold">{subject.nameAr}</p>
+                          <p className="mt-1 text-sm text-gray-500">
+                            {ready
+                              ? "هذه المادة مكتملة لجميع التلاميذ."
+                              : incomplete
+                                ? `${incomplete.readyStudents}/${incomplete.studentsCount} تلميذ مكتمل`
+                                : "ينقص تعيين ضارب لهذه المادة."}
+                          </p>
+                          {!ready && incomplete && incomplete.missingAssessmentTypes.length > 0 && (
+                            <p className="mt-1 text-xs text-amber-700">
+                              ينقص: {incomplete.missingAssessmentTypes.join("، ")}
+                            </p>
+                          )}
+                        </div>
+                        <Badge variant={ready ? "success" : "warning"}>
+                          {ready ? "جاهزة" : "ناقصة"}
+                        </Badge>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          )}
+        </Card>
+
+        <Card className="space-y-4">
+          <div>
+            <h2 className="text-xl font-semibold">أفضل النتائج الحالية</h2>
+            <p className="text-sm text-gray-500">أعلى التلاميذ الذين اكتملت معدلاتهم حالياً.</p>
+          </div>
+
+          {resultOverviewLoading ? (
+            <p className="py-6 text-center text-gray-400">جاري التحميل...</p>
+          ) : topStudents.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-gray-200 px-4 py-8 text-center text-gray-500">
+              لم تكتمل نتائج أي تلميذ بعد.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {topStudents.map((student, index) => (
+                <div key={student.studentId} className="rounded-xl border border-gray-200 px-4 py-3">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="font-semibold">{student.studentName}</p>
+                      <p className="text-sm text-gray-500">الرتبة: {student.rank || index + 1}</p>
+                    </div>
+                    <div className="text-left">
+                      <p className="text-xs text-gray-400">المعدل</p>
+                      <p className="text-xl font-bold text-blue-700">{student.average?.toFixed(2) || "—"}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {data.activeTerm && (
+            <Link href={`/school/results?classroomId=${data.classroom.id}&termId=${data.activeTerm.id}`}>
+              <Button fullWidth variant="secondary">
+                <GraduationCap className="h-4 w-4" /> فتح لوحة النتائج الكاملة
+              </Button>
+            </Link>
+          )}
         </Card>
       </div>
 
@@ -505,7 +709,14 @@ export default function ClassroomDetailsPage() {
                         <p className="font-semibold">{assignment.subject.nameAr}</p>
                         <p className="text-sm text-gray-500">{assignment.teacher.user.name || "أستاذ غير محدد"}</p>
                       </div>
-                      <BookOpen className="h-5 w-5 text-gray-300" />
+                      <div className="flex items-center gap-2">
+                        <Link href={`/teacher/grades?classroomId=${data.classroom.id}&subjectId=${assignment.subject.id}`}>
+                          <Button variant="ghost" size="sm">
+                            <ClipboardList className="h-4 w-4" /> دفتر النقاط
+                          </Button>
+                        </Link>
+                        <BookOpen className="h-5 w-5 text-gray-300" />
+                      </div>
                     </div>
                   </div>
                 ))}
