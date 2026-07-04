@@ -4,7 +4,21 @@ import { useEffect, useState, useCallback } from "react"
 import { useParams } from "next/navigation"
 import { api } from "@/lib/api"
 import { Button, Card, Badge, Modal, Input, LoadingPage } from "@/components/ui"
-import { ArrowLeft, BookOpen, School, Calendar, Phone, Mail, ChevronRight, Wallet, Clock, Link as LinkIcon } from "lucide-react"
+import {
+  ArrowLeft,
+  BookOpen,
+  School,
+  Calendar,
+  Phone,
+  Mail,
+  ChevronRight,
+  Wallet,
+  Clock,
+  Link as LinkIcon,
+  ShieldCheck,
+  AlertTriangle,
+  UserCheck,
+} from "lucide-react"
 import Link from "next/link"
 import toast from "react-hot-toast"
 
@@ -13,6 +27,59 @@ type DetailData = {
   assignments: { id: string; subject: { nameAr: string; code: string | null }; classroom: { id: string; name: string; level: { name: string } }; hourlyRate: number | null; weeklyHours: number | null }[]
   recentLessons: { id: string; title: string; date: string; status: string; subject: { nameAr: string }; classroom: { name: string } }[]
   stats: { assignments: number; lessonsThisMonth: number; totalStudents: number }
+  payroll: {
+    weekStart: string
+    weekEnd: string
+    totalHours: number
+    estimatedEarnings: number
+    attendanceSummary: {
+      presentDays: number
+      absentDays: number
+      lateDays: number
+      excusedDays: number
+      totalMarkedDays: number
+    }
+    attendanceRecords: {
+      id: string
+      date: string
+      status: string
+      checkIn: string | null
+      checkOut: string | null
+      markedBy: string
+    }[]
+    assignmentSummaries: {
+      id: string
+      subject: string
+      classroom: string
+      level: string
+      hourlyRate: number | null
+      weeklyHours: number | null
+      totalHours: number
+      entryCount: number
+      estimatedEarnings: number
+      lastRecordedAt: string | null
+      lastRecordedBy: string | null
+    }[]
+    recentHourEntries: {
+      id: string
+      date: string
+      hoursTaught: number
+      notes: string | null
+      subject: string
+      classroom: string
+      level: string
+      stream: string | null
+      recordedBy: string
+      recordedAt: string
+    }[]
+  }
+}
+
+const attendanceLabels: Record<string, { label: string; variant: "success" | "danger" | "warning" | "info" | "default" }> = {
+  PRESENT: { label: "حاضر", variant: "success" },
+  ABSENT: { label: "غائب", variant: "danger" },
+  LATE: { label: "متأخر", variant: "warning" },
+  EXCUSED: { label: "بعذر", variant: "info" },
 }
 
 export default function TeacherDetailPage() {
@@ -50,6 +117,7 @@ export default function TeacherDetailPage() {
   if (!data) return <Card><p className="text-center py-8 text-gray-500">الأستاذ غير موجود</p></Card>
 
   const t = data.teacher
+  const payroll = data.payroll
 
   return (
     <div>
@@ -107,7 +175,84 @@ export default function TeacherDetailPage() {
             <div><p className="text-2xl font-bold">{data.stats.lessonsThisMonth}</p><p className="text-xs text-gray-500">درس هذا الشهر</p></div>
           </div>
         </Card>
+        <Card padding="md">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-amber-50 rounded-lg"><Clock className="h-5 w-5 text-amber-600" /></div>
+            <div><p className="text-2xl font-bold">{payroll.totalHours}</p><p className="text-xs text-gray-500">ساعات هذا الأسبوع</p></div>
+          </div>
+        </Card>
+        <Card padding="md">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-emerald-50 rounded-lg"><Wallet className="h-5 w-5 text-emerald-600" /></div>
+            <div><p className="text-2xl font-bold">{payroll.estimatedEarnings.toLocaleString()}</p><p className="text-xs text-gray-500">أجر تقديري للأسبوع</p></div>
+          </div>
+        </Card>
       </div>
+
+      <Card padding="lg" className="mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="font-semibold flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-blue-600" /> متابعة هذا الأسبوع</h3>
+            <p className="text-xs text-gray-500 mt-1">من {payroll.weekStart} إلى {payroll.weekEnd}</p>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge variant="success"><UserCheck className="h-3 w-3" /> {payroll.attendanceSummary.presentDays} حضور</Badge>
+            <Badge variant="danger"><AlertTriangle className="h-3 w-3" /> {payroll.attendanceSummary.absentDays} غياب</Badge>
+            {payroll.attendanceSummary.lateDays > 0 && (
+              <Badge variant="warning">{payroll.attendanceSummary.lateDays} تأخر</Badge>
+            )}
+            {payroll.attendanceSummary.excusedDays > 0 && (
+              <Badge variant="info">{payroll.attendanceSummary.excusedDays} بعذر</Badge>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div>
+            <h4 className="text-sm font-semibold text-gray-700 mb-3">سجل الحضور الأسبوعي</h4>
+            {payroll.attendanceRecords.length === 0 ? (
+              <p className="text-sm text-gray-400">لم يتم تسجيل حضور لهذا الأسبوع بعد</p>
+            ) : (
+              <div className="space-y-2">
+                {payroll.attendanceRecords.map((record) => {
+                  const status = attendanceLabels[record.status] || { label: record.status, variant: "default" as const }
+                  return (
+                    <div key={record.id} className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2">
+                      <div>
+                        <p className="text-sm font-medium">{record.date}</p>
+                        <p className="text-xs text-gray-500">سجلها: {record.markedBy}</p>
+                      </div>
+                      <Badge variant={status.variant}>{status.label}</Badge>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <h4 className="text-sm font-semibold text-gray-700 mb-3">آخر تسجيلات الساعات</h4>
+            {payroll.recentHourEntries.length === 0 ? (
+              <p className="text-sm text-gray-400">لا توجد ساعات مسجلة لهذا الأسبوع</p>
+            ) : (
+              <div className="space-y-2">
+                {payroll.recentHourEntries.map((entry) => (
+                  <div key={entry.id} className="rounded-lg border border-gray-200 px-3 py-2">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-sm font-medium">{entry.subject} - {entry.classroom}</p>
+                        <p className="text-xs text-gray-500">{entry.date} · {entry.recordedBy}</p>
+                      </div>
+                      <Badge variant="info">{entry.hoursTaught} س</Badge>
+                    </div>
+                    {entry.notes && <p className="text-xs text-gray-500 mt-2">{entry.notes}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </Card>
 
       {/* Classrooms */}
       <Card padding="md" className="mb-6">
@@ -123,7 +268,7 @@ export default function TeacherDetailPage() {
         </div>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* Assignments */}
         <Card padding="lg">
           <div className="flex items-center justify-between mb-4">
@@ -165,6 +310,16 @@ export default function TeacherDetailPage() {
                       </span>
                     )}
                   </div>
+                  {payroll.assignmentSummaries.find((item) => item.id === a.id)?.entryCount ? (
+                    <div className="mt-2 flex items-center gap-4 text-xs">
+                      <span className="text-blue-700">
+                        {payroll.assignmentSummaries.find((item) => item.id === a.id)?.totalHours} س هذا الأسبوع
+                      </span>
+                      <span className="text-green-700">
+                        {payroll.assignmentSummaries.find((item) => item.id === a.id)?.estimatedEarnings.toLocaleString()} MRU
+                      </span>
+                    </div>
+                  ) : null}
                 </div>
               ))}
             </div>
@@ -199,6 +354,54 @@ export default function TeacherDetailPage() {
           )}
         </Card>
       </div>
+
+      <Card padding="lg">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold flex items-center gap-2"><Wallet className="h-5 w-5" /> ملخص التكليفات هذا الأسبوع</h3>
+          <Link href={`/school/payroll?weekStart=${payroll.weekStart}`} className="text-sm text-blue-700 hover:underline">
+            فتح كشف الرواتب
+          </Link>
+        </div>
+
+        {payroll.assignmentSummaries.length === 0 ? (
+          <p className="text-sm text-gray-400">لا توجد تكليفات نشطة</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-gray-400 text-xs">
+                  <th className="text-right py-2 px-2">المادة</th>
+                  <th className="text-right py-2 px-2">القسم</th>
+                  <th className="text-center py-2 px-2">المتوقع</th>
+                  <th className="text-center py-2 px-2">المسجل</th>
+                  <th className="text-center py-2 px-2">الأجر/س</th>
+                  <th className="text-center py-2 px-2">الأجر التقديري</th>
+                  <th className="text-right py-2 px-2">آخر تسجيل</th>
+                </tr>
+              </thead>
+              <tbody>
+                {payroll.assignmentSummaries.map((assignment) => (
+                  <tr key={assignment.id} className="border-b hover:bg-gray-50">
+                    <td className="py-2 px-2 font-medium">{assignment.subject}</td>
+                    <td className="py-2 px-2 text-gray-600">{assignment.classroom} - {assignment.level}</td>
+                    <td className="py-2 px-2 text-center">{assignment.weeklyHours ?? <span className="text-gray-300">—</span>}</td>
+                    <td className="py-2 px-2 text-center">{assignment.totalHours}</td>
+                    <td className="py-2 px-2 text-center">{assignment.hourlyRate ?? <span className="text-gray-300">—</span>}</td>
+                    <td className="py-2 px-2 text-center font-medium text-green-700">
+                      {assignment.hourlyRate != null ? assignment.estimatedEarnings.toLocaleString() : <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="py-2 px-2 text-xs text-gray-500">
+                      {assignment.lastRecordedBy
+                        ? `${assignment.lastRecordedBy} · ${new Date(assignment.lastRecordedAt || "").toLocaleString("ar-MR")}`
+                        : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
     </div>
   )
 }
