@@ -7,7 +7,7 @@ import { redirect, usePathname } from "next/navigation"
 import { roleLabels } from "@/lib/roles"
 import {
   LayoutDashboard, Calendar, Layers, BookOpen, GraduationCap,
-  Users, ClipboardList, Settings, LogOut, School, UserPlus, Wallet, Shield, DollarSign, Receipt, Clock3,
+  Users, ClipboardList, Settings, LogOut, School, UserPlus, Wallet, Shield, DollarSign, Receipt, Clock3, Bell,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -30,6 +30,7 @@ const nav: NavItem[] = [
   { href: "/school/payroll", label: "الرواتب", icon: Wallet },
   { href: "/school/fees", label: "الرسوم", icon: DollarSign },
   { href: "/school/invoices", label: "الفواتير", icon: Receipt },
+  { href: "/school/notifications", label: "الإشعارات", icon: Bell },
   { href: "/school/students", label: "الطلاب", icon: Users },
   { href: "/school/results", label: "النتائج", icon: GraduationCap },
   { href: "/school/staff", label: "الموظفون", icon: Shield, adminOnly: true },

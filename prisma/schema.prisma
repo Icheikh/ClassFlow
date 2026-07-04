@@ -79,6 +79,9 @@ model School {
   teacherAttendances TeacherAttendance[]
   teachingHourEntries TeachingHourEntry[]
   notifications      Notification[]
+  notificationTemplates NotificationTemplate[]
+  notificationCampaigns NotificationCampaign[]
+  notificationRecipients NotificationRecipient[]
 }
 
 model ResultReportTemplate {
@@ -302,6 +305,11 @@ model User {
   teacher            Teacher?
   parent             Parent?
   notifications      Notification[]
+  createdNotificationTemplates NotificationTemplate[] @relation("NotificationTemplateCreatedBy")
+  createdNotificationCampaigns NotificationCampaign[] @relation("NotificationCampaignCreatedBy")
+  approvedNotificationCampaigns NotificationCampaign[] @relation("NotificationCampaignApprovedBy")
+  cancelledNotificationCampaigns NotificationCampaign[] @relation("NotificationCampaignCancelledBy")
+  notificationRecipients NotificationRecipient[]
   attendanceLogs     TeacherAttendance[]
   recordedTeachingHourEntries TeachingHourEntry[] @relation("TeachingHourEntryRecorder")
   createdResultRules ResultRule[]        @relation("ResultRuleCreatedBy")
@@ -339,6 +347,7 @@ model Parent {
   createdAt         DateTime @default(now())
 
   studentParents StudentParent[]
+  notificationRecipients NotificationRecipient[]
 }
 
 model Student {
@@ -364,6 +373,7 @@ model Student {
   grades           Grade[]
   assessmentScores AssessmentScore[]
   payments         Payment[]
+  notificationRecipients NotificationRecipient[]
 }
 
 model StudentParent {
@@ -770,6 +780,96 @@ model Notification {
   createdAt    DateTime  @default(now())
 
   @@index([schoolId, userId, read])
+}
+
+model NotificationTemplate {
+  id                 String   @id @default(cuid())
+  schoolId           String
+  school             School   @relation(fields: [schoolId], references: [id])
+  name               String
+  type               String
+  channel            String   @default("WHATSAPP")
+  titleTemplate      String
+  messageTemplate    String
+  requiresApproval   Boolean  @default(true)
+  isSystem           Boolean  @default(false)
+  isActive           Boolean  @default(true)
+  createdByUserId    String?
+  createdByUser      User?    @relation("NotificationTemplateCreatedBy", fields: [createdByUserId], references: [id])
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  campaigns          NotificationCampaign[]
+
+  @@index([schoolId, type, isActive])
+  @@index([schoolId, updatedAt])
+}
+
+model NotificationCampaign {
+  id                 String   @id @default(cuid())
+  schoolId           String
+  school             School   @relation(fields: [schoolId], references: [id])
+  templateId         String?
+  template           NotificationTemplate? @relation(fields: [templateId], references: [id])
+  type               String
+  channel            String   @default("WHATSAPP")
+  status             String   @default("DRAFT")
+  title              String
+  message            String
+  audienceType       String
+  audienceFilters    String?
+  exclusionFilters   String?
+  recipientsCount    Int      @default(0)
+  createdByUserId    String
+  createdByUser      User     @relation("NotificationCampaignCreatedBy", fields: [createdByUserId], references: [id])
+  approvedByUserId   String?
+  approvedByUser     User?    @relation("NotificationCampaignApprovedBy", fields: [approvedByUserId], references: [id])
+  cancelledByUserId  String?
+  cancelledByUser    User?    @relation("NotificationCampaignCancelledBy", fields: [cancelledByUserId], references: [id])
+  scheduledFor       DateTime?
+  submittedAt        DateTime?
+  approvedAt         DateTime?
+  rejectedAt         DateTime?
+  rejectedReason     String?
+  cancelledAt        DateTime?
+  sentAt             DateTime?
+  completedAt        DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  recipients         NotificationRecipient[]
+
+  @@index([schoolId, status, createdAt])
+  @@index([schoolId, type, createdAt])
+}
+
+model NotificationRecipient {
+  id                 String   @id @default(cuid())
+  schoolId           String
+  school             School   @relation(fields: [schoolId], references: [id])
+  campaignId         String
+  campaign           NotificationCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  userId             String?
+  user               User?    @relation(fields: [userId], references: [id])
+  parentId           String?
+  parent             Parent?  @relation(fields: [parentId], references: [id])
+  studentId          String?
+  student            Student? @relation(fields: [studentId], references: [id])
+  phone              String?
+  channel            String   @default("WHATSAPP")
+  status             String   @default("PENDING")
+  messageOverride    String?
+  sentAt             DateTime?
+  deliveredAt        DateTime?
+  failedAt           DateTime?
+  providerMessageId  String?
+  errorMessage       String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([schoolId, campaignId, status])
+  @@index([schoolId, userId])
+  @@index([schoolId, studentId])
 }
 
 model Schedule {
