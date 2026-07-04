@@ -11,6 +11,7 @@ import {
   RESULT_PUBLICATION_STATUSES,
 } from "@/lib/results"
 import { createResultAuditLog, ensurePublishedResultRule, serializeRule } from "@/lib/result-rules"
+import { ensureActiveResultReportTemplate, serializeResultReportTemplate } from "@/lib/result-report-templates"
 
 const reviewRoles = ["SCHOOL_ADMIN", "STAFF", "SUPERVISOR"]
 
@@ -84,7 +85,7 @@ export async function GET(req: NextRequest) {
     termId: { in: calculationTermIds },
   }
 
-  const [school, enrollments, assessments, coefficients, publication, resultRule] = await Promise.all([
+  const [school, enrollments, assessments, coefficients, publication, resultRule, template] = await Promise.all([
     prisma.school.findUnique({
       where: { id: user.schoolId },
       select: {
@@ -92,19 +93,6 @@ export async function GET(req: NextRequest) {
         name: true,
         address: true,
         phone: true,
-        resultReportTitle: true,
-        resultReportSubtitle: true,
-        resultReportFooterNote: true,
-        resultReportNotesLabel: true,
-        resultReportSignatureLabel: true,
-        resultReportShowRank: true,
-        resultReportShowWeightedScore: true,
-        resultReportShowRuleNotes: true,
-        resultReportShowPolicyNote: true,
-        resultReportShowSubjectCoefficient: true,
-        resultReportShowSchoolContacts: true,
-        resultReportShowNotesSection: true,
-        resultReportShowSignatureSection: true,
       },
     }),
     prisma.enrollment.findMany({
@@ -156,6 +144,7 @@ export async function GET(req: NextRequest) {
       },
     }),
     ensurePublishedResultRule(prisma, user.schoolId),
+    ensureActiveResultReportTemplate(user.schoolId),
   ])
 
   const teacherAssignments = await prisma.teacherAssignment.findMany({
@@ -229,6 +218,10 @@ export async function GET(req: NextRequest) {
     ? Math.round((computedRows.reduce((sum, row) => sum + (row.average || 0), 0) / computedRows.length) * 100) / 100
     : null
 
+  if (!template) {
+    return NextResponse.json({ error: "لا يوجد قالب نتائج نشط" }, { status: 500 })
+  }
+
   return NextResponse.json({
     school: {
       id: school?.id || user.schoolId,
@@ -236,21 +229,7 @@ export async function GET(req: NextRequest) {
       address: school?.address || null,
       phone: school?.phone || null,
     },
-    template: {
-      title: school?.resultReportTitle || "كشف نتائج القسم",
-      subtitle: school?.resultReportSubtitle || null,
-      footerNote: school?.resultReportFooterNote || null,
-      notesLabel: school?.resultReportNotesLabel || "ملاحظات الإدارة",
-      signatureLabel: school?.resultReportSignatureLabel || "الختم والتوقيع",
-      showRank: school?.resultReportShowRank !== false,
-      showWeightedScore: school?.resultReportShowWeightedScore !== false,
-      showRuleNotes: school?.resultReportShowRuleNotes !== false,
-      showPolicyNote: school?.resultReportShowPolicyNote !== false,
-      showSubjectCoefficient: school?.resultReportShowSubjectCoefficient !== false,
-      showSchoolContacts: school?.resultReportShowSchoolContacts !== false,
-      showNotesSection: school?.resultReportShowNotesSection !== false,
-      showSignatureSection: school?.resultReportShowSignatureSection !== false,
-    },
+    template: serializeResultReportTemplate(template),
     classroom: {
       id: classroom.id,
       name: classroom.name,

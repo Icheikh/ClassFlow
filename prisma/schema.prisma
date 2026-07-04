@@ -24,6 +24,7 @@ model School {
   phone               String?
   email               String?
   logo                String?
+  activeResultReportTemplateId String?
   resultReportTitle   String?  @default("كشف نتائج القسم")
   resultReportSubtitle String?
   resultReportFooterNote String?
@@ -68,8 +69,41 @@ model School {
   resultRules        ResultRule[]
   resultAuditLogs    ResultAuditLog[]
   resultPublications ResultPublication[]
+  resultReportTemplates ResultReportTemplate[] @relation("SchoolResultReportTemplates")
+  activeResultReportTemplate ResultReportTemplate? @relation("SchoolActiveResultReportTemplate", fields: [activeResultReportTemplateId], references: [id])
   teacherAttendances TeacherAttendance[]
   notifications      Notification[]
+}
+
+model ResultReportTemplate {
+  id                      String   @id @default(cuid())
+  schoolId                String
+  school                  School   @relation("SchoolResultReportTemplates", fields: [schoolId], references: [id])
+  activeForSchools        School[] @relation("SchoolActiveResultReportTemplate")
+  name                    String
+  sourceType              String   @default("SYSTEM")
+  sourceFileName          String?
+  sourceDescription       String?
+  definitionVersion       Int      @default(1)
+  isActive                Boolean  @default(false)
+  title                   String   @default("كشف نتائج القسم")
+  subtitle                String?
+  footerNote              String?
+  notesLabel              String   @default("ملاحظات الإدارة")
+  signatureLabel          String   @default("الختم والتوقيع")
+  showRank                Boolean  @default(true)
+  showWeightedScore       Boolean  @default(true)
+  showRuleNotes           Boolean  @default(true)
+  showPolicyNote          Boolean  @default(true)
+  showSubjectCoefficient  Boolean  @default(true)
+  showSchoolContacts      Boolean  @default(true)
+  showNotesSection        Boolean  @default(true)
+  showSignatureSection    Boolean  @default(true)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@index([schoolId, isActive])
+  @@index([schoolId, updatedAt])
 }
 
 // ============================================================
