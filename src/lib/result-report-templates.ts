@@ -8,6 +8,7 @@ export type SerializedResultReportTemplate = {
   sourceType: string
   sourceFileName: string | null
   sourceDescription: string | null
+  sourcePreview: string | null
   definitionVersion: number
   isActive: boolean
   title: string
@@ -53,11 +54,12 @@ type LegacySchoolTemplateFields = {
   resultReportShowSignatureSection: boolean
 }
 
-type TemplateContentInput = {
+export type TemplateContentInput = {
   name?: string
   sourceType?: string
   sourceFileName?: string | null
   sourceDescription?: string | null
+  sourcePreview?: string | null
   title?: string
   subtitle?: string | null
   footerNote?: string | null
@@ -84,6 +86,7 @@ function normalizeTemplateContent(template: TemplateContentInput) {
     sourceType: template.sourceType?.trim() || "CUSTOM",
     sourceFileName: template.sourceFileName?.trim() || null,
     sourceDescription: template.sourceDescription?.trim() || null,
+    sourcePreview: template.sourcePreview?.trim() || null,
     title: template.title?.trim() || "كشف نتائج القسم",
     subtitle: template.subtitle?.trim() || null,
     footerNote: template.footerNote?.trim() || null,
@@ -109,6 +112,7 @@ function buildTemplateFromLegacyFields(school: LegacySchoolTemplateFields) {
   return normalizeTemplateContent({
     name: DEFAULT_RESULT_REPORT_TEMPLATE_NAME,
     sourceType: "SYSTEM",
+    sourcePreview: null,
     title: school.resultReportTitle || "كشف نتائج القسم",
     subtitle: school.resultReportSubtitle || null,
     footerNote: school.resultReportFooterNote || null,
@@ -137,6 +141,7 @@ export function serializeResultReportTemplate(template: any): SerializedResultRe
     sourceType: template.sourceType,
     sourceFileName: template.sourceFileName || null,
     sourceDescription: template.sourceDescription || null,
+    sourcePreview: template.sourcePreview || null,
     definitionVersion: template.definitionVersion || 1,
     isActive: template.isActive === true,
     title: template.title || "كشف نتائج القسم",
@@ -312,7 +317,7 @@ export async function createResultReportTemplate(
   const template = await prisma.resultReportTemplate.create({
     data: {
       schoolId,
-      isActive: options?.makeActive === true,
+      isActive: false,
       ...normalized,
     },
   })
@@ -387,6 +392,7 @@ export function buildResultReportTemplateExport(template: SerializedResultReport
       sourceType: template.sourceType,
       sourceFileName: template.sourceFileName,
       sourceDescription: template.sourceDescription,
+      sourcePreview: template.sourcePreview,
       definitionVersion: template.definitionVersion,
       title: template.title,
       subtitle: template.subtitle,

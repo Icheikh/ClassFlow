@@ -89,6 +89,7 @@ model ResultReportTemplate {
   sourceType              String   @default("SYSTEM")
   sourceFileName          String?
   sourceDescription       String?
+  sourcePreview           String?
   definitionVersion       Int      @default(1)
   isActive                Boolean  @default(false)
   title                   String   @default("كشف نتائج القسم")

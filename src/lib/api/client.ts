@@ -7,8 +7,15 @@ async function request<T>(
   options?: RequestInit
 ): Promise<ApiResult<T>> {
   try {
+    const isFormData = options?.body instanceof FormData
+    const headers = new Headers(options?.headers || undefined)
+
+    if (!isFormData && !headers.has("Content-Type")) {
+      headers.set("Content-Type", "application/json")
+    }
+
     const res = await fetch(`${BASE_URL}${endpoint}`, {
-      headers: { "Content-Type": "application/json" },
+      headers,
       ...options,
     })
 
@@ -30,6 +37,8 @@ export const api = {
   get: <T>(endpoint: string) => request<T>(endpoint),
   post: <T>(endpoint: string, body: unknown) =>
     request<T>(endpoint, { method: "POST", body: JSON.stringify(body) }),
+  postForm: <T>(endpoint: string, body: FormData) =>
+    request<T>(endpoint, { method: "POST", body }),
   put: <T>(endpoint: string, body: unknown) =>
     request<T>(endpoint, { method: "PUT", body: JSON.stringify(body) }),
   delete: <T>(endpoint: string) => request<T>(endpoint, { method: "DELETE" }),

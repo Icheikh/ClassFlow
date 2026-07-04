@@ -20,6 +20,7 @@ type TemplateDetail = {
   sourceType: string
   sourceFileName: string | null
   sourceDescription: string | null
+  sourcePreview: string | null
   definitionVersion: number
   isActive: boolean
   title: string
@@ -73,6 +74,7 @@ const EMPTY_TEMPLATE: TemplateDetail = {
   sourceType: "CUSTOM",
   sourceFileName: null,
   sourceDescription: null,
+  sourcePreview: null,
   definitionVersion: 1,
   isActive: true,
   title: "كشف نتائج القسم",
@@ -138,6 +140,7 @@ export default function SchoolSettingsPage() {
   const [saving, setSaving] = useState(false)
   const [templateBusy, setTemplateBusy] = useState(false)
   const [importPayload, setImportPayload] = useState("")
+  const [importFile, setImportFile] = useState<File | null>(null)
   const [exportPayload, setExportPayload] = useState("")
   const [classrooms, setClassrooms] = useState<ClassroomOption[]>([])
   const [terms, setTerms] = useState<TermOption[]>([])
@@ -158,14 +161,15 @@ export default function SchoolSettingsPage() {
   function applySettings(data: SettingsResponse) {
     setForm({
       ...data,
-      template: {
-        ...data.template,
-        subtitle: data.template.subtitle || "",
-        footerNote: data.template.footerNote || "",
-        sourceFileName: data.template.sourceFileName || "",
-        sourceDescription: data.template.sourceDescription || "",
-      },
-    })
+        template: {
+          ...data.template,
+          subtitle: data.template.subtitle || "",
+          footerNote: data.template.footerNote || "",
+          sourceFileName: data.template.sourceFileName || "",
+          sourceDescription: data.template.sourceDescription || "",
+          sourcePreview: data.template.sourcePreview || "",
+        },
+      })
   }
 
   async function reloadSettings() {
@@ -250,6 +254,7 @@ export default function SchoolSettingsPage() {
           footerNote: data.template.footerNote || "",
           sourceFileName: data.template.sourceFileName || "",
           sourceDescription: data.template.sourceDescription || "",
+          sourcePreview: data.template.sourcePreview || "",
         },
       }))
       setExportPayload("")
@@ -284,6 +289,7 @@ export default function SchoolSettingsPage() {
           footerNote: data.template.footerNote || "",
           sourceFileName: data.template.sourceFileName || "",
           sourceDescription: data.template.sourceDescription || "",
+          sourcePreview: data.template.sourcePreview || "",
         },
       }))
       setExportPayload("")
@@ -345,6 +351,46 @@ export default function SchoolSettingsPage() {
       setExportPayload("")
       setImportPayload("")
       toast.success("تم استيراد القالب وتفعيله")
+    }
+    setTemplateBusy(false)
+  }
+
+  async function importTemplateFile() {
+    if (!importFile) {
+      toast.error("اختر ملف Word أو Excel أولاً")
+      return
+    }
+
+    const formData = new FormData()
+    formData.set("file", importFile)
+    formData.set("name", importFile.name.replace(/\.[^.]+$/, ""))
+
+    setTemplateBusy(true)
+    const { data, error } = await api.postForm<{
+      activeTemplateId: string
+      templates: TemplateSummary[]
+      template: TemplateDetail
+    }>("/api/school/result-report-templates/import-file", formData)
+
+    if (error) {
+      toast.error(error)
+    } else if (data?.template) {
+      setForm((current) => ({
+        ...current,
+        activeTemplateId: data.activeTemplateId,
+        templates: data.templates,
+        template: {
+          ...data.template,
+          subtitle: data.template.subtitle || "",
+          footerNote: data.template.footerNote || "",
+          sourceFileName: data.template.sourceFileName || "",
+          sourceDescription: data.template.sourceDescription || "",
+          sourcePreview: data.template.sourcePreview || "",
+        },
+      }))
+      setImportFile(null)
+      setExportPayload("")
+      toast.success("تم استيراد ملف القالب وتفعيله")
     }
     setTemplateBusy(false)
   }
@@ -448,6 +494,15 @@ export default function SchoolSettingsPage() {
                 <p className="mt-1">المرجع الأصلي: {form.template.sourceFileName || "غير محدد"}</p>
               </div>
 
+              {form.template.sourcePreview ? (
+                <div className="rounded-xl border border-gray-200 p-4 text-sm text-gray-700">
+                  <p className="font-medium text-gray-900">معاينة المرجع المستورد</p>
+                  <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap rounded-lg bg-gray-50 p-3 text-xs leading-6 text-gray-700">
+                    {form.template.sourcePreview}
+                  </pre>
+                </div>
+              ) : null}
+
               <div className="rounded-xl border border-gray-200 p-4 text-sm text-gray-700">
                 <p className="font-medium text-gray-900">معاينة القالب</p>
                 <div className="mt-3 space-y-3">
@@ -500,6 +555,25 @@ export default function SchoolSettingsPage() {
               <Button onClick={importTemplate} loading={templateBusy}>
                 استيراد وتفعيل
               </Button>
+
+              <div className="rounded-xl border border-dashed border-gray-300 p-4">
+                <p className="text-sm font-medium text-gray-900">استيراد ملف Word أو Excel</p>
+                <p className="mt-1 text-sm text-gray-500">
+                  ارفع ملف المدرسة الحالي بصيغة <code>.docx</code> أو <code>.xlsx/.xls</code> ليتم إنشاء قالب جديد منه داخل النظام.
+                </p>
+                <input
+                  type="file"
+                  accept=".docx,.xlsx,.xls"
+                  onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                  className="mt-3 block w-full text-sm text-gray-700 file:ml-4 file:rounded-lg file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-blue-700"
+                />
+                <p className="mt-2 text-xs text-gray-500">
+                  {importFile ? `الملف المحدد: ${importFile.name}` : "لم يتم اختيار ملف بعد."}
+                </p>
+                <Button className="mt-3" variant="secondary" onClick={importTemplateFile} loading={templateBusy}>
+                  رفع الملف وإنشاء قالب
+                </Button>
+              </div>
             </div>
           </div>
 
