@@ -1,6 +1,7 @@
 "use client"
 
-import { useSession } from "next-auth/react"
+import Link from "next/link"
+import { signOut, useSession } from "next-auth/react"
 import { SessionProvider } from "next-auth/react"
 import { redirect, usePathname } from "next/navigation"
 import { roleLabels } from "@/lib/roles"
@@ -65,7 +66,7 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
           {nav.filter((item) => !item.adminOnly || user?.role === "SCHOOL_ADMIN").map((item) => {
             const active = pathname === item.href
             return (
-              <a
+              <Link
                 key={item.href}
                 href={item.href}
                 className={cn(
@@ -75,18 +76,20 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
               >
                 <item.icon className="h-5 w-5" />
                 {item.label}
-              </a>
+              </Link>
             )
           })}
         </nav>
 
         <div className="p-3 border-t">
-          <a href="/api/auth/signout"
+          <button
+            type="button"
+            onClick={() => void signOut({ callbackUrl: "/auth/login" })}
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-red-600 hover:bg-red-50 transition-colors"
           >
             <LogOut className="h-5 w-5" />
             تسجيل الخروج
-          </a>
+          </button>
         </div>
       </aside>
 
