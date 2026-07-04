@@ -18,6 +18,11 @@ function serializeSchoolSettings(school: any) {
       showRank: school.resultReportShowRank !== false,
       showWeightedScore: school.resultReportShowWeightedScore !== false,
       showRuleNotes: school.resultReportShowRuleNotes !== false,
+      showPolicyNote: school.resultReportShowPolicyNote !== false,
+      showSubjectCoefficient: school.resultReportShowSubjectCoefficient !== false,
+      showSchoolContacts: school.resultReportShowSchoolContacts !== false,
+      showNotesSection: school.resultReportShowNotesSection !== false,
+      showSignatureSection: school.resultReportShowSignatureSection !== false,
     },
   }
 }
@@ -64,6 +69,11 @@ export async function PUT(req: NextRequest) {
       resultReportShowRank: template?.showRank !== false,
       resultReportShowWeightedScore: template?.showWeightedScore !== false,
       resultReportShowRuleNotes: template?.showRuleNotes !== false,
+      resultReportShowPolicyNote: template?.showPolicyNote !== false,
+      resultReportShowSubjectCoefficient: template?.showSubjectCoefficient !== false,
+      resultReportShowSchoolContacts: template?.showSchoolContacts !== false,
+      resultReportShowNotesSection: template?.showNotesSection !== false,
+      resultReportShowSignatureSection: template?.showSignatureSection !== false,
     },
   })
   return NextResponse.json(serializeSchoolSettings(school))

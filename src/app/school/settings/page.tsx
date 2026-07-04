@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { api } from "@/lib/api"
-import { Button, Card, Input, LoadingPage } from "@/components/ui"
+import { Button, Card, Input, LoadingPage, Textarea } from "@/components/ui"
 import toast from "react-hot-toast"
 
 type SettingsResponse = {
@@ -19,6 +19,11 @@ type SettingsResponse = {
     showRank: boolean
     showWeightedScore: boolean
     showRuleNotes: boolean
+    showPolicyNote: boolean
+    showSubjectCoefficient: boolean
+    showSchoolContacts: boolean
+    showNotesSection: boolean
+    showSignatureSection: boolean
   }
 }
 
@@ -39,8 +44,23 @@ export default function SchoolSettingsPage() {
       showRank: true,
       showWeightedScore: true,
       showRuleNotes: true,
+      showPolicyNote: true,
+      showSubjectCoefficient: true,
+      showSchoolContacts: true,
+      showNotesSection: true,
+      showSignatureSection: true,
     },
   })
+
+  function updateTemplate<Key extends keyof SettingsResponse["template"]>(key: Key, value: SettingsResponse["template"][Key]) {
+    setForm((current) => ({
+      ...current,
+      template: {
+        ...current.template,
+        [key]: value,
+      },
+    }))
+  }
 
   useEffect(() => {
     async function loadSettings() {
@@ -90,35 +110,43 @@ export default function SchoolSettingsPage() {
           <Input
             label="عنوان الكشف"
             value={form.template.title}
-            onChange={(e) => setForm({ ...form, template: { ...form.template, title: e.target.value } })}
+            onChange={(e) => updateTemplate("title", e.target.value)}
           />
           <Input
             label="عنوان فرعي"
             value={form.template.subtitle}
-            onChange={(e) => setForm({ ...form, template: { ...form.template, subtitle: e.target.value } })}
+            onChange={(e) => updateTemplate("subtitle", e.target.value)}
           />
           <Input
             label="عنوان خانة الملاحظات"
             value={form.template.notesLabel}
-            onChange={(e) => setForm({ ...form, template: { ...form.template, notesLabel: e.target.value } })}
+            onChange={(e) => updateTemplate("notesLabel", e.target.value)}
           />
           <Input
             label="عنوان خانة التوقيع"
             value={form.template.signatureLabel}
-            onChange={(e) => setForm({ ...form, template: { ...form.template, signatureLabel: e.target.value } })}
+            onChange={(e) => updateTemplate("signatureLabel", e.target.value)}
           />
-          <Input
+          <Textarea
             label="ملاحظة أسفل الكشف"
             value={form.template.footerNote}
-            onChange={(e) => setForm({ ...form, template: { ...form.template, footerNote: e.target.value } })}
+            onChange={(e) => updateTemplate("footerNote", e.target.value)}
+            rows={3}
           />
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm text-gray-700">
+          <div>
+            <h3 className="font-medium text-gray-900">العناصر الظاهرة في الكشف</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              هذه الخيارات تغير صفحة الطباعة مباشرة، بينما تبقى بيانات الحساب نفسها محفوظة في النظام.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-700">
             <label className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 cursor-pointer">
               <input
                 type="checkbox"
                 checked={form.template.showRank}
-                onChange={(e) => setForm({ ...form, template: { ...form.template, showRank: e.target.checked } })}
+                onChange={(e) => updateTemplate("showRank", e.target.checked)}
                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
               إظهار الرتبة
@@ -127,7 +155,7 @@ export default function SchoolSettingsPage() {
               <input
                 type="checkbox"
                 checked={form.template.showWeightedScore}
-                onChange={(e) => setForm({ ...form, template: { ...form.template, showWeightedScore: e.target.checked } })}
+                onChange={(e) => updateTemplate("showWeightedScore", e.target.checked)}
                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
               إظهار المجموع الموزون
@@ -136,15 +164,60 @@ export default function SchoolSettingsPage() {
               <input
                 type="checkbox"
                 checked={form.template.showRuleNotes}
-                onChange={(e) => setForm({ ...form, template: { ...form.template, showRuleNotes: e.target.checked } })}
+                onChange={(e) => updateTemplate("showRuleNotes", e.target.checked)}
                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
               إظهار ملاحظة قاعدة الحساب
             </label>
+            <label className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.template.showPolicyNote}
+                onChange={(e) => updateTemplate("showPolicyNote", e.target.checked)}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              إظهار سياسة الفصل
+            </label>
+            <label className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.template.showSubjectCoefficient}
+                onChange={(e) => updateTemplate("showSubjectCoefficient", e.target.checked)}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              إظهار ضارب المادة داخل الجدول
+            </label>
+            <label className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.template.showSchoolContacts}
+                onChange={(e) => updateTemplate("showSchoolContacts", e.target.checked)}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              إظهار العنوان والهاتف
+            </label>
+            <label className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.template.showNotesSection}
+                onChange={(e) => updateTemplate("showNotesSection", e.target.checked)}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              إظهار خانة الملاحظات
+            </label>
+            <label className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.template.showSignatureSection}
+                onChange={(e) => updateTemplate("showSignatureSection", e.target.checked)}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              إظهار خانة التوقيع
+            </label>
           </div>
 
           <p className="text-xs text-gray-500">
-            حساب النتائج الأكاديمية يتم وفق القاعدة المنشورة للنظام، أما شكل الكشف نفسه فيبقى قابلاً للتخصيص حسب المدرسة.
+            حساب النتائج الأكاديمية يتم وفق القاعدة المنشورة للنظام، أما شكل الكشف نفسه فيبقى قابلاً للتخصيص حسب المدرسة من دون المساس بالحساب.
           </p>
           <Button fullWidth loading={saving} onClick={save}>حفظ الإعدادات</Button>
         </div>

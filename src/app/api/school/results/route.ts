@@ -100,6 +100,11 @@ export async function GET(req: NextRequest) {
         resultReportShowRank: true,
         resultReportShowWeightedScore: true,
         resultReportShowRuleNotes: true,
+        resultReportShowPolicyNote: true,
+        resultReportShowSubjectCoefficient: true,
+        resultReportShowSchoolContacts: true,
+        resultReportShowNotesSection: true,
+        resultReportShowSignatureSection: true,
       },
     }),
     prisma.enrollment.findMany({
@@ -240,6 +245,11 @@ export async function GET(req: NextRequest) {
       showRank: school?.resultReportShowRank !== false,
       showWeightedScore: school?.resultReportShowWeightedScore !== false,
       showRuleNotes: school?.resultReportShowRuleNotes !== false,
+      showPolicyNote: school?.resultReportShowPolicyNote !== false,
+      showSubjectCoefficient: school?.resultReportShowSubjectCoefficient !== false,
+      showSchoolContacts: school?.resultReportShowSchoolContacts !== false,
+      showNotesSection: school?.resultReportShowNotesSection !== false,
+      showSignatureSection: school?.resultReportShowSignatureSection !== false,
     },
     classroom: {
       id: classroom.id,

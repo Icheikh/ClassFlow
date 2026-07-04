@@ -55,6 +55,11 @@ type ResultsResponse = {
     showRank: boolean
     showWeightedScore: boolean
     showRuleNotes: boolean
+    showPolicyNote: boolean
+    showSubjectCoefficient: boolean
+    showSchoolContacts: boolean
+    showNotesSection: boolean
+    showSignatureSection: boolean
   }
   classroom: { id: string; name: string; level: { name: string; stage: { name: string } }; stream: { name: string } | null }
   term: { id: string; name: string }
@@ -487,7 +492,9 @@ export default function SchoolResultsPage() {
                                   {subjectResult?.finalAverage != null ? (
                                     <div>
                                       <div className="font-medium">{subjectResult.finalAverage.toFixed(2)}</div>
-                                      <div className="text-xs text-gray-400">ض {subjectResult.coefficient}</div>
+                                      {data.template.showSubjectCoefficient && (
+                                        <div className="text-xs text-gray-400">ض {subjectResult.coefficient}</div>
+                                      )}
                                     </div>
                                   ) : "—"}
                                 </td>

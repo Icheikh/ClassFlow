@@ -35,6 +35,11 @@ type ReportResponse = {
     showRank: boolean
     showWeightedScore: boolean
     showRuleNotes: boolean
+    showPolicyNote: boolean
+    showSubjectCoefficient: boolean
+    showSchoolContacts: boolean
+    showNotesSection: boolean
+    showSignatureSection: boolean
   }
   classroom: { id: string; name: string; level: { name: string; stage: { name: string } }; stream: { name: string } | null }
   term: { id: string; name: string }
@@ -89,6 +94,10 @@ export default function ResultsReportPage() {
 
   const subjectHeaders = useMemo(() => data?.subjects || [], [data])
   const hasComputedResults = (data?.results || []).some((row) => row.average != null)
+  const visibleFooterSections = [
+    data?.template.showNotesSection ? "notes" : null,
+    data?.template.showSignatureSection ? "signature" : null,
+  ].filter(Boolean).length
 
   if (loading) return <LoadingPage />
 
@@ -126,10 +135,12 @@ export default function ResultsReportPage() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h1 className="text-3xl font-bold">{data.school.name || "المدرسة"}</h1>
-                <p className="mt-2 text-sm text-gray-500">
-                  {data.school.address || "بدون عنوان"}
-                  {data.school.phone ? ` · ${data.school.phone}` : ""}
-                </p>
+                {data.template.showSchoolContacts && (data.school.address || data.school.phone) && (
+                  <p className="mt-2 text-sm text-gray-500">
+                    {data.school.address || "بدون عنوان"}
+                    {data.school.phone ? ` · ${data.school.phone}` : ""}
+                  </p>
+                )}
               </div>
               <div className="text-left">
                 <Badge variant={getStatusVariant(data.publicationStatus)}>
@@ -172,9 +183,11 @@ export default function ResultsReportPage() {
             </div>
           )}
 
-          <div className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-700">
-            {data.termPolicyNote}
-          </div>
+          {data.template.showPolicyNote && (
+            <div className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-700">
+              {data.termPolicyNote}
+            </div>
+          )}
 
           {!hasComputedResults ? (
             <p className="py-12 text-center text-gray-400">لا توجد نتائج كافية لتوليد كشف هذا القسم بعد.</p>
@@ -204,7 +217,9 @@ export default function ResultsReportPage() {
                             {subjectResult?.finalAverage != null ? (
                               <div>
                                 <div className="font-medium">{subjectResult.finalAverage.toFixed(2)}</div>
-                                <div className="text-xs text-gray-400">ض {subjectResult.coefficient}</div>
+                                {data.template.showSubjectCoefficient && (
+                                  <div className="text-xs text-gray-400">ض {subjectResult.coefficient}</div>
+                                )}
                               </div>
                             ) : "—"}
                           </td>
@@ -225,16 +240,22 @@ export default function ResultsReportPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-6 pt-8 text-sm text-gray-600">
-            <div className="space-y-3">
-              <p>{data.template.notesLabel}</p>
-              <div className="h-20 rounded-xl border border-dashed border-gray-300" />
+          {visibleFooterSections > 0 && (
+            <div className={`grid gap-6 pt-8 text-sm text-gray-600 ${visibleFooterSections === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+              {data.template.showNotesSection && (
+                <div className="space-y-3">
+                  <p>{data.template.notesLabel}</p>
+                  <div className="h-20 rounded-xl border border-dashed border-gray-300" />
+                </div>
+              )}
+              {data.template.showSignatureSection && (
+                <div className="space-y-3">
+                  <p>{data.template.signatureLabel}</p>
+                  <div className="h-20 rounded-xl border border-dashed border-gray-300" />
+                </div>
+              )}
             </div>
-            <div className="space-y-3">
-              <p>{data.template.signatureLabel}</p>
-              <div className="h-20 rounded-xl border border-dashed border-gray-300" />
-            </div>
-          </div>
+          )}
         </div>
       </Card>
     </div>
