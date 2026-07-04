@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react"
 import { useParams } from "next/navigation"
 import { api } from "@/lib/api"
 import { Button, Card, Badge, Modal, Input, LoadingPage } from "@/components/ui"
+import { addUtcDays, formatDateOnly, getWeekStartDate } from "@/lib/date"
 import {
   ArrowLeft,
   BookOpen,
@@ -18,6 +19,8 @@ import {
   ShieldCheck,
   AlertTriangle,
   UserCheck,
+  ChevronLeft,
+  ChevronRight as ChevronWeek,
 } from "lucide-react"
 import Link from "next/link"
 import toast from "react-hot-toast"
@@ -72,6 +75,16 @@ type DetailData = {
       recordedBy: string
       recordedAt: string
     }[]
+    activityTimeline: {
+      id: string
+      type: "ATTENDANCE" | "HOURS"
+      date: string
+      recordedAt: string
+      title: string
+      subtitle: string
+      status?: string
+      notes?: string | null
+    }[]
   }
 }
 
@@ -88,6 +101,7 @@ export default function TeacherDetailPage() {
   const [data, setData] = useState<DetailData | null>(null)
   const [loading, setLoading] = useState(true)
   const [editAssign, setEditAssign] = useState<{ id: string; hourlyRate: string; weeklyHours: string } | null>(null)
+  const [weekStart, setWeekStart] = useState(() => formatDateOnly(getWeekStartDate()))
 
   const fetchData = useCallback(async () => {
     if (!id) {
@@ -95,10 +109,10 @@ export default function TeacherDetailPage() {
       return
     }
 
-    const { data } = await api.get<DetailData>(`/api/school/teachers/${id}`)
+    const { data } = await api.get<DetailData>(`/api/school/teachers/${id}?weekStart=${weekStart}`)
     if (data) setData(data)
     setLoading(false)
-  }, [id])
+  }, [id, weekStart])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -118,6 +132,11 @@ export default function TeacherDetailPage() {
 
   const t = data.teacher
   const payroll = data.payroll
+
+  function shiftWeek(days: number) {
+    const nextWeek = addUtcDays(getWeekStartDate(weekStart), days)
+    setWeekStart(formatDateOnly(nextWeek))
+  }
 
   return (
     <div>
@@ -195,6 +214,20 @@ export default function TeacherDetailPage() {
             <h3 className="font-semibold flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-blue-600" /> متابعة هذا الأسبوع</h3>
             <p className="text-xs text-gray-500 mt-1">من {payroll.weekStart} إلى {payroll.weekEnd}</p>
           </div>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" size="sm" onClick={() => shiftWeek(-7)}>
+              <ChevronWeek className="h-4 w-4" />
+            </Button>
+            <input
+              type="date"
+              value={weekStart}
+              onChange={(e) => setWeekStart(formatDateOnly(getWeekStartDate(e.target.value)))}
+              className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            />
+            <Button variant="secondary" size="sm" onClick={() => shiftWeek(7)}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+          </div>
           <div className="flex items-center gap-2 flex-wrap">
             <Badge variant="success"><UserCheck className="h-3 w-3" /> {payroll.attendanceSummary.presentDays} حضور</Badge>
             <Badge variant="danger"><AlertTriangle className="h-3 w-3" /> {payroll.attendanceSummary.absentDays} غياب</Badge>
@@ -252,6 +285,31 @@ export default function TeacherDetailPage() {
             )}
           </div>
         </div>
+      </Card>
+
+      <Card padding="lg" className="mb-6">
+        <h3 className="font-semibold flex items-center gap-2 mb-4"><Calendar className="h-5 w-5" /> السجل الزمني للأسبوع</h3>
+        {payroll.activityTimeline.length === 0 ? (
+          <p className="text-sm text-gray-400">لا توجد أحداث مسجلة في هذا الأسبوع</p>
+        ) : (
+          <div className="space-y-2">
+            {payroll.activityTimeline.map((event) => (
+              <div key={event.id} className="rounded-lg border border-gray-200 px-3 py-3">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium">{event.title}</p>
+                    <p className="text-xs text-gray-500 mt-1">{event.subtitle}</p>
+                  </div>
+                  <div className="text-left shrink-0">
+                    <p className="text-xs text-gray-500">{event.date}</p>
+                    <p className="text-xs text-gray-400">{new Date(event.recordedAt).toLocaleTimeString("ar-MR", { hour: "2-digit", minute: "2-digit" })}</p>
+                  </div>
+                </div>
+                {event.notes && <p className="text-xs text-gray-500 mt-2">{event.notes}</p>}
+              </div>
+            ))}
+          </div>
+        )}
       </Card>
 
       {/* Classrooms */}

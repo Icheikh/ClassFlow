@@ -9,6 +9,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const user = session?.user as any
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
+  const url = new URL(req.url)
   const teacher = await prisma.teacher.findFirst({
     where: { id: params.id, schoolId: user.schoolId },
     include: { user: { select: { id: true, email: true, name: true, phone: true, isActive: true } } },
@@ -48,7 +49,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     ).reduce((a, b) => a + b, 0),
   }
 
-  const weekStart = getWeekStartDate()
+  const weekStart = getWeekStartDate(url.searchParams.get("weekStart") || undefined)
   const weekEnd = addUtcDays(weekStart, 7)
 
   const [weeklyAttendance, weeklyHourEntries] = await Promise.all([
@@ -131,6 +132,27 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     Array.from(weeklyAssignmentMap.values()).reduce((sum, assignment) => sum + assignment.estimatedEarnings, 0) * 100
   ) / 100
 
+  const activityTimeline = [
+    ...weeklyAttendance.map((record) => ({
+      id: `attendance-${record.id}`,
+      type: "ATTENDANCE" as const,
+      date: formatDateOnly(record.date),
+      recordedAt: record.checkIn?.toISOString() ?? record.date.toISOString(),
+      title: `تم تسجيل الحضور: ${record.status}`,
+      subtitle: `بواسطة ${record.user.name}`,
+      status: record.status,
+    })),
+    ...weeklyHourEntries.map((entry) => ({
+      id: `hours-${entry.id}`,
+      type: "HOURS" as const,
+      date: formatDateOnly(entry.date),
+      recordedAt: entry.updatedAt.toISOString(),
+      title: `تم تسجيل ${entry.hoursTaught} ساعة`,
+      subtitle: `${entry.teacherAssignment.subject.nameAr} - ${entry.teacherAssignment.classroom.name} · ${entry.recordedByUser.name}`,
+      notes: entry.notes,
+    })),
+  ].sort((left, right) => new Date(right.recordedAt).getTime() - new Date(left.recordedAt).getTime())
+
   const payroll = {
     weekStart: formatDateOnly(weekStart),
     weekEnd: formatDateOnly(addUtcDays(weekEnd, -1)),
@@ -158,6 +180,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       recordedBy: entry.recordedByUser.name,
       recordedAt: entry.updatedAt.toISOString(),
     })),
+    activityTimeline,
   }
 
   return NextResponse.json({ teacher, assignments, recentLessons, stats, payroll })
