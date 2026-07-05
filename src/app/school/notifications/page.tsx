@@ -1,10 +1,11 @@
 "use client"
 
+import Link from "next/link"
 import { useCallback, useEffect, useState } from "react"
 import toast from "react-hot-toast"
 import { Badge, Button, Card, Input, LoadingPage, Select, Textarea } from "@/components/ui"
 import { api } from "@/lib/api"
-import { BellRing, CheckCircle2, Send, XCircle } from "lucide-react"
+import { BellRing, CheckCircle2, Eye, Send, XCircle } from "lucide-react"
 
 type Template = {
   id: string
@@ -19,6 +20,7 @@ type Template = {
 type Campaign = {
   id: string
   title: string
+  message: string
   type: string
   channel: string
   status: string
@@ -68,6 +70,8 @@ export default function SchoolNotificationsPage() {
   const [classrooms, setClassrooms] = useState<OptionItem[]>([])
   const [levels, setLevels] = useState<OptionItem[]>([])
   const [streams, setStreams] = useState<OptionItem[]>([])
+  const [campaignStatusFilter, setCampaignStatusFilter] = useState("")
+  const [campaignTypeFilter, setCampaignTypeFilter] = useState("")
 
   const [templateForm, setTemplateForm] = useState({
     name: "",
@@ -205,6 +209,12 @@ export default function SchoolNotificationsPage() {
       await loadData()
     }
   }
+
+  const visibleCampaigns = campaigns.filter((campaign) => {
+    if (campaignStatusFilter && campaign.status !== campaignStatusFilter) return false
+    if (campaignTypeFilter && campaign.type !== campaignTypeFilter) return false
+    return true
+  })
 
   if (loading) return <LoadingPage />
 
@@ -364,13 +374,31 @@ export default function SchoolNotificationsPage() {
           <p className="text-sm text-gray-500 mt-1">راجع الحالة الحالية لكل حملة، ثم اعتمد أو ارفض.</p>
         </div>
 
-        {campaigns.length === 0 ? (
+        <div className="mb-4 grid gap-4 md:grid-cols-2">
+          <Select
+            label="فلترة حسب الحالة"
+            value={campaignStatusFilter}
+            onChange={setCampaignStatusFilter}
+            options={[
+              { value: "", label: "كل الحالات" },
+              ...Object.entries(statusLabels).map(([value, meta]) => ({ value, label: meta.label })),
+            ]}
+          />
+          <Select
+            label="فلترة حسب النوع"
+            value={campaignTypeFilter}
+            onChange={setCampaignTypeFilter}
+            options={[{ value: "", label: "كل الأنواع" }, ...typeOptions]}
+          />
+        </div>
+
+        {visibleCampaigns.length === 0 ? (
           <div className="rounded-xl border border-dashed border-gray-200 p-8 text-center text-gray-500">
-            لا توجد حملات حتى الآن
+            لا توجد حملات مطابقة لهذا الفلتر
           </div>
         ) : (
           <div className="space-y-4">
-            {campaigns.map((campaign) => {
+            {visibleCampaigns.map((campaign) => {
               const status = statusLabels[campaign.status] || { label: campaign.status, variant: "default" as const }
               return (
                 <div key={campaign.id} className="rounded-xl border border-gray-200 p-4">
@@ -380,6 +408,7 @@ export default function SchoolNotificationsPage() {
                         <h3 className="font-semibold text-gray-900">{campaign.title}</h3>
                         <Badge variant={status.variant}>{status.label}</Badge>
                       </div>
+                      <p className="text-sm text-gray-600 line-clamp-2">{campaign.message}</p>
                       <div className="flex flex-wrap gap-2 text-xs text-gray-500">
                         <span>النوع: {campaign.type}</span>
                         <span>الجمهور: {campaign.audienceType}</span>
@@ -399,6 +428,11 @@ export default function SchoolNotificationsPage() {
                     </div>
 
                     <div className="flex flex-wrap gap-2">
+                      <Link href={`/school/notifications/${campaign.id}`}>
+                        <Button variant="secondary" size="sm">
+                          <Eye className="h-4 w-4" /> التفاصيل
+                        </Button>
+                      </Link>
                       {(campaign.status === "DRAFT" || campaign.status === "REJECTED") && (
                         <Button size="sm" onClick={() => void updateCampaignStatus(campaign.id, "submit")}>
                           <Send className="h-4 w-4" /> إرسال للاعتماد
