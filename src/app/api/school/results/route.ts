@@ -16,6 +16,7 @@ import {
   renderResultReportTemplate,
   serializeResultReportTemplate,
 } from "@/lib/result-report-templates"
+import { createNotificationCampaign } from "@/lib/notifications"
 
 const reviewRoles = ["SCHOOL_ADMIN", "STAFF", "SUPERVISOR"]
 
@@ -333,7 +334,7 @@ export async function PUT(req: NextRequest) {
 
   const classroom = await prisma.classroom.findFirst({
     where: { id: classroomId, schoolId: user.schoolId },
-    select: { id: true, levelId: true, streamId: true },
+    select: { id: true, name: true, levelId: true, streamId: true },
   })
   if (!classroom) {
     return NextResponse.json({ error: "القسم غير موجود" }, { status: 404 })
@@ -493,5 +494,39 @@ export async function PUT(req: NextRequest) {
     after: publication,
   })
 
-  return NextResponse.json(publication)
+  let notificationCampaign: { id: string; recipientsCount: number } | null = null
+
+  if (
+    status === RESULT_PUBLICATION_STATUSES.APPROVED
+    && existingPublication?.status !== RESULT_PUBLICATION_STATUSES.APPROVED
+  ) {
+    try {
+      const campaign = await createNotificationCampaign({
+        schoolId: user.schoolId,
+        createdByUserId: user.id,
+        type: "RESULTS",
+        channel: "WHATSAPP",
+        title: `نشر نتائج ${context.term.name}`,
+        message: `تم اعتماد نتائج القسم ${classroom.name} للفصل ${context.term.name}. يمكنكم مراجعة الإدارة أو انتظار الإرسال النهائي حسب سياسة المدرسة.`,
+        audience: {
+          audienceType: "CLASSROOM",
+          filters: { classroomId },
+          exclusions: {},
+        },
+        status: "DRAFT",
+      })
+
+      notificationCampaign = {
+        id: campaign.id,
+        recipientsCount: campaign.recipientsCount,
+      }
+    } catch (error) {
+      console.error("Results campaign creation failed:", error)
+    }
+  }
+
+  return NextResponse.json({
+    ...publication,
+    notificationCampaign,
+  })
 }

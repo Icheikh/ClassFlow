@@ -159,14 +159,18 @@ export default function SchoolResultsPage() {
     if (response) setData(response)
   }
 
-  async function updatePublicationStatus(status: string) {
+async function updatePublicationStatus(status: string) {
     if (!classroomId || !termId) return
     setSaving(true)
-    const { error } = await api.put("/api/school/results", { classroomId, termId, status })
+    const { data, error } = await api.put<{ notificationCampaign?: { id: string; recipientsCount: number } | null }>("/api/school/results", { classroomId, termId, status })
     if (error) {
       toast.error(error)
     } else {
-      toast.success(status === RESULT_PUBLICATION_STATUSES.LOCKED ? "تم قفل النتائج" : status === RESULT_PUBLICATION_STATUSES.APPROVED ? "تم اعتماد النتائج" : "تم فتح النتائج")
+      if (status === RESULT_PUBLICATION_STATUSES.APPROVED && data?.notificationCampaign) {
+        toast.success(`تم اعتماد النتائج وإنشاء حملة إشعار لعدد ${data.notificationCampaign.recipientsCount} مستلمين`)
+      } else {
+        toast.success(status === RESULT_PUBLICATION_STATUSES.LOCKED ? "تم قفل النتائج" : status === RESULT_PUBLICATION_STATUSES.APPROVED ? "تم اعتماد النتائج" : "تم فتح النتائج")
+      }
       await reloadResults()
     }
     setSaving(false)
