@@ -34,6 +34,19 @@ export type ResolvedRecipient = {
   phone: string | null
 }
 
+type CampaignCreationInput = {
+  schoolId: string
+  createdByUserId: string
+  templateId?: string | null
+  type: string
+  channel?: string
+  title: string
+  message: string
+  audience: NotificationAudienceInput
+  scheduledFor?: Date | null
+  status?: string
+}
+
 function toStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return []
   return value.filter((item): item is string => typeof item === "string" && item.length > 0)
@@ -139,4 +152,47 @@ export async function resolveNotificationRecipients(
   }
 
   return Array.from(uniqueRecipients.values())
+}
+
+export async function createNotificationCampaign(input: CampaignCreationInput) {
+  const audience = normalizeAudienceInput(input.audience)
+  const recipients = await resolveNotificationRecipients(input.schoolId, audience)
+
+  if (recipients.length === 0) {
+    throw new Error("لم يتم العثور على مستلمين لهذا الجمهور")
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const campaign = await tx.notificationCampaign.create({
+      data: {
+        schoolId: input.schoolId,
+        templateId: input.templateId || null,
+        type: input.type,
+        channel: input.channel || "WHATSAPP",
+        status: input.status || "DRAFT",
+        title: input.title,
+        message: input.message,
+        audienceType: audience.audienceType,
+        audienceFilters: JSON.stringify(audience.filters || {}),
+        exclusionFilters: JSON.stringify(audience.exclusions || {}),
+        recipientsCount: recipients.length,
+        createdByUserId: input.createdByUserId,
+        scheduledFor: input.scheduledFor || null,
+      },
+    })
+
+    await tx.notificationRecipient.createMany({
+      data: recipients.map((recipient) => ({
+        schoolId: input.schoolId,
+        campaignId: campaign.id,
+        userId: recipient.userId,
+        parentId: recipient.parentId,
+        studentId: recipient.studentId,
+        phone: recipient.phone,
+        channel: input.channel || "WHATSAPP",
+      })),
+    })
+
+    return campaign
+  })
 }

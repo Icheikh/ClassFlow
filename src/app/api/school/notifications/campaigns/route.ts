@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { hasAnyPermission, PERMISSIONS } from "@/lib/permissions"
-import { normalizeAudienceInput, resolveNotificationRecipients } from "@/lib/notifications"
+import { createNotificationCampaign, normalizeAudienceInput } from "@/lib/notifications"
 
 function canManageNotifications(user: any) {
   return ["SCHOOL_ADMIN", "SUPERVISOR"].includes(user?.role)
@@ -63,45 +63,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "العنوان والنص والنوع مطلوبة" }, { status: 400 })
   }
 
-  const recipients = await resolveNotificationRecipients(user.schoolId, audience)
-  if (recipients.length === 0) {
-    return NextResponse.json({ error: "لم يتم العثور على مستلمين لهذا الجمهور" }, { status: 400 })
-  }
-
-  const campaign = await prisma.$transaction(async (tx) => {
-    const created = await tx.notificationCampaign.create({
-      data: {
-        schoolId: user.schoolId,
-        templateId,
-        type,
-        channel,
-        title,
-        message,
-        audienceType: audience.audienceType,
-        audienceFilters: JSON.stringify(audience.filters || {}),
-        exclusionFilters: JSON.stringify(audience.exclusions || {}),
-        recipientsCount: recipients.length,
-        createdByUserId: user.id,
-        scheduledFor,
-      },
+  try {
+    const campaign = await createNotificationCampaign({
+      schoolId: user.schoolId,
+      createdByUserId: user.id,
+      templateId,
+      type,
+      channel,
+      title,
+      message,
+      audience,
+      scheduledFor,
     })
 
-    if (recipients.length > 0) {
-      await tx.notificationRecipient.createMany({
-        data: recipients.map((recipient) => ({
-          schoolId: user.schoolId,
-          campaignId: created.id,
-          userId: recipient.userId,
-          parentId: recipient.parentId,
-          studentId: recipient.studentId,
-          phone: recipient.phone,
-          channel,
-        })),
-      })
-    }
-
-    return created
-  })
-
-  return NextResponse.json(campaign)
+    return NextResponse.json(campaign)
+  } catch (error: any) {
+    return NextResponse.json({ error: error?.message || "تعذر إنشاء الحملة" }, { status: 400 })
+  }
 }

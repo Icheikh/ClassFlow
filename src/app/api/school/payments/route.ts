@@ -4,6 +4,13 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { hasPermission, PERMISSIONS } from "@/lib/permissions"
 import { Prisma } from "@prisma/client"
+import { createNotificationCampaign } from "@/lib/notifications"
+
+type ReceiptCampaignPayload = {
+  title: string
+  message: string
+  studentIds: string[]
+}
 
 async function buildReceiptNumber(tx: Prisma.TransactionClient, schoolId: string) {
   const count = await tx.payment.count({ where: { schoolId } })
@@ -52,6 +59,8 @@ export async function POST(req: NextRequest) {
   const { amount, method, notes, studentId, feeId, invoiceId } = body
   if (!amount || !studentId) return NextResponse.json({ error: "المبلغ والطالب مطلوبان" }, { status: 400 })
 
+  let receiptCampaignData: ReceiptCampaignPayload | undefined
+
   const payment = await prisma.$transaction(async (tx) => {
     const receiptNumber = await buildReceiptNumber(tx, user.schoolId)
     const p = await tx.payment.create({
@@ -85,33 +94,42 @@ export async function POST(req: NextRequest) {
       const fee = await tx.fee.findUnique({ where: { id: feeId } })
       const student = await tx.student.findUnique({
         where: { id: studentId },
-        include: {
-          studentParents: {
-            where: { receiveNotifications: true },
-            include: { parent: { include: { user: true } } },
-          },
-        },
+        select: { id: true },
       })
 
       if (student && fee) {
-        for (const link of student.studentParents) {
-          await tx.notification.create({
-            data: {
-              schoolId: user.schoolId,
-              userId: link.parent.userId,
-              title: "إيصال تسديد الرسوم",
-              message: `تم تسجيل دفعة بقيمة ${amount} أوقية للرسم ${fee.name}. رقم الإيصال ${receiptNumber}.`,
-              type: "PAYMENT_RECEIPT",
-              channel: "WHATSAPP",
-              status: "PENDING",
-            },
-          })
+        receiptCampaignData = {
+          title: "إيصال تسديد الرسوم",
+          message: `تم تسجيل دفعة بقيمة ${amount} أوقية للرسم ${fee.name}. رقم الإيصال ${receiptNumber}.`,
+          studentIds: [student.id],
         }
       }
     }
 
     return p
   })
+
+  if (receiptCampaignData) {
+    const campaignData: ReceiptCampaignPayload = receiptCampaignData
+    try {
+      await createNotificationCampaign({
+        schoolId: user.schoolId,
+        createdByUserId: user.id,
+        type: "PAYMENT_RECEIPT",
+        channel: "WHATSAPP",
+        title: campaignData.title,
+        message: campaignData.message,
+        audience: {
+          audienceType: "STUDENTS",
+          filters: { studentIds: campaignData.studentIds },
+          exclusions: {},
+        },
+        status: "DRAFT",
+      })
+    } catch (error) {
+      console.error("Receipt campaign creation failed:", error)
+    }
+  }
 
   return NextResponse.json(payment)
 }

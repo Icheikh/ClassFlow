@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { hasAnyPermission, PERMISSIONS } from "@/lib/permissions"
+import { createNotificationCampaign } from "@/lib/notifications"
 
 const legacyRoles = ["TEACHER", "SCHOOL_ADMIN", "SUPERVISOR"]
 
@@ -56,24 +57,35 @@ export async function POST(req: NextRequest) {
   )
 
   const absentStudents = records.filter((r: { status: string }) => r.status === "absent" || r.status === "late")
-  for (const record of absentStudents) {
-    const studentParents = await prisma.studentParent.findMany({
-      where: { studentId: record.studentId, receiveNotifications: true },
-      include: { parent: true },
+  if (absentStudents.length > 0) {
+    const classroom = await prisma.classroom.findUnique({
+      where: { id: classroomId },
+      select: { name: true },
     })
-    for (const sp of studentParents) {
-      await prisma.notification.create({
-        data: {
-          schoolId: user.schoolId,
-          title: "إشعار غياب",
-          message: `ابنكم/ابنتكم كان ${record.status === "absent" ? "غائباً" : "متأخراً"} اليوم`,
-          type: "attendance_alert",
-          channel: "IN_APP",
-          status: "SENT",
-          userId: sp.parent.userId,
-          sentAt: new Date(),
+
+    const absentCount = absentStudents.filter((record: { status: string }) => record.status === "absent").length
+    const lateCount = absentStudents.filter((record: { status: string }) => record.status === "late").length
+    const dateLabel = new Date(date).toLocaleDateString("ar-MR")
+
+    try {
+      await createNotificationCampaign({
+        schoolId: user.schoolId,
+        createdByUserId: user.id,
+        type: "ATTENDANCE",
+        channel: "WHATSAPP",
+        title: `تنبيه حضور ${classroom?.name || "القسم"}`,
+        message: `تم تسجيل الحضور بتاريخ ${dateLabel}. يوجد ${absentCount} غياب و${lateCount} تأخر في ${classroom?.name || "هذا القسم"}. الحملة بانتظار اعتماد الإدارة قبل إرسالها للأولياء.`,
+        audience: {
+          audienceType: "STUDENTS",
+          filters: {
+            studentIds: absentStudents.map((record: { studentId: string }) => record.studentId),
+          },
+          exclusions: {},
         },
+        status: "DRAFT",
       })
+    } catch (error) {
+      console.error("Attendance campaign creation failed:", error)
     }
   }
 

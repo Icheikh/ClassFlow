@@ -127,7 +127,12 @@ export default function InvoicesPage() {
     }
 
     setSendingReminders(true)
-    const { data, error } = await api.post<{ queued: number; invoices: number }>("/api/school/invoices/reminders", {
+    const { data, error } = await api.post<{
+      createdCampaign: boolean
+      campaignId?: string
+      recipients: number
+      invoices: number
+    }>("/api/school/invoices/reminders", {
       month,
       classroomId: classroomId || null,
     })
@@ -135,7 +140,11 @@ export default function InvoicesPage() {
     if (error) {
       toast.error(error)
     } else {
-      toast.success(`تم تجهيز ${data?.queued || 0} تنبيهًا للواتساب`)
+      toast.success(
+        data?.createdCampaign
+          ? `تم إنشاء حملة اعتماد لعدد ${data?.recipients || 0} مستلمين`
+          : "لا توجد فواتير متأخرة لهذا الاختيار"
+      )
     }
     setSendingReminders(false)
   }
