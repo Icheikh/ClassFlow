@@ -6,24 +6,21 @@ import { redirect, usePathname } from "next/navigation"
 import { useState } from "react"
 import {
   BookOpen,
-  ClipboardCheck,
   GraduationCap,
-  LayoutDashboard,
   LogOut,
   Menu,
   Users,
-  ClipboardList,
+  Home,
 } from "lucide-react"
 import { roleLabels } from "@/lib/roles"
 
-const allowedRoles = ["TEACHER", "SCHOOL_ADMIN", "SUPERVISOR"]
+const allowedRoles = ["TEACHER"]
 
 const navItems = [
-  { href: "/teacher", label: "الرئيسية", icon: ClipboardCheck },
+  { href: "/teacher", label: "الرئيسية", icon: Home },
   { href: "/teacher/attendance", label: "الغياب", icon: Users },
   { href: "/teacher/lessons", label: "الدروس", icon: BookOpen },
   { href: "/teacher/grades", label: "النقاط", icon: GraduationCap },
-  { href: "/teacher/roster", label: "سجل الحضور", icon: ClipboardList, supervisorOnly: true },
 ]
 
 function TeacherLayoutContent({ children }: { children: React.ReactNode }) {
@@ -40,12 +37,14 @@ function TeacherLayoutContent({ children }: { children: React.ReactNode }) {
   }
 
   const user = session?.user as any
-  if (!session || !allowedRoles.includes(user?.role)) {
+  if (!session) {
     redirect("/auth/login")
   }
 
-  const isRosterPath = pathname === "/teacher/roster"
-  if (user?.role !== "TEACHER" && !isRosterPath) {
+  if (!allowedRoles.includes(user?.role)) {
+    if (pathname === "/teacher/roster") {
+      redirect("/school/teacher-attendance")
+    }
     redirect("/school")
   }
 
@@ -63,7 +62,7 @@ function TeacherLayoutContent({ children }: { children: React.ReactNode }) {
 
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t z-50">
         <div className="flex justify-around py-2">
-          {navItems.filter((item) => !item.supervisorOnly || user?.role !== "TEACHER").map((item) => (
+          {navItems.map((item) => (
             <a key={item.href} href={item.href} className="flex flex-col items-center text-xs text-gray-500 hover:text-blue-600">
               <item.icon className="h-5 w-5" />
               <span className="mt-1">{item.label}</span>
@@ -80,18 +79,12 @@ function TeacherLayoutContent({ children }: { children: React.ReactNode }) {
             <p className="text-xs text-gray-500">{roleLabels[user?.role]}</p>
           </div>
           <nav className="space-y-1">
-            {navItems.filter((item) => !item.supervisorOnly || user?.role !== "TEACHER").map((item) => (
+            {navItems.map((item) => (
               <a key={item.href} href={item.href} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
                 <item.icon className="h-5 w-5" />
                 {item.label}
               </a>
             ))}
-            {user?.role !== "TEACHER" && (
-              <a href="/school" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
-                <LayoutDashboard className="h-5 w-5" />
-                لوحة التحكم
-              </a>
-            )}
             <button onClick={() => signOut()} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-red-600 hover:bg-red-50 w-full mt-4">
               <LogOut className="h-5 w-5" />
               تسجيل الخروج

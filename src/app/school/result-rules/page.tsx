@@ -1,10 +1,12 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { api } from "@/lib/api"
 import { Button, Card, Input, Textarea, Badge } from "@/components/ui"
 import { buildTermCalculationNote } from "@/lib/results"
 import toast from "react-hot-toast"
+import { useCurrentUser } from "@/hooks/useCurrentUser"
 
 type ResultRule = {
   id: string
@@ -170,6 +172,8 @@ function buildPreviewRule(form: RuleForm): ResultRule {
 }
 
 export default function SchoolResultRulesPage() {
+  const router = useRouter()
+  const user = useCurrentUser()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [publishing, setPublishing] = useState(false)
@@ -212,8 +216,18 @@ export default function SchoolResultRulesPage() {
   }
 
   useEffect(() => {
+    if (!user.role) return
+    if (user.role !== "SCHOOL_ADMIN") {
+      router.replace("/school")
+      return
+    }
+
     loadData()
-  }, [])
+  }, [router, user.role])
+
+  if (user.role && user.role !== "SCHOOL_ADMIN") {
+    return <div className="min-h-[200px]" />
+  }
 
   async function saveDraft() {
     setSaving(true)
@@ -279,6 +293,27 @@ export default function SchoolResultRulesPage() {
           <div className="space-y-4">
             <Input label="اسم القاعدة" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
 
+            <div className="grid gap-4 lg:grid-cols-3">
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm">
+                <p className="font-medium text-gray-900">الفصل الأول والثاني</p>
+                <p className="mt-2 text-gray-600">
+                  لكل فصل قاعدة مستقلة: وزن الاختبارات + وزن امتحان ذلك الفصل + المقام الخاص به.
+                </p>
+              </div>
+              <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm">
+                <p className="font-medium text-blue-900">الفصل الثالث</p>
+                <p className="mt-2 text-blue-800">
+                  هنا تضبط القاعدة النهائية التراكمية التي يمكن أن تجمع معدل الاختبارات مع الامتحان الأول والثاني والأخير.
+                </p>
+              </div>
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm">
+                <p className="font-medium text-amber-900">طريقة العمل</p>
+                <p className="mt-2 text-amber-800">
+                  عدّل القاعدة كمسودة أولاً، راجع المعاينة أسفل الصفحة، ثم انشرها عندما تتأكد من أنها الصيغة المعتمدة للمدرسة.
+                </p>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 gap-4">
               <div className="rounded-xl border border-gray-200 p-4">
                 <h3 className="font-semibold mb-3">الفصل الأول</h3>
@@ -321,7 +356,7 @@ export default function SchoolResultRulesPage() {
               <div className="rounded-xl border border-gray-200 p-4">
                 <h3 className="font-semibold mb-3">الفصل الثالث / النتيجة النهائية</h3>
                 <p className="text-sm text-gray-500 mb-3">
-                  في هذا الفصل تُدخل اختبارات الفصل الثالث والامتحان الأخير، لكن حساب النتيجة النهائية يمكن أن يجمع أيضاً الامتحان الأول والثاني حسب القاعدة أدناه.
+                  في هذا الفصل تُدخل اختبارات الفصل الثالث والامتحان الأخير، لكن النتيجة النهائية نفسها يمكن أن تجمع أيضاً الامتحان الأول والثاني حسب القاعدة أدناه.
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                   <Input label="وزن الاختبارات" type="number" step="0.1" min="0" value={form.testWeight} onChange={(e) => setForm({ ...form, testWeight: e.target.value })} />
@@ -358,7 +393,7 @@ export default function SchoolResultRulesPage() {
               <div className="space-y-1">
                 <div>الفصل الأول: {previewTerm1}</div>
                 <div>الفصل الثاني: {previewTerm2}</div>
-                <div>الفصل الثالث: {previewTerm3}</div>
+                <div>الفصل الثالث / النتيجة النهائية: {previewTerm3}</div>
               </div>
             </div>
 

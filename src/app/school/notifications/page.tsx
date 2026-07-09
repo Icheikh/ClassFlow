@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { useCallback, useEffect, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import toast from "react-hot-toast"
 import { Badge, Button, Card, Input, LoadingPage, Select, Textarea } from "@/components/ui"
 import { api } from "@/lib/api"
@@ -61,7 +62,30 @@ const statusLabels: Record<string, { label: string; variant: "success" | "warnin
   FAILED: { label: "فشل", variant: "danger" },
 }
 
+const audienceLabels: Record<string, string> = {
+  ALL_PARENTS: "كل الأولياء",
+  CLASSROOM: "أولياء قسم",
+  LEVEL: "أولياء مستوى",
+  STREAM: "أولياء شعبة",
+  UNPAID_FEES: "أولياء المتأخرين في الرسوم",
+}
+
+function getCampaignAudienceSummary(campaign: Campaign) {
+  return audienceLabels[campaign.audienceType] || campaign.audienceType
+}
+
+function getCampaignTypeSummary(type: string) {
+  return typeOptions.find((option) => option.value === type)?.label || type
+}
+
 export default function SchoolNotificationsPage() {
+  const searchParams = useSearchParams()
+  const initialAudienceType = searchParams?.get("audienceType") || "ALL_PARENTS"
+  const initialClassroomId = searchParams?.get("classroomId") || ""
+  const initialLevelId = searchParams?.get("levelId") || ""
+  const initialStreamId = searchParams?.get("streamId") || ""
+  const initialType = searchParams?.get("type") || "GENERAL"
+  const initialMonth = searchParams?.get("month") || ""
   const [loading, setLoading] = useState(true)
   const [savingTemplate, setSavingTemplate] = useState(false)
   const [savingCampaign, setSavingCampaign] = useState(false)
@@ -83,15 +107,15 @@ export default function SchoolNotificationsPage() {
 
   const [campaignForm, setCampaignForm] = useState({
     templateId: "",
-    type: "GENERAL",
+    type: initialType,
     channel: "WHATSAPP",
     title: "",
     message: "",
-    audienceType: "ALL_PARENTS",
-    classroomId: "",
-    levelId: "",
-    streamId: "",
-    month: "",
+    audienceType: initialAudienceType,
+    classroomId: initialClassroomId,
+    levelId: initialLevelId,
+    streamId: initialStreamId,
+    month: initialMonth,
   })
 
   const loadData = useCallback(async () => {
@@ -121,6 +145,18 @@ export default function SchoolNotificationsPage() {
   useEffect(() => {
     void loadData()
   }, [loadData])
+
+  useEffect(() => {
+    setCampaignForm((current) => ({
+      ...current,
+      type: initialType,
+      audienceType: initialAudienceType,
+      classroomId: initialClassroomId,
+      levelId: initialLevelId,
+      streamId: initialStreamId,
+      month: initialMonth,
+    }))
+  }, [initialAudienceType, initialClassroomId, initialLevelId, initialMonth, initialStreamId, initialType])
 
   async function createTemplate() {
     if (!templateForm.name || !templateForm.titleTemplate || !templateForm.messageTemplate) {
@@ -176,22 +212,22 @@ export default function SchoolNotificationsPage() {
     })
 
     if (error) toast.error(error)
-    else {
-      toast.success("تم إنشاء الحملة كمسودة")
-      setCampaignForm({
-        templateId: "",
-        type: "GENERAL",
-        channel: "WHATSAPP",
-        title: "",
-        message: "",
-        audienceType: "ALL_PARENTS",
-        classroomId: "",
-        levelId: "",
-        streamId: "",
-        month: "",
-      })
-      await loadData()
-    }
+      else {
+        toast.success("تم إنشاء الحملة كمسودة")
+        setCampaignForm({
+          templateId: "",
+          type: initialType,
+          channel: "WHATSAPP",
+          title: "",
+          message: "",
+          audienceType: initialAudienceType,
+          classroomId: initialClassroomId,
+          levelId: initialLevelId,
+          streamId: initialStreamId,
+          month: initialMonth,
+        })
+        await loadData()
+      }
     setSavingCampaign(false)
   }
 
@@ -216,6 +252,13 @@ export default function SchoolNotificationsPage() {
     return true
   })
 
+  const campaignStats = {
+    total: campaigns.length,
+    pendingApproval: campaigns.filter((campaign) => campaign.status === "PENDING_APPROVAL").length,
+    approved: campaigns.filter((campaign) => campaign.status === "APPROVED").length,
+    sent: campaigns.filter((campaign) => campaign.status === "SENT").length,
+  }
+
   if (loading) return <LoadingPage />
 
   return (
@@ -231,6 +274,34 @@ export default function SchoolNotificationsPage() {
           الإرسال الخارجي لم يُفعّل بعد. هذه المرحلة تغطي القوالب، الحملات، والموافقات.
         </div>
       </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Card padding="md">
+          <p className="text-sm text-gray-400">كل الحملات</p>
+          <p className="text-2xl font-bold">{campaignStats.total}</p>
+        </Card>
+        <Card padding="md">
+          <p className="text-sm text-gray-400">بانتظار الاعتماد</p>
+          <p className="text-2xl font-bold text-amber-600">{campaignStats.pendingApproval}</p>
+        </Card>
+        <Card padding="md">
+          <p className="text-sm text-gray-400">معتمدة وجاهزة</p>
+          <p className="text-2xl font-bold text-blue-700">{campaignStats.approved}</p>
+        </Card>
+        <Card padding="md">
+          <p className="text-sm text-gray-400">مرسلة</p>
+          <p className="text-2xl font-bold text-green-600">{campaignStats.sent}</p>
+        </Card>
+      </div>
+
+      {(initialClassroomId || initialLevelId || initialStreamId || initialMonth || initialAudienceType !== "ALL_PARENTS") && (
+        <Card padding="md" className="border-blue-100 bg-blue-50">
+          <p className="text-sm font-medium text-blue-900">تم فتح مركز الإشعارات بسياق جاهز</p>
+          <p className="mt-1 text-sm text-blue-700">
+            الجمهور الحالي مضبوط مسبقاً حسب الصفحة التي جئت منها. يمكن تعديل الاختيار قبل إنشاء الحملة إذا أردت.
+          </p>
+        </Card>
+      )}
 
       <div className="grid gap-6 xl:grid-cols-2">
         <Card padding="lg">
@@ -279,7 +350,7 @@ export default function SchoolNotificationsPage() {
         <Card padding="lg">
           <div className="mb-4">
             <h2 className="text-lg font-semibold">حملة جديدة</h2>
-            <p className="text-sm text-gray-500 mt-1">أنشئ حملة ثم أرسلها للاعتماد قبل أي إرسال فعلي للأولياء.</p>
+            <p className="text-sm text-gray-500 mt-1">أنشئ الحملة كمسودة، راجع جمهورها ورسالتها، ثم أرسلها للاعتماد قبل أي إرسال فعلي للأولياء.</p>
           </div>
 
           <div className="grid gap-4">
@@ -361,6 +432,10 @@ export default function SchoolNotificationsPage() {
               />
             )}
 
+            <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+              الحفظ هنا لا يرسل أي رسالة مباشرة. سيتم إنشاء الحملة أولاً كمسودة، ثم يراجعها المدير أو الجهة المخولة قبل الاعتماد.
+            </div>
+
             <Button loading={savingCampaign} onClick={createCampaign}>
               <Send className="h-4 w-4" /> إنشاء الحملة
             </Button>
@@ -410,8 +485,8 @@ export default function SchoolNotificationsPage() {
                       </div>
                       <p className="text-sm text-gray-600 line-clamp-2">{campaign.message}</p>
                       <div className="flex flex-wrap gap-2 text-xs text-gray-500">
-                        <span>النوع: {campaign.type}</span>
-                        <span>الجمهور: {campaign.audienceType}</span>
+                        <span>النوع: {getCampaignTypeSummary(campaign.type)}</span>
+                        <span>الجمهور: {getCampaignAudienceSummary(campaign)}</span>
                         <span>المستلمون: {campaign.recipientsCount}</span>
                         <span>المنشئ: {campaign.createdByUser?.name || "غير معروف"}</span>
                         {campaign.approvedByUser && <span>المعتمد: {campaign.approvedByUser.name}</span>}
@@ -420,7 +495,7 @@ export default function SchoolNotificationsPage() {
                         <div className="flex flex-wrap gap-2 text-xs text-gray-600">
                           {Object.entries(campaign.statusSummary).map(([key, value]) => (
                             <span key={key} className="rounded-full bg-gray-100 px-2 py-1">
-                              {key}: {value}
+                              {(statusLabels[key]?.label || key)}: {value}
                             </span>
                           ))}
                         </div>

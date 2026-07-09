@@ -22,7 +22,7 @@ export const roleRoutes: Record<string, string> = {
   SUPER_ADMIN: "/admin",
   SCHOOL_ADMIN: "/school",
   STAFF: "/school",
-  ACCOUNTANT: "/finance",
+  ACCOUNTANT: "/school/invoices",
   SUPERVISOR: "/school/teacher-attendance",
   TEACHER: "/teacher",
   PARENT: "/parent",

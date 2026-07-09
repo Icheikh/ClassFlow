@@ -1,10 +1,10 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { api } from "@/lib/api"
 import { Button, Card, Badge, Modal, LoadingPage } from "@/components/ui"
-import { ArrowLeft, User, Hash, Calendar, Phone, MapPin, BookOpen, Users, GraduationCap, UserCheck, UserX, TrendingUp, ChevronRight, Edit3, Link2, Plus } from "lucide-react"
+import { ArrowLeft, User, Hash, Calendar, Phone, MapPin, BookOpen, Users, TrendingUp, ChevronRight, Edit3, Plus, BellRing, ReceiptText, GraduationCap, AlertTriangle, CheckCircle2 } from "lucide-react"
 import Link from "next/link"
 import toast from "react-hot-toast"
 
@@ -51,7 +51,7 @@ export default function StudentDetailPage() {
 
   const [form, setForm] = useState({ firstName: "", lastName: "", gender: "", birthDate: "", studentNumber: "", address: "", phone: "", parentName: "", parentPhone: "", parentEmail: "" })
 
-  const fetchStudent = async () => {
+  const fetchStudent = useCallback(async () => {
     if (!id) {
       setLoading(false)
       return
@@ -66,9 +66,9 @@ export default function StudentDetailPage() {
     if (cRes.data) setClassrooms(cRes.data)
     if (yRes.data) setAcademicYears(yRes.data)
     setLoading(false)
-  }
+  }, [id])
 
-  useEffect(() => { fetchStudent() }, [id])
+  useEffect(() => { void fetchStudent() }, [fetchStudent])
 
   async function saveStudent() {
     if (!form.firstName || !form.lastName) { toast.error("الاسم الأول واسم العائلة مطلوبان"); return }
@@ -96,9 +96,35 @@ export default function StudentDetailPage() {
 
   const s = data
   const activeEnrollment = s.enrollments.find((e) => e.status === "ACTIVE" && e.academicYear.isActive)
+  const primaryParent = s.studentParents.find((parentLink) => parentLink.isPrimary) || s.studentParents[0] || null
+  const parentPhone = primaryParent?.parent.user.phone || primaryParent?.parent.phone || null
+  const activeYear = academicYears.find((year) => year.isActive)
+  const readinessItems = [
+    {
+      label: "ملف الطالب",
+      ready: Boolean(s.firstName && s.lastName && s.studentNumber),
+      hint: "الاسم ورقم التسجيل يساعدان في البحث والفواتير والتقارير.",
+    },
+    {
+      label: "القسم الحالي",
+      ready: Boolean(activeEnrollment),
+      hint: "بدون قسم نشط لن يظهر الطالب في النتائج والحضور ورسوم القسم.",
+    },
+    {
+      label: "ولي الأمر الأساسي",
+      ready: Boolean(primaryParent),
+      hint: "وجود ولي أساسي يسهل اعتماد الإشعارات وربط النتائج بالأسرة.",
+    },
+    {
+      label: "هاتف واتساب",
+      ready: Boolean(parentPhone),
+      hint: "رقم الهاتف مطلوب ليظهر الطالب ضمن حملات الإشعارات الجاهزة للإرسال.",
+    },
+  ]
+  const readyCount = readinessItems.filter((item) => item.ready).length
 
   return (
-    <div>
+    <div className="space-y-6">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
         <Link href="/school/students" className="hover:text-blue-600">الطلاب</Link>
@@ -143,6 +169,43 @@ export default function StudentDetailPage() {
           </Button>
         </div>
       </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Card padding="md">
+          <p className="text-sm text-gray-400">جاهزية الملف</p>
+          <p className="text-2xl font-bold">{readyCount}/{readinessItems.length}</p>
+        </Card>
+        <Card padding="md">
+          <p className="text-sm text-gray-400">التسجيلات الإجمالية</p>
+          <p className="text-2xl font-bold text-blue-700">{s.enrollments.length}</p>
+        </Card>
+        <Card padding="md">
+          <p className="text-sm text-gray-400">الأولياء المرتبطون</p>
+          <p className="text-2xl font-bold text-purple-700">{s.studentParents.length}</p>
+        </Card>
+        <Card padding="md">
+          <p className="text-sm text-gray-400">السنة النشطة</p>
+          <p className="text-lg font-bold text-gray-900">{activeYear?.name || "غير محددة"}</p>
+        </Card>
+      </div>
+
+      <Card padding="lg" className="border-blue-100 bg-blue-50">
+        <h2 className="text-lg font-semibold text-gray-900">ماذا يستطيع المدير أن يفعل من هنا؟</h2>
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <div className="rounded-xl bg-white p-4 text-sm">
+            <p className="font-medium text-gray-900">متابعة الملف</p>
+            <p className="mt-2 text-gray-600">تعديل بيانات الطالب وولي الأمر ومراجعة التسجيلات الحالية والسابقة من نفس الصفحة.</p>
+          </div>
+          <div className="rounded-xl bg-white p-4 text-sm">
+            <p className="font-medium text-gray-900">الانتقال للنتائج والرسوم</p>
+            <p className="mt-2 text-gray-600">إذا كان الطالب مربوطاً بقسم نشط يمكنك فتح نتائج القسم أو رسومه مباشرة بنفس السياق.</p>
+          </div>
+          <div className="rounded-xl bg-white p-4 text-sm">
+            <p className="font-medium text-gray-900">فحص جاهزية الإشعارات</p>
+            <p className="mt-2 text-gray-600">وجود ولي أمر أساسي مع رقم هاتف يجعل الطالب قابلاً للدخول في حملات النتائج والرسوم والغياب.</p>
+          </div>
+        </div>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Personal Info */}
@@ -242,6 +305,53 @@ export default function StudentDetailPage() {
               <span className="text-sm text-gray-600">أولياء الأمور</span>
               <span className="text-lg font-bold text-purple-700">{s.studentParents.length}</span>
             </div>
+          </div>
+        </Card>
+
+        <Card padding="lg" className="lg:col-span-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <h3 className="font-semibold text-gray-900">جاهزية المتابعة التشغيلية</h3>
+              <p className="mt-1 text-sm text-gray-500">هذه المؤشرات تحدد هل الطالب جاهز للدخول في النتائج والإشعارات والرسوم أم ما زال يحتاج ربطاً أو استكمالاً.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {activeEnrollment && (
+                <Link href={`/school/results?classroomId=${activeEnrollment.classroom.id}`}>
+                  <Button variant="secondary" size="sm">
+                    <GraduationCap className="h-4 w-4" /> نتائج القسم
+                  </Button>
+                </Link>
+              )}
+              {activeEnrollment && (
+                <Link href={`/school/invoices?classroomId=${activeEnrollment.classroom.id}`}>
+                  <Button variant="ghost" size="sm">
+                    <ReceiptText className="h-4 w-4" /> رسوم القسم
+                  </Button>
+                </Link>
+              )}
+              {activeEnrollment && (
+                <Link href={`/school/notifications?audienceType=CLASSROOM&classroomId=${activeEnrollment.classroom.id}`}>
+                  <Button variant="ghost" size="sm">
+                    <BellRing className="h-4 w-4" /> إشعار أولياء القسم
+                  </Button>
+                </Link>
+              )}
+            </div>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {readinessItems.map((item) => (
+              <div key={item.label} className={`rounded-xl border p-4 ${item.ready ? "border-green-200 bg-green-50" : "border-amber-200 bg-amber-50"}`}>
+                <div className="flex items-center gap-2">
+                  {item.ready ? (
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  ) : (
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  )}
+                  <p className="font-medium text-gray-900">{item.label}</p>
+                </div>
+                <p className="mt-2 text-sm text-gray-600">{item.hint}</p>
+              </div>
+            ))}
           </div>
         </Card>
 

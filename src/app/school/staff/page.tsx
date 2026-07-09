@@ -1,12 +1,14 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { api } from "@/lib/api"
 import { Button, Input, Card, LoadingPage } from "@/components/ui"
 import { StaffList } from "@/components/staff/StaffList"
 import { StaffFormModal } from "@/components/staff/StaffFormModal"
 import { Plus, Search } from "lucide-react"
 import toast from "react-hot-toast"
+import { useCurrentUser } from "@/hooks/useCurrentUser"
 
 interface StaffMember {
   id: string
@@ -19,6 +21,8 @@ interface StaffMember {
 }
 
 export default function StaffPage() {
+  const router = useRouter()
+  const user = useCurrentUser()
   const [staff, setStaff] = useState<StaffMember[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
@@ -39,7 +43,15 @@ export default function StaffPage() {
     setLoading(false)
   }, [])
 
-  useEffect(() => { fetchStaff() }, [fetchStaff])
+  useEffect(() => {
+    if (!user.role) return
+    if (user.role !== "SCHOOL_ADMIN") {
+      router.replace("/school")
+      return
+    }
+
+    fetchStaff()
+  }, [fetchStaff, router, user.role])
 
   async function handleCreate(data: { name: string; email: string; phone: string; password: string; permissions: string[] }) {
     const { error } = await api.post("/api/school/staff", data)
@@ -97,6 +109,7 @@ export default function StaffPage() {
     (s) => s.name.includes(search) || s.email.includes(search)
   )
 
+  if (user.role && user.role !== "SCHOOL_ADMIN") return <LoadingPage />
   if (loading) return <LoadingPage />
 
   return (

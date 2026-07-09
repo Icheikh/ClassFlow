@@ -1,19 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { signIn } from "next-auth/react"
+import { getSession, signIn } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import toast from "react-hot-toast"
-
-const roleRoutes: Record<string, string> = {
-  SCHOOL_ADMIN: "/school",
-  STAFF: "/school",
-  TEACHER: "/teacher",
-  ACCOUNTANT: "/finance",
-  SUPERVISOR: "/school/teacher-attendance",
-  SUPER_ADMIN: "/admin",
-  PARENT: "/parent",
-}
+import { roleRoutes } from "@/lib/roles"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -32,17 +23,16 @@ export default function LoginPage() {
         redirect: false,
       })
 
-      if (result?.error) {
+      if (!result || result.error) {
         toast.error("البريد الإلكتروني أو كلمة المرور غير صحيحة")
         return
       }
 
-      const sessionRes = await fetch("/api/auth/session")
-      const session = await sessionRes.json()
+      const session = await getSession()
       const role = session?.user?.role || "TEACHER"
       const route = roleRoutes[role] || "/teacher"
 
-      router.push(route)
+      router.replace(route)
       router.refresh()
     } catch {
       toast.error("حدث خطأ في تسجيل الدخول")

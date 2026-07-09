@@ -246,6 +246,29 @@ export default function TeacherDetailPage() {
           </div>
         </div>
 
+        <div className="grid gap-4 mb-6 lg:grid-cols-3">
+          <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm">
+            <p className="font-medium text-gray-900">من أين يأتي الأجر التقديري؟</p>
+            <p className="mt-2 text-gray-600">
+              النظام يجمع الساعات اليومية المسجلة لهذا الأستاذ خلال الأسبوع، ثم يطبق أجر الساعة الخاص بكل تكليف على حدة.
+            </p>
+          </div>
+          <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm">
+            <p className="font-medium text-gray-900">متى لا يحسب المستحق كاملًا؟</p>
+            <p className="mt-2 text-gray-600">
+              إذا لم تسجل ساعات هذا الأسبوع، أو إذا كان بعض التكاليف بلا أجر ساعة، فسيظهر الأجر التقديري ناقصًا أو صفراً.
+            </p>
+          </div>
+          <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm">
+            <p className="font-medium text-blue-900">أين تُصحح البيانات؟</p>
+            <div className="mt-2 space-y-1">
+              <Link href="/school/teaching-hours" className="block text-blue-700 hover:underline">تعديل الساعات اليومية</Link>
+              <Link href="/school/teacher-attendance" className="block text-blue-700 hover:underline">مراجعة الحضور</Link>
+              <Link href={`/school/payroll?weekStart=${payroll.weekStart}`} className="block text-blue-700 hover:underline">فتح كشف الرواتب</Link>
+            </div>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div>
             <h4 className="text-sm font-semibold text-gray-700 mb-3">سجل الحضور الأسبوعي</h4>

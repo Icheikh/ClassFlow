@@ -102,6 +102,9 @@ export default function PayrollPage() {
             <p className="text-sm text-blue-700">
               من {data?.weekStart} إلى {data?.weekEnd}
             </p>
+            <p className="mt-2 text-xs text-blue-700">
+              المستحقات هنا تُحسب من الساعات اليومية المسجلة فعليًا لكل تكليف، وليس من الحضور وحده.
+            </p>
           </div>
           <Link href="/school/teaching-hours" className="text-sm font-medium text-blue-700 hover:underline">
             فتح سجل الساعات اليومية
@@ -154,6 +157,29 @@ export default function PayrollPage() {
                   <p className="text-xs text-gray-500">تكليفات بدون أجر/ساعة</p>
                 </div>
               </div>
+            </Card>
+          </div>
+
+          <div className="grid gap-4 mb-6 lg:grid-cols-3">
+            <Card padding="md">
+              <p className="text-sm font-medium text-gray-900">كيف يُحتسب الأجر؟</p>
+              <p className="mt-2 text-sm text-gray-600">
+                كل تكليف يجمع ساعاته المسجلة خلال الأسبوع، ثم يضربها النظام في أجر الساعة الخاص بذلك التكليف.
+              </p>
+            </Card>
+            <Card padding="md">
+              <p className="text-sm font-medium text-gray-900">متى لا يظهر مستحق؟</p>
+              <p className="mt-2 text-sm text-gray-600">
+                إذا لم تُسجل ساعات يومية، أو إذا كان التكليف لا يملك أجر ساعة بعد، فسيبقى المستحق صفراً أو غير محسوب.
+              </p>
+            </Card>
+            <Card padding="md" className={data.assignmentsWithoutRate > 0 ? "border-amber-200 bg-amber-50" : ""}>
+              <p className="text-sm font-medium text-gray-900">تنبيه التكاليف غير المكتملة</p>
+              <p className="mt-2 text-sm text-gray-600">
+                {data.assignmentsWithoutRate > 0
+                  ? `يوجد ${data.assignmentsWithoutRate} تكليفات بلا أجر/ساعة، لذلك لن يظهر مستحقها بشكل صحيح حتى يتم تحديد الأجر.`
+                  : "كل التكاليف المعروضة تملك أجر ساعة، ويمكن الاعتماد على المستحقات الحالية."}
+              </p>
             </Card>
           </div>
 

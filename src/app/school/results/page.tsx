@@ -4,9 +4,9 @@ import { useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { Fragment } from "react"
 import { api } from "@/lib/api"
-import { Button, Card, Badge } from "@/components/ui"
+import { Button, Card, Badge, Select } from "@/components/ui"
 import { RESULT_PUBLICATION_STATUSES } from "@/lib/results"
-import { CheckCircle2, ChevronDown, ChevronUp, Lock, Trophy, BarChart3, Printer } from "lucide-react"
+import { CheckCircle2, ChevronDown, ChevronUp, Lock, Trophy, BarChart3, Printer, Info, ClipboardCheck } from "lucide-react"
 import Link from "next/link"
 import toast from "react-hot-toast"
 
@@ -181,6 +181,11 @@ async function updatePublicationStatus(status: string) {
   const canApproveOrLock = data?.readiness.publishable && hasComputedResults
   const computedStudents = data?.results.filter((row) => row.average != null) || []
   const topStudents = computedStudents.slice(0, 3)
+  const publicationBadge = data?.publicationStatus === RESULT_PUBLICATION_STATUSES.LOCKED
+    ? { label: "مقفول", variant: "danger" as const }
+    : data?.publicationStatus === RESULT_PUBLICATION_STATUSES.APPROVED
+      ? { label: "معتمد", variant: "success" as const }
+      : { label: "مفتوح", variant: "info" as const }
 
   if (loading) {
     return (
@@ -195,61 +200,75 @@ async function updatePublicationStatus(status: string) {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">النتائج</h1>
-          <p className="text-sm text-gray-500">مراجعة نتائج كل قسم حسب الفصل مع إمكانية الاعتماد والقفل</p>
+          <p className="text-sm text-gray-500">مراجعة نتائج كل قسم حسب الفصل، ثم اعتمادها وقفلها بعد اكتمال الحسابات.</p>
         </div>
         {data && (
           <div className="flex items-center gap-2">
-            <Badge
-              variant={
-                data.publicationStatus === RESULT_PUBLICATION_STATUSES.LOCKED
-                  ? "danger"
-                  : data.publicationStatus === RESULT_PUBLICATION_STATUSES.APPROVED
-                    ? "success"
-                    : "info"
-              }
-            >
-              {data.publicationStatus === RESULT_PUBLICATION_STATUSES.LOCKED
-                ? "مقفول"
-                : data.publicationStatus === RESULT_PUBLICATION_STATUSES.APPROVED
-                  ? "معتمد"
-                  : "مفتوح"}
-            </Badge>
+            <Badge variant={publicationBadge.variant}>{publicationBadge.label}</Badge>
           </div>
         )}
       </div>
 
       <Card>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <select
+          <Select
+            label="القسم"
             value={classroomId}
-            onChange={(e) => setClassroomId(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-          >
-            <option value="">اختر القسم</option>
-            {classrooms.map((classroom) => (
-              <option key={classroom.id} value={classroom.id}>
-                {classroom.name} - {classroom.level.stage.name} - {classroom.level.name}
-              </option>
-            ))}
-          </select>
+            onChange={setClassroomId}
+            options={[
+              { value: "", label: "اختر القسم" },
+              ...classrooms.map((classroom) => ({
+                value: classroom.id,
+                label: `${classroom.name} - ${classroom.level.stage.name} - ${classroom.level.name}`,
+              })),
+            ]}
+          />
 
-          <select
+          <Select
+            label="الفصل"
             value={termId}
-            onChange={(e) => setTermId(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-          >
-            <option value="">اختر الفصل</option>
-            {terms.map((term) => (
-              <option key={term.id} value={term.id}>
-                {term.academicYear.name} - {term.name}
-              </option>
-            ))}
-          </select>
+            onChange={setTermId}
+            options={[
+              { value: "", label: "اختر الفصل" },
+              ...terms.map((term) => ({
+                value: term.id,
+                label: `${term.academicYear.name} - ${term.name}`,
+              })),
+            ]}
+          />
         </div>
       </Card>
 
       {data && (
         <>
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+            <Card padding="md">
+              <div className="flex items-center gap-2 text-blue-700">
+                <Info className="h-4 w-4" />
+                <span className="text-sm font-medium">قاعدة الحساب الحالية</span>
+              </div>
+              <p className="mt-3 text-sm text-gray-700">{data.termCalculationNote}</p>
+            </Card>
+            <Card padding="md">
+              <div className="flex items-center gap-2 text-amber-700">
+                <ClipboardCheck className="h-4 w-4" />
+                <span className="text-sm font-medium">سياسة هذا الفصل</span>
+              </div>
+              <p className="mt-3 text-sm text-gray-700">{data.termPolicyNote}</p>
+            </Card>
+            <Card padding="md">
+              <div className="flex items-center gap-2 text-purple-700">
+                <Lock className="h-4 w-4" />
+                <span className="text-sm font-medium">ماذا تعني الحالات؟</span>
+              </div>
+              <div className="mt-3 space-y-1 text-sm text-gray-700">
+                <p><span className="font-medium">مفتوح:</span> ما زالت المراجعة والتعديل ممكنة.</p>
+                <p><span className="font-medium">معتمد:</span> النتائج صالحة ويمكن تجهيز نشرها.</p>
+                <p><span className="font-medium">مقفول:</span> تم تثبيت النتائج ومنع تعديلها.</p>
+              </div>
+            </Card>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card padding="md">
               <div className="flex items-center gap-2 text-blue-600 mb-1">
@@ -383,12 +402,12 @@ async function updatePublicationStatus(status: string) {
                   <p className="mt-1 text-xs text-gray-400">{data.termCalculationNote}</p>
                 )}
               </div>
-              <div className="flex gap-2">
-                <Link href={`/school/results/report?classroomId=${classroomId}&termId=${termId}`}>
-                  <Button variant="secondary">
-                    <Printer className="h-4 w-4" /> طباعة كشف القسم
-                  </Button>
-                </Link>
+            <div className="flex gap-2">
+              <Link href={`/school/results/report?classroomId=${classroomId}&termId=${termId}`}>
+                <Button variant="secondary">
+                  <Printer className="h-4 w-4" /> طباعة كشف القسم
+                </Button>
+              </Link>
                 <Button
                   variant="secondary"
                   loading={saving}
@@ -431,6 +450,20 @@ async function updatePublicationStatus(status: string) {
                 <Badge variant={data.readiness.publishable ? "success" : "warning"}>
                   {data.readiness.publishable ? "جاهز للنشر" : "بانتظار الاستكمال"}
                 </Badge>
+              </div>
+              <div className="mt-3 grid gap-2 md:grid-cols-3">
+                <div className="rounded-lg bg-white/70 px-3 py-2">
+                  <p className="text-xs opacity-70">الخطوة 1</p>
+                  <p className="font-medium">إكمال التقويمات والضوارب</p>
+                </div>
+                <div className="rounded-lg bg-white/70 px-3 py-2">
+                  <p className="text-xs opacity-70">الخطوة 2</p>
+                  <p className="font-medium">اعتماد النتائج</p>
+                </div>
+                <div className="rounded-lg bg-white/70 px-3 py-2">
+                  <p className="text-xs opacity-70">الخطوة 3</p>
+                  <p className="font-medium">قفل النتائج ثم طباعة الكشف</p>
+                </div>
               </div>
 
               {!data.readiness.publishable && (

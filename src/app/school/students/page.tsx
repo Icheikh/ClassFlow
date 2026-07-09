@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { api } from "@/lib/api"
 import { Button, Card, Modal, Input, Badge, LoadingPage } from "@/components/ui"
-import { Plus, Users, Trash2, BookOpen, ChevronDown, ChevronUp, Phone, Calendar, Hash, X, Upload, Filter, UserPlus, Download, Eye } from "lucide-react"
+import { Plus, Users, Trash2, BookOpen, ChevronDown, ChevronUp, Phone, Calendar, Hash, X, Upload, Eye, BellRing, ReceiptText, GraduationCap } from "lucide-react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import toast from "react-hot-toast"
@@ -148,14 +148,22 @@ export default function StudentsPage() {
   if (loading) return <LoadingPage />
 
   const activeYear = academicYears.find((y) => y.isActive)
+  const activeStudents = students.filter((student) => student.isActive).length
+  const studentsWithActiveEnrollment = students.filter((student) =>
+    student.enrollments?.some((enrollment) => enrollment.status === "ACTIVE" && enrollment.academicYear.isActive)
+  ).length
+  const studentsWithPrimaryParentPhone = students.filter((student) =>
+    student.studentParents?.some((parentLink) => parentLink.isPrimary && !!(parentLink.parent.user.phone || parentLink.parent.phone))
+  ).length
+  const suspendedStudents = students.filter((student) => !student.isActive).length
 
   return (
-    <div>
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">الطلاب</h1>
-          <p className="text-sm text-gray-500">إدارة الطلاب وتسجيلهم في الأقسام ({total} طالب)</p>
+          <p className="text-sm text-gray-500">إدارة ملفات الطلاب وربطهم بالأقسام وأولياء الأمور والمتابعة الدراسية ({total} طالب)</p>
         </div>
         <div className="flex gap-2">
           <Button variant="secondary" onClick={() => setImportModal(true)}>
@@ -166,6 +174,53 @@ export default function StudentsPage() {
           </Button>
         </div>
       </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Card padding="md">
+          <p className="text-sm text-gray-400">الطلاب المعروضون</p>
+          <p className="text-2xl font-bold">{students.length}</p>
+        </Card>
+        <Card padding="md">
+          <p className="text-sm text-gray-400">ملفات نشطة</p>
+          <p className="text-2xl font-bold text-green-600">{activeStudents}</p>
+        </Card>
+        <Card padding="md">
+          <p className="text-sm text-gray-400">مرتبطون بقسم نشط</p>
+          <p className="text-2xl font-bold text-blue-700">{studentsWithActiveEnrollment}</p>
+        </Card>
+        <Card padding="md">
+          <p className="text-sm text-gray-400">أولياء بأرقام جاهزة للإشعارات</p>
+          <p className="text-2xl font-bold text-amber-600">{studentsWithPrimaryParentPhone}</p>
+        </Card>
+      </div>
+
+      <Card padding="lg" className="border-blue-100 bg-blue-50">
+        <h2 className="text-lg font-semibold text-gray-900">كيف تستخدم هذه الصفحة يومياً؟</h2>
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <div className="rounded-xl bg-white p-4 text-sm">
+            <p className="font-medium text-gray-900">1. بناء الملف الأساسي</p>
+            <p className="mt-2 text-gray-600">أضف بيانات الطالب واربطه بولي أمر أساسي حتى تصبح الإشعارات والنتائج والرسوم قابلة للمتابعة.</p>
+          </div>
+          <div className="rounded-xl bg-white p-4 text-sm">
+            <p className="font-medium text-gray-900">2. ربطه بالقسم الحالي</p>
+            <p className="mt-2 text-gray-600">التسجيل في القسم هو الذي يربط الطالب بالحضور والنتائج وضوارب المواد ورسوم القسم.</p>
+          </div>
+          <div className="rounded-xl bg-white p-4 text-sm">
+            <p className="font-medium text-gray-900">3. الانتقال للمتابعة</p>
+            <p className="mt-2 text-gray-600">من كل بطاقة طالب يمكنك الوصول إلى القسم والنتائج والإشعارات والرسوم دون العودة للبحث من جديد.</p>
+          </div>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2 text-sm">
+          {activeYear ? (
+            <span className="rounded-full bg-white px-3 py-1 text-blue-700">السنة النشطة: {activeYear.name}</span>
+          ) : (
+            <span className="rounded-full bg-white px-3 py-1 text-amber-700">لا توجد سنة دراسية مفعلة حالياً</span>
+          )}
+          {suspendedStudents > 0 && (
+            <span className="rounded-full bg-white px-3 py-1 text-red-700">ملفات موقوفة: {suspendedStudents}</span>
+          )}
+        </div>
+      </Card>
 
       {/* Filters */}
       <Card padding="md" className="mb-6">
@@ -413,6 +468,41 @@ export default function StudentsPage() {
                           ))}
                         </div>
                       )}
+                    </div>
+
+                    <div className="md:col-span-2 rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4">
+                      <h4 className="text-sm font-medium text-gray-800">الانتقال السريع</h4>
+                      <p className="mt-1 text-xs text-gray-500">
+                        هذه الروابط تفتح وحدات المتابعة المرتبطة بالطالب أو بالقسم الحالي حتى يستطيع المدير مراجعة كل شيء من نفس السياق.
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Link href={`/school/students/${s.id}`}>
+                          <Button variant="secondary" size="sm">
+                            <Eye className="h-4 w-4" /> ملف الطالب
+                          </Button>
+                        </Link>
+                        {activeEnrollment && (
+                          <Link href={`/school/results?classroomId=${activeEnrollment.classroom.id}`}>
+                            <Button variant="ghost" size="sm">
+                              <GraduationCap className="h-4 w-4" /> نتائج القسم
+                            </Button>
+                          </Link>
+                        )}
+                        {activeEnrollment && (
+                          <Link href={`/school/invoices?classroomId=${activeEnrollment.classroom.id}`}>
+                            <Button variant="ghost" size="sm">
+                              <ReceiptText className="h-4 w-4" /> رسوم القسم
+                            </Button>
+                          </Link>
+                        )}
+                        {activeEnrollment && (
+                          <Link href={`/school/notifications?audienceType=CLASSROOM&classroomId=${activeEnrollment.classroom.id}`}>
+                            <Button variant="ghost" size="sm">
+                              <BellRing className="h-4 w-4" /> إشعار أولياء القسم
+                            </Button>
+                          </Link>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}

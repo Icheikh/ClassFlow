@@ -102,8 +102,11 @@ export default function TeachingHoursPage() {
     return Array.from(teacherMap.values())
   }, [data])
 
+  const rows = data?.rows || []
   const recordedAssignments = Object.values(draft).filter((entry) => Number(entry.hoursTaught || 0) > 0).length
   const totalHours = Object.values(draft).reduce((sum, entry) => sum + (Number(entry.hoursTaught || 0) || 0), 0)
+  const assignmentsWithoutRate = rows.filter((row) => row.hourlyRate == null).length
+  const absentAssignments = rows.filter((row) => row.attendanceStatus === "ABSENT").length
 
   function updateDraft(teacherAssignmentId: string, patch: Partial<DraftEntry>) {
     setDraft((current) => ({
@@ -225,14 +228,49 @@ export default function TeachingHoursPage() {
 
       <Card padding="md" className="mb-6 bg-blue-50 border-blue-100">
         <div className="flex items-center justify-between gap-4">
-          <p className="text-sm text-blue-700">
-            إذا كان الأستاذ مسجلاً غائباً فلن يسمح النظام بحفظ ساعات موجبة له في هذا اليوم.
-          </p>
-          <Link href="/school/teacher-attendance" className="text-sm font-medium text-blue-700 hover:underline">
-            فتح سجل حضور الأساتذة
-          </Link>
+          <div>
+            <p className="text-sm text-blue-700">
+              إذا كان الأستاذ مسجلاً غائباً فلن يسمح النظام بحفظ ساعات موجبة له في هذا اليوم.
+            </p>
+            <p className="mt-2 text-xs text-blue-700">
+              هذه الصفحة هي المصدر الذي تعتمد عليه الرواتب الأسبوعية، لذلك لا يكفي تسجيل الحضور فقط من دون تسجيل الساعات المنجزة لكل تكليف.
+            </p>
+          </div>
+          <div className="flex flex-col items-end gap-1">
+            <Link href="/school/teacher-attendance" className="text-sm font-medium text-blue-700 hover:underline">
+              فتح سجل حضور الأساتذة
+            </Link>
+            <Link href={`/school/payroll?weekStart=${dateStr}`} className="text-sm font-medium text-blue-700 hover:underline">
+              فتح كشف الرواتب الأسبوعي
+            </Link>
+          </div>
         </div>
       </Card>
+
+      <div className="grid gap-4 mb-6 lg:grid-cols-3">
+        <Card padding="md">
+          <p className="text-sm font-medium text-gray-900">ماذا تسجل هنا؟</p>
+          <p className="mt-2 text-sm text-gray-600">
+            سجّل عدد الساعات المنجزة فعلاً لكل أستاذ في كل مادة وقسم خلال هذا اليوم، وليس عدد ساعات الحضور العامة.
+          </p>
+        </Card>
+        <Card padding="md" className={assignmentsWithoutRate > 0 ? "border-amber-200 bg-amber-50" : ""}>
+          <p className="text-sm font-medium text-gray-900">تكليفات بلا أجر/ساعة</p>
+          <p className="mt-2 text-sm text-gray-600">
+            {assignmentsWithoutRate > 0
+              ? `يوجد ${assignmentsWithoutRate} تكليفات بلا أجر ساعة، ويمكن تسجيل ساعاتها لكن المستحق لن يُحسب بدقة حتى يتم تحديد الأجر في ملف الأستاذ.`
+              : "كل التكاليف المعروضة تملك أجر ساعة، لذا يمكن للنظام تقدير المستحقات مباشرة."}
+          </p>
+        </Card>
+        <Card padding="md" className={absentAssignments > 0 ? "border-red-200 bg-red-50" : ""}>
+          <p className="text-sm font-medium text-gray-900">تكليفات مرتبطة بغياب</p>
+          <p className="mt-2 text-sm text-gray-600">
+            {absentAssignments > 0
+              ? `يوجد ${absentAssignments} تكليفات لأستاذ مسجل غائبًا اليوم، لذلك لن يقبل النظام حفظ ساعات موجبة لها.`
+              : "لا توجد اليوم تكليفات مرتبطة بغياب يمنع التسجيل."}
+          </p>
+        </Card>
+      </div>
 
       <div className="space-y-4">
         {groupedTeachers.map((teacher) => (
@@ -273,6 +311,14 @@ export default function TeachingHoursPage() {
                           <span>الأجر/ساعة: {row.hourlyRate != null ? `${row.hourlyRate} MRU` : "غير محدد"}</span>
                           <span>المتوقع أسبوعياً: {row.weeklyHours != null ? row.weeklyHours : "—"} ساعة</span>
                           {row.recordedBy && <span>آخر حفظ: {row.recordedBy}</span>}
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-3 text-xs">
+                          <Link href={`/school/teachers/${row.teacherId}`} className="text-blue-700 hover:underline">
+                            مراجعة ملف الأستاذ
+                          </Link>
+                          <Link href={`/school/teachers/${row.teacherId}/weekly-report?weekStart=${dateStr}`} className="text-blue-700 hover:underline">
+                            فتح التقرير الأسبوعي
+                          </Link>
                         </div>
                       </div>
 

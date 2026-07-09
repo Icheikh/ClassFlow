@@ -161,6 +161,32 @@ export default function TeacherWeeklyReportPage() {
             </div>
           </div>
 
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm">
+              <p className="font-medium text-gray-900">كيف يُقرأ هذا التقرير؟</p>
+              <p className="mt-2 text-gray-600">
+                الحضور يوضح حالة الأستاذ خلال الأسبوع، بينما الساعات المسجلة هي التي يعتمد عليها احتساب المستحقات لكل مادة وقسم.
+              </p>
+            </div>
+            <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm">
+              <p className="font-medium text-gray-900">متى يكون الأجر التقديري ناقصًا؟</p>
+              <p className="mt-2 text-gray-600">
+                إذا غابت تسجيلات الساعات، أو كان بعض التكاليف بلا أجر ساعة، فلن يعكس الرقم النهائي كل ما يتوقعه المستخدم حتى تستكمل البيانات.
+              </p>
+            </div>
+            <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm">
+              <p className="font-medium text-blue-900">أين تتم المراجعة؟</p>
+              <div className="mt-2 space-y-1">
+                <Link href={`/school/teachers/${data.teacher.id}?weekStart=${weekStart}`} className="block text-blue-700 hover:underline">
+                  العودة إلى ملف الأستاذ
+                </Link>
+                <Link href={`/school/payroll?weekStart=${data.payroll.weekStart}`} className="block text-blue-700 hover:underline">
+                  فتح كشف الرواتب
+                </Link>
+              </div>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <div>
               <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold"><ShieldCheck className="h-5 w-5" /> سجل الحضور</h2>

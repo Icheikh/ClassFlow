@@ -1,9 +1,11 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { api } from "@/lib/api"
 import { Button, Card, Input, LoadingPage, Textarea } from "@/components/ui"
 import toast from "react-hot-toast"
+import { useCurrentUser } from "@/hooks/useCurrentUser"
 
 type TemplateSummary = {
   id: string
@@ -136,6 +138,8 @@ const TEMPLATE_PLACEHOLDERS = [
 ]
 
 export default function SchoolSettingsPage() {
+  const router = useRouter()
+  const user = useCurrentUser()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [templateBusy, setTemplateBusy] = useState(false)
@@ -183,6 +187,12 @@ export default function SchoolSettingsPage() {
   }
 
   useEffect(() => {
+    if (!user.role) return
+    if (user.role !== "SCHOOL_ADMIN") {
+      router.replace("/school")
+      return
+    }
+
     async function loadInitialSettings() {
       const [settingsRes, classroomsRes, termsRes] = await Promise.all([
         api.get<SettingsResponse>("/api/school/settings"),
@@ -211,7 +221,11 @@ export default function SchoolSettingsPage() {
     }
 
     void loadInitialSettings()
-  }, [])
+  }, [router, user.role])
+
+  if (user.role && user.role !== "SCHOOL_ADMIN") {
+    return <LoadingPage />
+  }
 
   async function save() {
     if (!form.name) {

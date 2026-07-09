@@ -11,7 +11,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-const allowedRoles = ["SCHOOL_ADMIN", "STAFF", "SUPERVISOR"]
+const allowedRoles = ["SCHOOL_ADMIN", "STAFF", "SUPERVISOR", "ACCOUNTANT"]
 const adminOnlyPaths = ["/school/result-rules", "/school/staff", "/school/settings"]
 
 type NavItem = {
@@ -37,6 +37,42 @@ const nav: NavItem[] = [
   { href: "/school/settings", label: "الإعدادات", icon: Settings, adminOnly: true },
 ]
 
+const roleNavAccess: Record<string, string[]> = {
+  SCHOOL_ADMIN: nav.map((item) => item.href),
+  STAFF: [
+    "/school",
+    "/school/academic-years",
+    "/school/levels",
+    "/school/classrooms",
+    "/school/subjects",
+    "/school/teachers",
+    "/school/teacher-attendance",
+    "/school/teaching-hours",
+    "/school/fees",
+    "/school/invoices",
+    "/school/notifications",
+    "/school/students",
+    "/school/results",
+  ],
+  SUPERVISOR: [
+    "/school",
+    "/school/teachers",
+    "/school/teacher-attendance",
+    "/school/teaching-hours",
+    "/school/notifications",
+    "/school/students",
+    "/school/results",
+  ],
+  ACCOUNTANT: [
+    "/school",
+    "/school/fees",
+    "/school/invoices",
+    "/school/payroll",
+    "/school/notifications",
+    "/school/students",
+  ],
+}
+
 function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession()
   const pathname = usePathname()
@@ -58,6 +94,19 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
     redirect("/school")
   }
 
+  const visibleNav = nav.filter((item) => {
+    if (item.adminOnly && user?.role !== "SCHOOL_ADMIN") return false
+    const allowedHrefs = roleNavAccess[user?.role] || []
+    return allowedHrefs.includes(item.href)
+  })
+
+  if (pathname && visibleNav.length > 0) {
+    const isAllowedPath = visibleNav.some((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
+    if (!isAllowedPath && user?.role !== "SCHOOL_ADMIN") {
+      redirect(visibleNav[0]?.href || "/school")
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex print:block print:bg-white" dir="rtl">
       <aside className="w-64 bg-white border-l shadow-sm flex flex-col shrink-0 print:hidden">
@@ -71,7 +120,7 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {nav.filter((item) => !item.adminOnly || user?.role === "SCHOOL_ADMIN").map((item) => {
+          {visibleNav.map((item) => {
             const active = pathname === item.href
             return (
               <Link
