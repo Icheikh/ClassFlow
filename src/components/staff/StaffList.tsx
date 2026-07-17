@@ -92,12 +92,16 @@ export function StaffList({ items, onEdit, onManagePermissions, onToggleActive }
                 size="sm"
                 onClick={() => onToggleActive(member.id, member.isActive)}
                 className={member.isActive ? "text-red-500" : "text-green-500"}
+                aria-label={member.isActive ? "إيقاف الموظف" : "تفعيل الموظف"}
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
               <button
                 onClick={() => setExpandedId(expandedId === member.id ? null : member.id)}
                 className="p-1.5 hover:bg-gray-100 rounded"
+                aria-label={expandedId === member.id ? "إخفاء الصلاحيات" : "عرض الصلاحيات"}
+                aria-expanded={expandedId === member.id}
+                aria-controls={`staff-permissions-${member.id}`}
               >
                 {expandedId === member.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </button>
@@ -105,7 +109,7 @@ export function StaffList({ items, onEdit, onManagePermissions, onToggleActive }
           </div>
 
           {expandedId === member.id && (
-            <div className="mt-4 pt-4 border-t">
+            <div id={`staff-permissions-${member.id}`} className="mt-4 pt-4 border-t">
               <h4 className="text-sm font-medium text-gray-700 mb-2">
                 الصلاحيات ({member.permissions.length})
               </h4>

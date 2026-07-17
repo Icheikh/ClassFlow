@@ -121,7 +121,7 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
 
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           {visibleNav.map((item) => {
-            const active = pathname === item.href
+            const active = item.href === "/school" ? pathname === item.href : pathname?.startsWith(item.href)
             return (
               <Link
                 key={item.href}
@@ -130,6 +130,7 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
                   active ? "bg-blue-50 text-blue-700 font-medium" : "text-gray-600 hover:bg-gray-100"
                 )}
+                aria-current={active ? "page" : undefined}
               >
                 <item.icon className="h-5 w-5" />
                 {item.label}

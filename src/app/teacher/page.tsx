@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
 import { api } from "@/lib/api"
-import { Card, Badge, Button, LoadingPage } from "@/components/ui"
+import { Card, Badge, Button, LoadingPage, ErrorDisplay } from "@/components/ui"
 import { ClipboardCheck, BookOpen, GraduationCap, Clock, Calendar, UserCheck, ShieldCheck, AlertTriangle } from "lucide-react"
 import Link from "next/link"
 
@@ -27,20 +27,33 @@ export default function TeacherPage() {
   const [assignments, setAssignments] = useState<Assignment[]>([])
   const [attendance, setAttendance] = useState<AttendanceStatus | null>(null)
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState(false)
 
   const fetchData = async () => {
-    const [aRes, attRes] = await Promise.all([
-      api.get<Assignment[]>("/api/teacher/classes"),
-      api.get<AttendanceStatus>("/api/teacher-attendance"),
-    ])
-    if (aRes.data) setAssignments(aRes.data)
-    if (attRes.data) setAttendance(attRes.data)
+    setFetchError(false)
+    try {
+      const [aRes, attRes] = await Promise.all([
+        api.get<Assignment[]>("/api/teacher/classes"),
+        api.get<AttendanceStatus>("/api/teacher-attendance"),
+      ])
+      if (aRes.error || attRes.error) { setFetchError(true); return }
+      if (aRes.data) setAssignments(aRes.data)
+      if (attRes.data) setAttendance(attRes.data)
+    } catch { setFetchError(true) }
     setLoading(false)
   }
 
   useEffect(() => { fetchData() }, [])
 
   if (loading) return <LoadingPage />
+
+  if (fetchError) {
+    return (
+      <div className="my-20">
+        <ErrorDisplay message="تعذر تحميل البيانات" onRetry={() => { setLoading(true); fetchData() }} />
+      </div>
+    )
+  }
 
   const uniqueClassrooms = [...new Map(assignments.map((a) => [a.classroom.id, a.classroom])).values()]
   const attendanceBadge = attendance?.status === "PRESENT"
@@ -124,13 +137,13 @@ export default function TeacherPage() {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Link href={`/teacher/attendance?classroomId=${a.classroom.id}&subjectId=${a.subject.id}`}>
+                  <Link href={`/teacher/attendance?classroomId=${a.classroom.id}&subjectId=${a.subject.id}`} aria-label="تسجيل الحضور">
                     <Button variant="ghost" size="sm"><ClipboardCheck className="h-4 w-4" /></Button>
                   </Link>
-                  <Link href={`/teacher/lessons?classroomId=${a.classroom.id}&subjectId=${a.subject.id}`}>
+                  <Link href={`/teacher/lessons?classroomId=${a.classroom.id}&subjectId=${a.subject.id}`} aria-label="تسجيل الدروس">
                     <Button variant="ghost" size="sm"><BookOpen className="h-4 w-4" /></Button>
                   </Link>
-                  <Link href={`/teacher/grades?classroomId=${a.classroom.id}&subjectId=${a.subject.id}`}>
+                  <Link href={`/teacher/grades?classroomId=${a.classroom.id}&subjectId=${a.subject.id}`} aria-label="إدارة الدرجات">
                     <Button variant="ghost" size="sm"><GraduationCap className="h-4 w-4" /></Button>
                   </Link>
                 </div>

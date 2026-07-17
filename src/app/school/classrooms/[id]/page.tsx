@@ -20,7 +20,7 @@ import {
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { api } from "@/lib/api"
-import { Badge, Button, Card, Input, LoadingPage, Modal } from "@/components/ui"
+import { Badge, Button, Card, Input, LoadingPage, Modal, ConfirmModal } from "@/components/ui"
 import { getTermAssessmentRequirements } from "@/lib/results"
 
 type ClassroomResponse = {
@@ -199,6 +199,7 @@ export default function ClassroomDetailsPage() {
   const [loading, setLoading] = useState(true)
   const [savingAssessment, setSavingAssessment] = useState(false)
   const [deletingAssessmentId, setDeletingAssessmentId] = useState<string | null>(null)
+  const [assessmentToDelete, setAssessmentToDelete] = useState<string | null>(null)
   const [expandedAssessmentId, setExpandedAssessmentId] = useState<string | null>(null)
   const [resultOverview, setResultOverview] = useState<ClassroomResultOverview | null>(null)
   const [resultOverviewLoading, setResultOverviewLoading] = useState(false)
@@ -397,26 +398,24 @@ export default function ClassroomDetailsPage() {
     await fetchData()
   }
 
-  async function deleteAssessment(assessmentId: string) {
-    if (!confirm("سيتم حذف هذا التقويم نهائيا. هل تريد المتابعة؟")) return
-
-    setDeletingAssessmentId(assessmentId)
-    const { error } = await api.delete(`/api/grades?id=${assessmentId}`)
-    setDeletingAssessmentId(null)
-    if (error) {
-      toast.error(error)
-      return
-    }
-
-    toast.success("تم حذف التقويم")
-    await fetchData()
+  async function handleConfirmDeleteAssessment() {
+    if (!assessmentToDelete) return
+    setDeletingAssessmentId(assessmentToDelete)
+    try {
+      const { error } = await api.delete(`/api/grades?id=${assessmentToDelete}`)
+      setAssessmentToDelete(null)
+      setDeletingAssessmentId(null)
+      if (error) { toast.error(error); return }
+      toast.success("تم حذف التقويم")
+      await fetchData()
+    } catch { toast.error("فشل الحذف. حاول مرة أخرى."); setAssessmentToDelete(null); setDeletingAssessmentId(null) }
   }
 
   if (loading) return <LoadingPage />
   if (!data) {
     return (
       <Card>
-        <div className="text-center py-12 space-y-3">
+        <div className="text-center py-12 space-y-3" role="alert">
           <p className="text-lg font-semibold">تعذر تحميل القسم</p>
           <Button onClick={() => void fetchData()}>
             <RefreshCcw className="h-4 w-4" /> إعادة المحاولة
@@ -802,7 +801,7 @@ export default function ClassroomDetailsPage() {
                       variant="danger"
                       size="sm"
                       loading={deletingAssessmentId === assessment.id}
-                      onClick={() => void deleteAssessment(assessment.id)}
+                      onClick={() => setAssessmentToDelete(assessment.id)}
                     >
                       <Trash2 className="h-4 w-4" /> حذف
                     </Button>
@@ -1006,6 +1005,17 @@ export default function ClassroomDetailsPage() {
           </div>
         </div>
       </Modal>
+
+      <ConfirmModal
+        open={!!assessmentToDelete}
+        onClose={() => setAssessmentToDelete(null)}
+        onConfirm={() => void handleConfirmDeleteAssessment()}
+        title="حذف التقويم"
+        message="سيتم حذف هذا التقويم نهائيا. هل تريد المتابعة؟"
+        confirmText="حذف"
+        cancelText="إلغاء"
+        variant="danger"
+      />
     </div>
   )
 }

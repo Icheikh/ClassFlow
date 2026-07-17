@@ -100,7 +100,7 @@ export default function TeacherWeeklyReportPage() {
   if (!data) {
     return (
       <Card className="print:shadow-none print:border-0">
-        <div className="py-12 text-center space-y-3">
+        <div className="py-12 text-center space-y-3" role="alert">
           <p className="text-lg font-semibold">تعذر تحميل التقرير الأسبوعي</p>
           <Link href="/school/teachers">
             <Button variant="secondary">

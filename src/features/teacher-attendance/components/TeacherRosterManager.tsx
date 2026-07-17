@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import { api } from "@/lib/api"
-import { Button, Card, Badge, LoadingPage } from "@/components/ui"
+import { Button, Card, Badge, LoadingPage, ErrorDisplay, ConfirmModal } from "@/components/ui"
 import {
   UserCheck,
   UserX,
@@ -47,16 +47,24 @@ export function TeacherRosterManager() {
   const [saving, setSaving] = useState<string | null>(null)
   const [filter, setFilter] = useState("")
   const [dateStr, setDateStr] = useState(new Date().toISOString().split("T")[0])
+  const [fetchError, setFetchError] = useState(false)
+  const [retryTrigger, setRetryTrigger] = useState(0)
+  const [bulkMarkStatus, setBulkMarkStatus] = useState<string | null>(null)
 
   const isSupervisor = user?.role === "SUPERVISOR" || user?.role === "SCHOOL_ADMIN"
 
   const fetchData = useCallback(async () => {
     if (!isSupervisor) return
+    void retryTrigger
     setLoading(true)
-    const { data: result } = await api.get<RosterData>(`/api/teacher-attendance?date=${dateStr}`)
-    if (result) setData(result)
+    setFetchError(false)
+    try {
+      const { data: result, error } = await api.get<RosterData>(`/api/teacher-attendance?date=${dateStr}`)
+      if (error) { toast.error(error); setFetchError(true); return }
+      if (result) setData(result)
+    } catch { setFetchError(true); toast.error("حدث خطأ أثناء تحميل بيانات الحضور") }
     setLoading(false)
-  }, [dateStr, isSupervisor])
+  }, [dateStr, isSupervisor, retryTrigger])
 
   useEffect(() => {
     void fetchData()
@@ -64,28 +72,33 @@ export function TeacherRosterManager() {
 
   async function markTeacher(teacherId: string, status: string) {
     setSaving(teacherId)
-    const { error } = await api.post("/api/teacher-attendance", {
-      action: "mark", teacherId, status, date: dateStr,
-    })
-    if (error) toast.error(error)
-    else {
-      toast.success("تم التحديث")
-      void fetchData()
-    }
+    try {
+      const { error } = await api.post("/api/teacher-attendance", {
+        action: "mark", teacherId, status, date: dateStr,
+      })
+      if (error) toast.error(error)
+      else {
+        toast.success("تم التحديث")
+        void fetchData()
+      }
+    } catch { toast.error("فشل تسجيل الحضور. حاول مرة أخرى.") }
     setSaving(null)
   }
 
-  async function markAll(status: string) {
-    if (!confirm(`تأكيد تسجيل جميع الأساتذة كـ "${STATUS_OPTIONS.find((s) => s.value === status)?.label}"؟`)) return
+  async function handleBulkMark() {
+    if (!bulkMarkStatus) return
     setLoading(true)
-    const { error } = await api.post("/api/teacher-attendance", {
-      action: "bulk-mark", status, date: dateStr,
-    })
-    if (error) toast.error(error)
-    else {
-      toast.success("تم تسجيل الجميع")
-      void fetchData()
-    }
+    setBulkMarkStatus(null)
+    try {
+      const { error } = await api.post("/api/teacher-attendance", {
+        action: "bulk-mark", status: bulkMarkStatus, date: dateStr,
+      })
+      if (error) toast.error(error)
+      else {
+        toast.success("تم تسجيل الجميع")
+        void fetchData()
+      }
+    } catch { toast.error("فشل تسجيل الجميع. حاول مرة أخرى.") }
   }
 
   if (!isSupervisor) {
@@ -129,7 +142,7 @@ export function TeacherRosterManager() {
             onChange={(e) => setDateStr(e.target.value)}
             className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
           />
-          <Button variant="ghost" size="sm" onClick={() => void fetchData()}>
+          <Button variant="ghost" size="sm" onClick={() => void fetchData()} aria-label="تحديث البيانات">
             <RefreshCw className="h-4 w-4" />
           </Button>
         </div>
@@ -169,7 +182,7 @@ export function TeacherRosterManager() {
       <div className="flex items-center justify-between mb-4">
         <div className="flex gap-2">
           {STATUS_OPTIONS.map((option) => (
-            <Button key={option.value} variant="secondary" size="sm" onClick={() => markAll(option.value)}>
+            <Button key={option.value} variant="secondary" size="sm" onClick={() => setBulkMarkStatus(option.value)}>
               <option.icon className="h-4 w-4" /> تسجيل الكل {option.label}
             </Button>
           ))}
@@ -187,7 +200,9 @@ export function TeacherRosterManager() {
         </select>
       </div>
 
-      {loading ? (
+      {fetchError ? (
+        <ErrorDisplay message="تعذر تحميل بيانات الحضور" onRetry={() => setRetryTrigger(n => n + 1)} />
+      ) : loading ? (
         <LoadingPage />
       ) : filtered.length === 0 ? (
         <Card>
@@ -265,6 +280,17 @@ export function TeacherRosterManager() {
           })}
         </div>
       )}
+
+      <ConfirmModal
+        open={!!bulkMarkStatus}
+        onClose={() => setBulkMarkStatus(null)}
+        onConfirm={() => void handleBulkMark()}
+        title="تسجيل جميع الأساتذة"
+        message={`سيتم تسجيل جميع الأساتذة كـ "${bulkMarkStatus ? STATUS_OPTIONS.find((s) => s.value === bulkMarkStatus)?.label : ""}". هل أنت متأكد؟`}
+        confirmText="تأكيد"
+        cancelText="إلغاء"
+        variant={bulkMarkStatus === "ABSENT" ? "danger" : "primary"}
+      />
     </div>
   )
 }

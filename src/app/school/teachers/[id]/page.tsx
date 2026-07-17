@@ -216,7 +216,7 @@ export default function TeacherDetailPage() {
             <p className="text-xs text-gray-500 mt-1">من {payroll.weekStart} إلى {payroll.weekEnd}</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="secondary" size="sm" onClick={() => shiftWeek(-7)}>
+            <Button variant="secondary" size="sm" onClick={() => shiftWeek(-7)} aria-label="الأسبوع السابق">
               <ChevronWeek className="h-4 w-4" />
             </Button>
             <input
@@ -225,10 +225,10 @@ export default function TeacherDetailPage() {
               onChange={(e) => setWeekStart(formatDateOnly(getWeekStartDate(e.target.value)))}
               className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             />
-            <Button variant="secondary" size="sm" onClick={() => shiftWeek(7)}>
+            <Button variant="secondary" size="sm" onClick={() => shiftWeek(7)} aria-label="الأسبوع التالي">
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <Link href={`/school/teachers/${t.id}/weekly-report?weekStart=${weekStart}`} target="_blank">
+            <Link href={`/school/teachers/${t.id}/weekly-report?weekStart=${weekStart}`} target="_blank" aria-label="طباعة التقرير الأسبوعي">
               <Button variant="secondary" size="sm">
                 <Printer className="h-4 w-4" />
               </Button>
@@ -377,7 +377,7 @@ export default function TeacherDetailPage() {
                     </div>
                     <Button variant="ghost" size="sm" onClick={() =>
                       setEditAssign({ id: a.id, hourlyRate: String(a.hourlyRate || ""), weeklyHours: String(a.weeklyHours || "") })
-                    }>
+                    } aria-label="تعديل السعر والساعات">
                       <Wallet className="h-3.5 w-3.5" />
                     </Button>
                   </div>

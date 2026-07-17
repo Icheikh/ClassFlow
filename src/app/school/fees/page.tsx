@@ -269,10 +269,10 @@ export default function FeesPage() {
                     <Button variant="secondary" size="sm" onClick={() => openAssign(fee.id)}>
                       <Link2 className="h-4 w-4" /> تعيين لقسم
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => openEdit(fee)}>
+                    <Button variant="ghost" size="sm" onClick={() => openEdit(fee)} aria-label="تعديل الرسم">
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => remove(fee.id)}>
+                    <Button variant="ghost" size="sm" onClick={() => remove(fee.id)} aria-label="حذف الرسم">
                       <Trash2 className="h-4 w-4 text-red-500" />
                     </Button>
                   </div>

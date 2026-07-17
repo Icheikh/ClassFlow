@@ -27,7 +27,7 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
         >
           <div className="flex items-center justify-between mb-4">
             <Dialog.Title className="text-lg font-semibold">{title}</Dialog.Title>
-            <Dialog.Close className="p-1 rounded-lg hover:bg-gray-100 transition-colors">
+            <Dialog.Close className="p-1 rounded-lg hover:bg-gray-100 transition-colors" aria-label="إغلاق">
               <X className="h-5 w-5 text-gray-500" />
             </Dialog.Close>
           </div>

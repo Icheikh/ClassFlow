@@ -7,7 +7,7 @@ import { useClasses } from "@/hooks/useClasses"
 import { useStudents } from "@/hooks/useStudents"
 import { api } from "@/lib/api"
 import { ASSESSMENT_TYPES, RESULT_PUBLICATION_STATUSES } from "@/lib/results"
-import { Button, Card, Badge, LoadingSpinner, Input } from "@/components/ui"
+import { Button, Card, Badge, LoadingSpinner, Input, ConfirmModal, ErrorDisplay, TeacherSubNav } from "@/components/ui"
 import { Plus, Save, Calculator, ChevronDown, ChevronUp, Trash2, Edit2, Lock } from "lucide-react"
 import toast from "react-hot-toast"
 
@@ -71,6 +71,7 @@ export function GradeBook() {
   const [showForm, setShowForm] = useState(false)
   const [expandedAssessment, setExpandedAssessment] = useState<string | null>(null)
   const [editingAssessment, setEditingAssessment] = useState<Assessment | null>(null)
+  const [assessmentToDelete, setAssessmentToDelete] = useState<Assessment | null>(null)
 
   const [assessmentType, setAssessmentType] = useState<string>(ASSESSMENT_TYPES.TEST)
   const [assessmentTitle, setAssessmentTitle] = useState("")
@@ -78,6 +79,8 @@ export function GradeBook() {
   const [assessmentDate, setAssessmentDate] = useState("")
   const [scores, setScores] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
+  const [fetchError, setFetchError] = useState(false)
+  const [retryTrigger, setRetryTrigger] = useState(0)
 
   const subjects = getSubjects(classroomId)
   const assessmentTypeOptions = data
@@ -95,35 +98,26 @@ export function GradeBook() {
   )
 
   useEffect(() => {
-    async function loadData() {
-      if (!classroomId || !subjectId) {
-        setData(null)
-        return
-      }
-
-      const { data: response, error } = await api.get<GradeData>(`/api/grades?classroomId=${classroomId}&subjectId=${subjectId}`)
-      if (error) {
-        toast.error(error)
-        return
-      }
-      if (response) setData(response)
-    }
-
-    loadData()
-  }, [classroomId, subjectId])
+    if (!classroomId || !subjectId) { setData(null); return }
+    let cancelled = false
+    setFetchError(false)
+    api.get<GradeData>(`/api/grades?classroomId=${classroomId}&subjectId=${subjectId}`)
+      .then(({ data: response, error }) => {
+        if (cancelled) return
+        if (error) { toast.error(error); setFetchError(true); return }
+        if (response) setData(response)
+      })
+      .catch(() => { if (!cancelled) { toast.error("حدث خطأ أثناء تحميل بيانات النقاط"); setFetchError(true) } })
+    return () => { cancelled = true }
+  }, [classroomId, subjectId, retryTrigger])
 
   async function reloadData(nextClassroomId = classroomId, nextSubjectId = subjectId) {
-    if (!nextClassroomId || !nextSubjectId) {
-      setData(null)
-      return
-    }
-
-    const { data: response, error } = await api.get<GradeData>(`/api/grades?classroomId=${nextClassroomId}&subjectId=${nextSubjectId}`)
-    if (error) {
-      toast.error(error)
-      return
-    }
-    if (response) setData(response)
+    if (!nextClassroomId || !nextSubjectId) { setData(null); return }
+    try {
+      const { data: response, error } = await api.get<GradeData>(`/api/grades?classroomId=${nextClassroomId}&subjectId=${nextSubjectId}`)
+      if (error) { toast.error(error); return }
+      if (response) setData(response)
+    } catch { toast.error("حدث خطأ أثناء تحميل بيانات النقاط") }
   }
 
   function resetForm() {
@@ -170,39 +164,44 @@ export function GradeBook() {
     }
 
     setSaving(true)
-    const payload = {
-      scores: students.map((student) => ({ studentId: student.id, score: parseFloat(scores[student.id]) })),
-      assessmentType,
-      title: assessmentTitle.trim(),
-      classroomId,
-      subjectId,
-      maxScore,
-      date: assessmentDate || undefined,
-    }
+    try {
+      const payload = {
+        scores: students.map((student) => ({ studentId: student.id, score: parseFloat(scores[student.id]) })),
+        assessmentType,
+        title: assessmentTitle.trim(),
+        classroomId,
+        subjectId,
+        maxScore,
+        date: assessmentDate || undefined,
+      }
 
-    const result = editingAssessment
-      ? await api.put("/api/grades", { id: editingAssessment.id, ...payload })
-      : await api.post("/api/grades", payload)
+      const result = editingAssessment
+        ? await api.put("/api/grades", { id: editingAssessment.id, ...payload })
+        : await api.post("/api/grades", payload)
 
-    if (result.error) {
-      toast.error(result.error)
-    } else {
-      toast.success(editingAssessment ? "تم تعديل التقويم" : "تم حفظ التقويم")
-      resetForm()
-      setShowForm(false)
-      await reloadData()
-    }
+      if (result.error) {
+        toast.error(result.error)
+      } else {
+        toast.success(editingAssessment ? "تم تعديل التقويم" : "تم حفظ التقويم")
+        resetForm()
+        setShowForm(false)
+        await reloadData()
+      }
+    } catch { toast.error("فشل حفظ التقويم. حاول مرة أخرى.") }
     setSaving(false)
   }
 
-  async function deleteAssessment(assessment: Assessment) {
-    if (!confirm(`سيتم حذف تقويم "${assessment.title}". هل أنت متأكد؟`)) return
-    const { error } = await api.delete(`/api/grades?id=${assessment.id}`)
-    if (error) toast.error(error)
-    else {
-      toast.success("تم الحذف")
-      await reloadData()
-    }
+  async function handleConfirmDelete() {
+    if (!assessmentToDelete) return
+    try {
+      const { error } = await api.delete(`/api/grades?id=${assessmentToDelete.id}`)
+      setAssessmentToDelete(null)
+      if (error) toast.error(error)
+      else {
+        toast.success("تم الحذف")
+        await reloadData()
+      }
+    } catch { toast.error("فشل الحذف. حاول مرة أخرى."); setAssessmentToDelete(null) }
   }
 
   if (loading) return <LoadingSpinner />
@@ -236,6 +235,8 @@ export function GradeBook() {
           </Button>
         )}
       </div>
+
+      <TeacherSubNav current="grades" classroomId={classroomId} subjectId={subjectId} />
 
       <div className="flex gap-4 mb-6">
         <select
@@ -348,6 +349,12 @@ export function GradeBook() {
         </Card>
       )}
 
+      {fetchError && (
+        <Card className="mb-6">
+          <ErrorDisplay message="تعذر تحميل بيانات النقاط" onRetry={() => setRetryTrigger(n => n + 1)} />
+        </Card>
+      )}
+
       {showForm && data && (
         <form onSubmit={handleSubmit} className="mb-6">
           <Card>
@@ -453,6 +460,11 @@ export function GradeBook() {
               <div
                 className="flex items-center justify-between cursor-pointer"
                 onClick={() => setExpandedAssessment(isExpanded ? null : assessment.id)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedAssessment(isExpanded ? null : assessment.id); } }}
+                aria-expanded={isExpanded}
+                aria-controls={`assessment-scores-${assessment.id}`}
               >
                 <div className="flex items-center gap-3">
                   <Calculator className="h-5 w-5 text-blue-500" />
@@ -478,15 +490,17 @@ export function GradeBook() {
                           openEditForm(assessment)
                         }}
                         className="p-1 hover:bg-gray-100 rounded text-blue-500"
+                        aria-label="تعديل التقويم"
                       >
                         <Edit2 className="h-4 w-4" />
                       </button>
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
-                          deleteAssessment(assessment)
+                          setAssessmentToDelete(assessment)
                         }}
                         className="p-1 hover:bg-red-50 rounded text-red-400 hover:text-red-600"
+                        aria-label="حذف التقويم"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -497,7 +511,7 @@ export function GradeBook() {
               </div>
 
               {isExpanded && (
-                <div className="mt-4 pt-4 border-t">
+                <div id={`assessment-scores-${assessment.id}`} className="mt-4 pt-4 border-t">
                   <div className="divide-y">
                     {assessment.scores.map((score) => (
                       <div key={score.id} className="flex items-center justify-between py-2">
@@ -573,6 +587,17 @@ export function GradeBook() {
           )}
         </Card>
       )}
+
+      <ConfirmModal
+        open={!!assessmentToDelete}
+        onClose={() => setAssessmentToDelete(null)}
+        onConfirm={() => void handleConfirmDelete()}
+        title="حذف التقويم"
+        message={assessmentToDelete ? `سيتم حذف تقويم "${assessmentToDelete.title}". هل أنت متأكد؟` : ""}
+        confirmText="حذف"
+        cancelText="إلغاء"
+        variant="danger"
+      />
     </div>
   )
 }

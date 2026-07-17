@@ -429,6 +429,7 @@ export default function SubjectsPage() {
                         setSubjectCode(subject.code || "")
                         setShowSubjectModal(true)
                       }}
+                      aria-label="تعديل المادة"
                     >
                       <Edit2 className="h-4 w-4 text-gray-400" />
                     </button>
@@ -488,10 +489,10 @@ export default function SubjectsPage() {
                           </Badge>
                         </td>
                         <td className="px-3 py-2 text-left">
-                          <button onClick={() => openEditCoefficient(rule)} className="ml-2 text-gray-400 hover:text-blue-600">
+                          <button onClick={() => openEditCoefficient(rule)} className="ml-2 text-gray-400 hover:text-blue-600" aria-label="تعديل الضارب">
                             <Edit2 className="h-4 w-4" />
                           </button>
-                          <button onClick={() => void deleteCoefficient(rule)} className="text-red-400 hover:text-red-600">
+                          <button onClick={() => void deleteCoefficient(rule)} className="text-red-400 hover:text-red-600" aria-label="حذف الضارب">
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </td>

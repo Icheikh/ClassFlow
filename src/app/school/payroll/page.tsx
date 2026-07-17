@@ -80,7 +80,7 @@ export default function PayrollPage() {
           <p className="text-sm text-gray-500">يتم الاحتساب من الساعات اليومية المسجلة لكل تكليف: أستاذ + مادة + قسم</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="secondary" size="sm" onClick={() => shiftWeek(-7)}>
+          <Button variant="secondary" size="sm" onClick={() => shiftWeek(-7)} aria-label="الأسبوع السابق">
             <ChevronRight className="h-4 w-4" />
           </Button>
           <input
@@ -89,7 +89,7 @@ export default function PayrollPage() {
             onChange={(e) => setWeekStart(formatDateOnly(getWeekStartDate(e.target.value)))}
             className="px-4 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
           />
-          <Button variant="secondary" size="sm" onClick={() => shiftWeek(7)}>
+          <Button variant="secondary" size="sm" onClick={() => shiftWeek(7)} aria-label="الأسبوع التالي">
             <ChevronLeft className="h-4 w-4" />
           </Button>
         </div>

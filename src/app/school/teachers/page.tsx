@@ -189,11 +189,14 @@ export default function TeachersPage() {
                   <Button variant="ghost" size="sm" onClick={(e) => { e.preventDefault(); setEditId(t.id); setForm({ name: t.user.name, email: t.user.email, phone: t.user.phone || "", password: "" }); setAddModal(true) }}>
                     تعديل
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={(e) => { e.preventDefault(); deleteTeacher(t.id) }} className="text-red-500">
+                  <Button variant="ghost" size="sm" onClick={(e) => { e.preventDefault(); deleteTeacher(t.id) }} className="text-red-500" aria-label="حذف الأستاذ">
                     <Trash2 className="h-4 w-4" />
                   </Button>
                   <button onClick={(e) => { e.preventDefault(); setExpandedId(expandedId === t.id ? null : t.id) }}
-                    className="p-1.5 hover:bg-gray-100 rounded">
+                    className="p-1.5 hover:bg-gray-100 rounded"
+                    aria-label={expandedId === t.id ? "إخفاء التكليفات" : "عرض التكليفات"}
+                    aria-expanded={expandedId === t.id}
+                    aria-controls={`teacher-assignments-${t.id}`}>
                     {expandedId === t.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                   </button>
                 </div>
@@ -201,7 +204,7 @@ export default function TeachersPage() {
 
               {/* Assignments */}
               {expandedId === t.id && (
-                <div className="mt-4 pt-4 border-t">
+                <div id={`teacher-assignments-${t.id}`} className="mt-4 pt-4 border-t">
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="text-sm font-medium text-gray-700">التكليفات الحالية ({t.teacherAssignments.length})</h4>
                   </div>
@@ -217,7 +220,7 @@ export default function TeachersPage() {
                             <span className="text-xs text-gray-400">←</span>
                             <span className="text-sm text-gray-600">{a.classroom.name} - {a.classroom.level.name}</span>
                           </div>
-                          <button onClick={() => deleteAssignment(a.id)} className="text-red-300 hover:text-red-500 p-1">
+                          <button onClick={() => deleteAssignment(a.id)} className="text-red-300 hover:text-red-500 p-1" aria-label="حذف التكليف">
                             <X className="h-3.5 w-3.5" />
                           </button>
                         </div>

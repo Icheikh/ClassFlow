@@ -5,8 +5,8 @@ import { useSearchParams, useRouter } from "next/navigation"
 import { useClasses } from "@/hooks/useClasses"
 import { useStudents } from "@/hooks/useStudents"
 import { api } from "@/lib/api"
-import { Button, Card, Badge, LoadingSpinner } from "@/components/ui"
-import { Check, X, Clock, AlertCircle, Save, RefreshCw, Calendar } from "lucide-react"
+import { Button, Card, Badge, LoadingSpinner, ErrorDisplay, TeacherSubNav } from "@/components/ui"
+import { Check, X, Clock, AlertCircle, Save, Calendar, RefreshCw } from "lucide-react"
 import toast from "react-hot-toast"
 
 type AttendanceStatus = "present" | "absent" | "late" | "excused"
@@ -37,25 +37,32 @@ export function AttendanceSheet() {
   const [existingAttendance, setExistingAttendance] = useState<any[]>([])
   const [loadingExisting, setLoadingExisting] = useState(false)
 
+  const [fetchError, setFetchError] = useState(false)
+  const [retryTrigger, setRetryTrigger] = useState(0)
+
   useEffect(() => {
     if (!classroomId || !subjectId) return
+    let cancelled = false
     setLoadingExisting(true)
+    setFetchError(false)
     api.get<any[]>(`/api/attendance?classroomId=${classroomId}&subjectId=${subjectId}&date=${selectedDate}`)
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (cancelled) return
+        if (error) { toast.error(error); setFetchError(true); return }
         if (data && data.length > 0) {
           setExistingAttendance(data)
           const map: Record<string, AttendanceStatus> = {}
-          for (const r of data) {
-            map[r.studentId] = r.status.toLowerCase() as AttendanceStatus
-          }
+          for (const r of data) { map[r.studentId] = r.status.toLowerCase() as AttendanceStatus }
           setRecords(map)
         } else {
           setExistingAttendance([])
           setRecords({})
         }
-        setLoadingExisting(false)
       })
-  }, [classroomId, subjectId, selectedDate])
+      .catch(() => { if (!cancelled) { toast.error("حدث خطأ أثناء تحميل بيانات الغياب"); setFetchError(true) } })
+      .finally(() => { if (!cancelled) setLoadingExisting(false) })
+    return () => { cancelled = true }
+  }, [classroomId, subjectId, selectedDate, retryTrigger])
 
   function getStatus(studentId: string): AttendanceStatus {
     return records[studentId] || "present"
@@ -79,18 +86,22 @@ export function AttendanceSheet() {
   async function save() {
     if (!classroomId || !subjectId) { toast.error("اختر القسم والمادة"); return }
     setSaving(true)
-    const result = await api.post("/api/attendance", {
-      classroomId,
-      subjectId,
-      date: selectedDate,
-      records: students.map((s) => ({ studentId: s.id, status: getStatus(s.id).toUpperCase() })),
-    })
-    if (result.error) toast.error(result.error)
-    else {
-      toast.success("تم حفظ الغياب")
-      if (students.filter((s) => getStatus(s.id) !== "present").length > 0) {
-        toast.success("تم إرسال إشعارات لأولياء الأمور")
+    try {
+      const { error } = await api.post("/api/attendance", {
+        classroomId,
+        subjectId,
+        date: selectedDate,
+        records: students.map((s) => ({ studentId: s.id, status: getStatus(s.id).toUpperCase() })),
+      })
+      if (error) toast.error(error)
+      else {
+        toast.success("تم حفظ الغياب")
+        if (students.filter((s) => getStatus(s.id) !== "present").length > 0) {
+          toast.success("تم إرسال إشعارات لأولياء الأمور")
+        }
       }
+    } catch {
+      toast.error("فشل الاتصال بالخادم. حاول مرة أخرى.")
     }
     setSaving(false)
   }
@@ -109,6 +120,8 @@ export function AttendanceSheet() {
           {existingAttendance.length > 0 && <Badge variant="info">مسجل سابقاً</Badge>}
         </div>
       </div>
+
+      <TeacherSubNav current="attendance" classroomId={classroomId} subjectId={subjectId} />
 
       <div className="flex gap-4 mb-6">
         <select value={classroomId} onChange={(e) => { setClassroomId(e.target.value); setSubjectId(""); setRecords({}); setExistingAttendance([]) }}
@@ -156,6 +169,8 @@ export function AttendanceSheet() {
           <Card padding="sm">
             {loadingStudents || loadingExisting ? (
               <LoadingSpinner />
+            ) : fetchError ? (
+              <ErrorDisplay message="تعذر تحميل سجل الغياب" onRetry={() => setRetryTrigger(n => n + 1)} />
             ) : students.length === 0 ? (
               <p className="text-center text-gray-400 py-8">لا يوجد تلاميذ في هذا القسم</p>
             ) : (

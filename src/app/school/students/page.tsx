@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { api } from "@/lib/api"
-import { Button, Card, Modal, Input, Badge, LoadingPage } from "@/components/ui"
+import { Button, Card, Modal, Input, Badge, LoadingPage, Pagination, ConfirmModal } from "@/components/ui"
 import { Plus, Users, Trash2, BookOpen, ChevronDown, ChevronUp, Phone, Calendar, Hash, X, Upload, Eye, BellRing, ReceiptText, GraduationCap } from "lucide-react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
@@ -44,8 +44,18 @@ export default function StudentsPage() {
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
   const [classroomFilter, setClassroomFilter] = useState(classroomIdFromQuery)
   const [statusFilter, setStatusFilter] = useState("")
+  const [page, setPage] = useState(1)
+  const limit = 50
+  const [toggleStudent, setToggleStudent] = useState<StudentData | null>(null)
+  const [deleteEnrollId, setDeleteEnrollId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300)
+    return () => clearTimeout(timer)
+  }, [search])
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const [addModal, setAddModal] = useState(false)
@@ -63,9 +73,11 @@ export default function StudentsPage() {
 
   const fetchData = useCallback(async () => {
     const params = new URLSearchParams()
-    if (search) params.set("search", search)
+    if (debouncedSearch) params.set("search", debouncedSearch)
     if (classroomFilter) params.set("classroomId", classroomFilter)
     if (statusFilter) params.set("status", statusFilter)
+    params.set("page", String(page))
+    params.set("limit", String(limit))
     const [sRes, cRes, yRes] = await Promise.all([
       api.get<any>(`/api/school/students?${params}`),
       api.get<Classroom[]>("/api/school/classrooms"),
@@ -75,9 +87,11 @@ export default function StudentsPage() {
     if (cRes.data) setClassrooms(cRes.data)
     if (yRes.data) setAcademicYears(yRes.data)
     setLoading(false)
-  }, [search, classroomFilter, statusFilter])
+  }, [debouncedSearch, classroomFilter, statusFilter, page])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  useEffect(() => { setPage(1) }, [debouncedSearch, classroomFilter, statusFilter])
 
   useEffect(() => {
     setClassroomFilter(classroomIdFromQuery)
@@ -99,11 +113,22 @@ export default function StudentsPage() {
   }
 
   async function toggleActive(s: StudentData) {
-    const msg = s.isActive ? "سيتم تعطيل هذا الطالب. هل أنت متأكد؟" : "سيتم إعادة تفعيل هذا الطالب. هل أنت متأكد؟"
-    if (!confirm(msg)) return
     const { error } = await api.put(`/api/school/students/${s.id}`, { isActive: !s.isActive })
+    setToggleStudent(null)
     if (error) toast.error(error)
     else { toast.success(s.isActive ? "تم التعطيل" : "تم التفعيل"); fetchData() }
+  }
+
+  async function handleConfirmToggle() {
+    if (!toggleStudent) return
+    await toggleActive(toggleStudent)
+  }
+
+  async function deleteEnrollment(id: string) {
+    const { error } = await api.delete(`/api/school/enrollments?id=${id}`)
+    setDeleteEnrollId(null)
+    if (error) toast.error(error)
+    else { toast.success("تم الحذف"); fetchData() }
   }
 
   async function saveEnrollment() {
@@ -113,13 +138,6 @@ export default function StudentsPage() {
     })
     if (error) toast.error(error)
     else { toast.success("تم التسجيل"); setEnrollModal(false); setEnrollClassroomId(""); setEnrollYearId(""); fetchData() }
-  }
-
-  async function deleteEnrollment(id: string) {
-    if (!confirm("سيتم حذف هذا التسجيل. هل أنت متأكد؟")) return
-    const { error } = await api.delete(`/api/school/enrollments?id=${id}`)
-    if (error) toast.error(error)
-    else { toast.success("تم الحذف"); fetchData() }
   }
 
   async function handleImport() {
@@ -158,6 +176,7 @@ export default function StudentsPage() {
   const suspendedStudents = students.filter((student) => !student.isActive).length
 
   return (
+    <>
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
@@ -341,7 +360,8 @@ export default function StudentsPage() {
           </div>
         </Card>
       ) : (
-        <div className="space-y-3">
+        <>
+          <div className="space-y-3">
           {students.map((s) => {
             const activeEnrollment = s.enrollments?.find((e) => e.status === "ACTIVE" && e.academicYear.isActive)
             return (
@@ -387,7 +407,7 @@ export default function StudentsPage() {
 
                   {/* Actions */}
                   <div className="flex gap-1 shrink-0">
-                    <Link href={`/school/students/${s.id}`}>
+                    <Link href={`/school/students/${s.id}`} aria-label="عرض تفاصيل الطالب">
                       <Button variant="ghost" size="sm">
                         <Eye className="h-4 w-4" />
                       </Button>
@@ -409,11 +429,14 @@ export default function StudentsPage() {
                     }}>
                       تعديل
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => toggleActive(s)} className={s.isActive ? "text-red-500" : "text-green-500"}>
+                    <Button variant="ghost" size="sm" onClick={() => setToggleStudent(s)} className={s.isActive ? "text-red-500" : "text-green-500"} aria-label={s.isActive ? "إيقاف الطالب" : "تفعيل الطالب"}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                     <button onClick={() => setExpandedId(expandedId === s.id ? null : s.id)}
-                      className="p-1.5 hover:bg-gray-100 rounded">
+                      className="p-1.5 hover:bg-gray-100 rounded"
+                      aria-label={expandedId === s.id ? "إخفاء التفاصيل" : "عرض التفاصيل"}
+                      aria-expanded={expandedId === s.id}
+                      aria-controls={`student-details-${s.id}`}>
                       {expandedId === s.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                     </button>
                   </div>
@@ -421,7 +444,7 @@ export default function StudentsPage() {
 
                 {/* Expanded: Enrollments + Parents */}
                 {expandedId === s.id && (
-                  <div className="mt-4 pt-4 border-t grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div id={`student-details-${s.id}`} className="mt-4 pt-4 border-t grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Enrollments */}
                     <div>
                       <h4 className="text-sm font-medium text-gray-700 mb-3">التسجيلات ({s.enrollments?.length || 0})</h4>
@@ -438,7 +461,7 @@ export default function StudentsPage() {
                                 <Badge variant={e.status === "ACTIVE" ? "success" : "warning"}>{e.status === "ACTIVE" ? "نشط" : e.status}</Badge>
                                 <span className="text-xs text-gray-400">{e.academicYear.name}</span>
                               </div>
-                              <button onClick={() => deleteEnrollment(e.id)} className="text-red-300 hover:text-red-500 p-1">
+                              <button onClick={() => setDeleteEnrollId(e.id)} className="text-red-300 hover:text-red-500 p-1" aria-label="حذف التسجيل">
                                 <X className="h-3.5 w-3.5" />
                               </button>
                             </div>
@@ -509,8 +532,33 @@ export default function StudentsPage() {
               </Card>
             )
           })}
-        </div>
+          </div>
+          <Pagination page={page} total={total} limit={limit} onChange={setPage} />
+        </>
       )}
     </div>
+
+    <ConfirmModal
+      open={!!toggleStudent}
+      onClose={() => setToggleStudent(null)}
+      onConfirm={() => void handleConfirmToggle()}
+      title={toggleStudent?.isActive ? "إيقاف الطالب" : "تفعيل الطالب"}
+      message={toggleStudent?.isActive ? "سيتم إيقاف هذا الطالب. هل أنت متأكد؟" : "سيتم إعادة تفعيل هذا الطالب. هل أنت متأكد؟"}
+      confirmText={toggleStudent?.isActive ? "إيقاف" : "تفعيل"}
+      cancelText="إلغاء"
+      variant={toggleStudent?.isActive ? "danger" : "primary"}
+    />
+
+    <ConfirmModal
+      open={!!deleteEnrollId}
+      onClose={() => setDeleteEnrollId(null)}
+      onConfirm={() => void deleteEnrollment(deleteEnrollId!)}
+      title="حذف التسجيل"
+      message="سيتم حذف هذا التسجيل. هل أنت متأكد؟"
+      confirmText="حذف"
+      cancelText="إلغاء"
+      variant="danger"
+    />
+  </>
   )
 }

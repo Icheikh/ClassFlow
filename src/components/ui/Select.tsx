@@ -14,6 +14,9 @@ type SelectProps = {
   options: Option[]
   placeholder?: string
   label?: string
+  error?: string
+  disabled?: boolean
+  id?: string
   className?: string
 }
 
@@ -23,25 +26,34 @@ export function Select({
   options,
   placeholder = "اختر...",
   label,
+  error,
+  disabled = false,
+  id,
   className,
 }: SelectProps) {
   const normalizedValue = value === "" ? EMPTY_VALUE_SENTINEL : value
+  const errorId = id && error ? `${id}-error` : undefined
 
   return (
     <div className="space-y-1">
-      {label && <label className="block text-sm font-medium text-gray-700">{label}</label>}
+      {label && <label htmlFor={id} className="block text-sm font-medium text-gray-700">{label}</label>}
       <RadixSelect.Root
         value={normalizedValue}
         onValueChange={(nextValue) => onChange(nextValue === EMPTY_VALUE_SENTINEL ? "" : nextValue)}
+        disabled={disabled}
       >
         <RadixSelect.Trigger
           className={cn(
-            "flex items-center justify-between w-full px-4 py-2 border border-gray-300 rounded-lg bg-white",
+            "flex items-center justify-between w-full px-4 py-2 border rounded-lg bg-white transition-colors",
             "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent",
             "text-right",
             !value && "text-gray-400",
+            error ? "border-red-500" : "border-gray-300",
+            disabled && "opacity-50 cursor-not-allowed",
             className
           )}
+          aria-invalid={error ? "true" : undefined}
+          aria-describedby={errorId}
         >
           <RadixSelect.Value placeholder={placeholder} />
           <RadixSelect.Icon>
@@ -75,6 +87,7 @@ export function Select({
           </RadixSelect.Content>
         </RadixSelect.Portal>
       </RadixSelect.Root>
+      {error && <p id={errorId} className="text-sm text-red-600" role="alert">{error}</p>}
     </div>
   )
 }

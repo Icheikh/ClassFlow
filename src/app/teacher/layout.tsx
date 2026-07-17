@@ -3,6 +3,7 @@
 import { signOut, useSession } from "next-auth/react"
 import { SessionProvider } from "next-auth/react"
 import { redirect, usePathname } from "next/navigation"
+import Link from "next/link"
 import { useState } from "react"
 import {
   BookOpen,
@@ -51,7 +52,7 @@ function TeacherLayoutContent({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="lg:hidden bg-white border-b px-4 py-3 flex items-center justify-between">
-        <button onClick={() => setMobileOpen(!mobileOpen)}>
+        <button onClick={() => setMobileOpen(!mobileOpen)} aria-label={mobileOpen ? "إغلاق القائمة" : "فتح القائمة"} aria-expanded={mobileOpen}>
           <Menu className="h-6 w-6" />
         </button>
         <h1 className="font-bold text-lg">ClassFlow</h1>
@@ -60,14 +61,17 @@ function TeacherLayoutContent({ children }: { children: React.ReactNode }) {
         </button>
       </header>
 
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t z-50">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t z-50" aria-label="التنقل الرئيسي">
         <div className="flex justify-around py-2">
-          {navItems.map((item) => (
-            <a key={item.href} href={item.href} className="flex flex-col items-center text-xs text-gray-500 hover:text-blue-600">
-              <item.icon className="h-5 w-5" />
-              <span className="mt-1">{item.label}</span>
-            </a>
-          ))}
+          {navItems.map((item) => {
+            const active = pathname === item.href
+            return (
+              <Link key={item.href} href={item.href} className={`flex flex-col items-center text-xs ${active ? "text-blue-600 font-medium" : "text-gray-500 hover:text-blue-600"}`} aria-current={active ? "page" : undefined}>
+                <item.icon className="h-5 w-5" />
+                <span className="mt-1">{item.label}</span>
+              </Link>
+            )
+          })}
         </div>
       </nav>
 
@@ -78,13 +82,16 @@ function TeacherLayoutContent({ children }: { children: React.ReactNode }) {
             <p className="text-sm font-medium">{user?.name}</p>
             <p className="text-xs text-gray-500">{roleLabels[user?.role]}</p>
           </div>
-          <nav className="space-y-1">
-            {navItems.map((item) => (
-              <a key={item.href} href={item.href} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
-                <item.icon className="h-5 w-5" />
-                {item.label}
-              </a>
-            ))}
+          <nav className="space-y-1" aria-label="التنقل الرئيسي">
+            {navItems.map((item) => {
+              const active = pathname === item.href
+              return (
+                <Link key={item.href} href={item.href} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${active ? "bg-blue-50 text-blue-700 font-medium" : "text-gray-700 hover:bg-gray-100"}`} aria-current={active ? "page" : undefined}>
+                  <item.icon className="h-5 w-5" />
+                  {item.label}
+                </Link>
+              )
+            })}
             <button onClick={() => signOut()} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-red-600 hover:bg-red-50 w-full mt-4">
               <LogOut className="h-5 w-5" />
               تسجيل الخروج

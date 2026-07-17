@@ -161,7 +161,7 @@ export default function TeachingHoursPage() {
   if (!data) {
     return (
       <Card>
-        <p className="py-8 text-center text-gray-500">تعذر تحميل الساعات اليومية</p>
+        <p className="py-8 text-center text-gray-500" role="alert">تعذر تحميل الساعات اليومية</p>
       </Card>
     )
   }

@@ -113,7 +113,7 @@ export default function ResultsReportPage() {
   if (!data) {
     return (
       <Card className="print:shadow-none print:border-0">
-        <div className="py-12 text-center space-y-3">
+        <div className="py-12 text-center space-y-3" role="alert">
           <p className="text-lg font-semibold">تعذر تحميل كشف القسم</p>
           <Link href="/school/results">
             <Button variant="secondary">

@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils"
 import { Loader2 } from "lucide-react"
 
 type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "primary" | "secondary" | "danger" | "ghost"
+  variant?: "primary" | "secondary" | "danger" | "ghost" | "outline"
   size?: "sm" | "md" | "lg"
   loading?: boolean
   fullWidth?: boolean
@@ -13,6 +13,7 @@ const variants = {
   secondary: "bg-gray-100 text-gray-700 hover:bg-gray-200 active:bg-gray-300",
   danger: "bg-red-600 text-white hover:bg-red-700 active:bg-red-800",
   ghost: "text-gray-600 hover:bg-gray-100 active:bg-gray-200",
+  outline: "border border-gray-300 text-gray-700 hover:bg-gray-50 active:bg-gray-100",
 }
 
 const sizes = {

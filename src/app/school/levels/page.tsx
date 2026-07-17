@@ -132,7 +132,7 @@ export default function LevelsPage() {
                   <div key={level.id} className="bg-gray-50 rounded-lg p-3">
                     <div className="flex items-center justify-between mb-2">
                       <span className="font-medium">{level.name}</span>
-                      <button onClick={() => deleteLevel(level.id)} className="text-red-400 hover:text-red-600">
+                      <button onClick={() => deleteLevel(level.id)} className="text-red-400 hover:text-red-600" aria-label="حذف المستوى">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
@@ -141,7 +141,7 @@ export default function LevelsPage() {
                         {level.streams.map((s) => (
                           <span key={s.id} className="inline-flex items-center gap-1 px-2 py-0.5 bg-white rounded text-xs">
                             {s.name}
-                            <button onClick={() => deleteStream(s.id)} className="text-red-300 hover:text-red-500">×</button>
+                            <button onClick={() => deleteStream(s.id)} className="text-red-300 hover:text-red-500" aria-label="حذف الشعبة">×</button>
                           </span>
                         ))}
                       </div>

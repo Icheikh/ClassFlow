@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { useClasses } from "@/hooks/useClasses"
 import { api } from "@/lib/api"
-import { Button, Card, LoadingSpinner } from "@/components/ui"
+import { Button, Card, LoadingSpinner, ConfirmModal, ErrorDisplay, TeacherSubNav } from "@/components/ui"
 import { BookOpen, Plus, Save, Clock, Edit3, Trash2 } from "lucide-react"
 import toast from "react-hot-toast"
 
@@ -41,14 +41,20 @@ export function LessonBook() {
   const [saving, setSaving] = useState(false)
 
   const [editId, setEditId] = useState<string | null>(null)
+  const [lessonToDelete, setLessonToDelete] = useState<string | null>(null)
+  const [fetchError, setFetchError] = useState(false)
+  const [retryTrigger, setRetryTrigger] = useState(0)
 
   useEffect(() => {
-    if (classroomId && subjectId) {
-      api.get<Lesson[]>(`/api/lessons?classroomId=${classroomId}&subjectId=${subjectId}`).then(({ data }) => {
+    if (!classroomId || !subjectId) return
+    setFetchError(false)
+    api.get<Lesson[]>(`/api/lessons?classroomId=${classroomId}&subjectId=${subjectId}`)
+      .then(({ data, error }) => {
+        if (error) { toast.error(error); setFetchError(true); return }
         if (data) setLessons(data)
       })
-    }
-  }, [classroomId, subjectId])
+      .catch(() => { toast.error("حدث خطأ أثناء تحميل الدروس"); setFetchError(true) })
+  }, [classroomId, subjectId, retryTrigger])
 
   function startEdit(lesson: Lesson) {
     setEditId(lesson.id)
@@ -69,29 +75,33 @@ export function LessonBook() {
     e.preventDefault()
     if (!title.trim()) { toast.error("يرجى إدخال عنوان الدرس"); return }
     setSaving(true)
+    try {
+      const payload = { title, description, homework, notes, duration: parseInt(duration) || 45, classroomId, subjectId }
+      const result = editId
+        ? await api.put("/api/lessons", { id: editId, ...payload })
+        : await api.post("/api/lessons", payload)
 
-    const payload = { title, description, homework, notes, duration: parseInt(duration) || 45, classroomId, subjectId }
-    const result = editId
-      ? await api.put("/api/lessons", { id: editId, ...payload })
-      : await api.post("/api/lessons", payload)
-
-    if (result.error) toast.error(result.error)
-    else {
-      toast.success(editId ? "تم التعديل" : "تم تسجيل الدرس")
-      resetForm()
-      api.get<Lesson[]>(`/api/lessons?classroomId=${classroomId}&subjectId=${subjectId}`).then(({ data }) => { if (data) setLessons(data) })
-    }
+      if (result.error) toast.error(result.error)
+      else {
+        toast.success(editId ? "تم التعديل" : "تم تسجيل الدرس")
+        resetForm()
+        api.get<Lesson[]>(`/api/lessons?classroomId=${classroomId}&subjectId=${subjectId}`).then(({ data }) => { if (data) setLessons(data) })
+      }
+    } catch { toast.error("فشل حفظ الدرس. حاول مرة أخرى.") }
     setSaving(false)
   }
 
-  async function deleteLesson(id: string) {
-    if (!confirm("سيتم حذف هذا الدرس. هل أنت متأكد؟")) return
-    const { error } = await api.delete(`/api/lessons?id=${id}`)
-    if (error) toast.error(error)
-    else {
-      toast.success("تم الحذف")
-      api.get<Lesson[]>(`/api/lessons?classroomId=${classroomId}&subjectId=${subjectId}`).then(({ data }) => { if (data) setLessons(data) })
-    }
+  async function handleConfirmDelete() {
+    if (!lessonToDelete) return
+    try {
+      const { error } = await api.delete(`/api/lessons?id=${lessonToDelete}`)
+      setLessonToDelete(null)
+      if (error) toast.error(error)
+      else {
+        toast.success("تم الحذف")
+        api.get<Lesson[]>(`/api/lessons?classroomId=${classroomId}&subjectId=${subjectId}`).then(({ data }) => { if (data) setLessons(data) })
+      }
+    } catch { toast.error("فشل الحذف. حاول مرة أخرى."); setLessonToDelete(null) }
   }
 
   if (loading) return <LoadingSpinner />
@@ -108,6 +118,8 @@ export function LessonBook() {
           </Button>
         )}
       </div>
+
+      <TeacherSubNav current="lessons" classroomId={classroomId} subjectId={subjectId} />
 
       <div className="flex gap-4 mb-6">
         <select value={classroomId} onChange={(e) => { setClassroomId(e.target.value); setSubjectId(""); setShowForm(false) }}
@@ -155,7 +167,12 @@ export function LessonBook() {
         {!classroomId && !subjectId && (
           <Card><p className="text-center text-gray-400 py-6">اختر القسم والمادة لعرض الدروس</p></Card>
         )}
-        {lessons.length === 0 && classroomId && subjectId && !showForm && (
+        {fetchError && (
+          <Card>
+            <ErrorDisplay message="تعذر تحميل الدروس" onRetry={() => setRetryTrigger(n => n + 1)} />
+          </Card>
+        )}
+        {lessons.length === 0 && classroomId && subjectId && !showForm && !fetchError && (
           <Card><p className="text-center text-gray-400 py-6">لا توجد دروس مسجلة. سجل أول درس الآن</p></Card>
         )}
         {lessons.map((lesson) => (
@@ -188,10 +205,10 @@ export function LessonBook() {
                 <span>{lesson.classroom.name}</span><span>·</span><span>{lesson.subject.nameAr}</span>
               </div>
               <div className="flex gap-1">
-                <button onClick={() => startEdit(lesson)} className="p-1 hover:bg-gray-100 rounded text-blue-500">
+                <button onClick={() => startEdit(lesson)} className="p-1 hover:bg-gray-100 rounded text-blue-500" aria-label="تعديل الدرس">
                   <Edit3 className="h-4 w-4" />
                 </button>
-                <button onClick={() => deleteLesson(lesson.id)} className="p-1 hover:bg-gray-100 rounded text-red-500">
+                <button onClick={() => setLessonToDelete(lesson.id)} className="p-1 hover:bg-gray-100 rounded text-red-500" aria-label="حذف الدرس">
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
@@ -199,6 +216,17 @@ export function LessonBook() {
           </Card>
         ))}
       </div>
+
+      <ConfirmModal
+        open={!!lessonToDelete}
+        onClose={() => setLessonToDelete(null)}
+        onConfirm={() => void handleConfirmDelete()}
+        title="حذف الدرس"
+        message="سيتم حذف هذا الدرس. هل أنت متأكد؟"
+        confirmText="حذف"
+        cancelText="إلغاء"
+        variant="danger"
+      />
     </div>
   )
 }
