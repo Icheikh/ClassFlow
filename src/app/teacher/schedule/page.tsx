@@ -25,6 +25,8 @@ const TIME_SLOTS = [
   "08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00",
 ]
 
+type TeacherInfo = { id: string }
+
 export default function TeacherSchedulePage() {
   const { data: session } = useSession()
   const user = session?.user as any
@@ -35,7 +37,13 @@ export default function TeacherSchedulePage() {
   useEffect(() => {
     if (!user) return
     async function load() {
-      const res = await api.get<ScheduleEntry[]>(`/api/school/schedules?teacherId=${user.id}`)
+      const teacherRes = await api.get<TeacherInfo>("/api/teacher/me")
+      if (!teacherRes.data) {
+        toast.error(teacherRes.error || "فشل تحميل بيانات الأستاذ")
+        setLoading(false)
+        return
+      }
+      const res = await api.get<ScheduleEntry[]>(`/api/school/schedules?teacherId=${teacherRes.data.id}`)
       if (res.data) setEntries(res.data)
       else toast.error(res.error || "فشل تحميل الجدول")
       setLoading(false)
