@@ -12,6 +12,7 @@ import {
   Menu,
   Users,
   Home,
+  Calendar,
 } from "lucide-react"
 import { roleLabels } from "@/lib/roles"
 
@@ -19,6 +20,7 @@ const allowedRoles = ["TEACHER"]
 
 const navItems = [
   { href: "/teacher", label: "الرئيسية", icon: Home },
+  { href: "/teacher/schedule", label: "جدولي", icon: Calendar },
   { href: "/teacher/attendance", label: "الغياب", icon: Users },
   { href: "/teacher/lessons", label: "الدروس", icon: BookOpen },
   { href: "/teacher/grades", label: "النقاط", icon: GraduationCap },

@@ -61,7 +61,7 @@ export default function ClassroomSchedulePage() {
     setLoading(false)
   }
 
-  useEffect(() => { void loadData() }, [id])
+  useEffect(() => { void loadData() }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function openAdd() {
     setEditId(null)
