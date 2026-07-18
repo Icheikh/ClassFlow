@@ -763,7 +763,12 @@ export default function ClassroomDetailsPage() {
             <Badge variant={publicationStatus.variant}>
               حالة النتائج: {publicationStatus.label}
             </Badge>
-            <Button onClick={openCreateAssessment} disabled={subjectOptions.length === 0 || !data.activeTerm}>
+          <Link href={`/school/classrooms/${data.classroom.id}/schedule`}>
+            <Button variant="secondary">
+              <Calendar className="h-4 w-4" /> جدول الحصص
+            </Button>
+          </Link>
+          <Button onClick={openCreateAssessment} disabled={subjectOptions.length === 0 || !data.activeTerm}>
               <Plus className="h-4 w-4" /> إضافة تقويم
             </Button>
           </div>

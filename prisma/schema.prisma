@@ -334,6 +334,7 @@ model Teacher {
   assessments        Assessment[]
   attendanceLogs     TeacherAttendance[]
   attendances        Attendance[]
+  schedules          Schedule[]
 }
 
 model Parent {
@@ -884,9 +885,11 @@ model Schedule {
   subjectId   String
   subject     Subject   @relation(fields: [subjectId], references: [id])
   teacherId   String?
+  teacher     Teacher?  @relation(fields: [teacherId], references: [id])
   createdAt   DateTime  @default(now())
 
   @@index([schoolId, classroomId])
+  @@index([teacherId])
 }
 
 // ============================================================
