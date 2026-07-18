@@ -108,8 +108,12 @@ export default function ClassroomSchedulePage() {
     return teachers.find((t) => t.id === teacherId)?.user.name || null
   }
 
-  function getTeacherOptions(dayOfWeek: number, startTime: string, endTime: string) {
+  function getTeacherOptions(dayOfWeek: number, startTime: string, endTime: string, subjectId: string) {
     return teachers.filter((t) => {
+      const teachesSubject = t.teacherAssignments.some(
+        (a) => a.subjectId === subjectId && a.classroomId === id
+      )
+      if (!teachesSubject) return false
       const hasConflict = entries.some(
         (e) =>
           e.id !== editId &&
@@ -245,7 +249,7 @@ export default function ClassroomSchedulePage() {
           <Select
             label="المادة"
             value={form.subjectId}
-            onChange={(v) => setForm({ ...form, subjectId: v })}
+            onChange={(v) => setForm({ ...form, subjectId: v, teacherId: "" })}
             options={subjects.map((s) => ({ value: s.id, label: s.nameAr }))}
           />
           <Select
@@ -254,7 +258,7 @@ export default function ClassroomSchedulePage() {
             onChange={(v) => setForm({ ...form, teacherId: v })}
             options={[
               { value: "", label: "—" },
-              ...getTeacherOptions(parseInt(form.dayOfWeek), form.startTime, form.endTime)
+              ...getTeacherOptions(parseInt(form.dayOfWeek), form.startTime, form.endTime, form.subjectId)
                 .map((t) => ({ value: t.id, label: t.user.name })),
             ]}
           />

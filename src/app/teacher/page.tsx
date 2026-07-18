@@ -154,7 +154,15 @@ export default function TeacherPage() {
       </Card>
 
       {/* Quick Links */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Link href="/teacher/schedule" className="bg-white p-6 rounded-xl shadow-sm border hover:shadow-md transition-shadow">
+          <div className="w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center mb-4">
+            <Calendar className="h-6 w-6 text-amber-600" />
+          </div>
+          <h2 className="text-lg font-semibold mb-2">جدولي</h2>
+          <p className="text-sm text-gray-500">عرض برنامج الحصص الأسبوعي</p>
+        </Link>
+
         <Link href="/teacher/attendance" className="bg-white p-6 rounded-xl shadow-sm border hover:shadow-md transition-shadow">
           <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
             <ClipboardCheck className="h-6 w-6 text-blue-600" />
