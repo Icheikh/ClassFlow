@@ -18,6 +18,7 @@ type PayrollAssignRow = {
   hourlyRate: number | null
   weeklyHours: number | null
   totalHours: number
+  expectedHours: number
   entryCount: number
   earnings: number | null
 }
@@ -203,8 +204,8 @@ export default function PayrollPage() {
                         <th className="text-right py-2 px-2">المادة</th>
                         <th className="text-right py-2 px-2">القسم</th>
                         <th className="text-center py-2 px-2">الأجر/س</th>
-                        <th className="text-center py-2 px-2">الساعات المتوقعة</th>
-                        <th className="text-center py-2 px-2">الأيام المسجلة</th>
+                        <th className="text-center py-2 px-2">المتوقع (جدول)</th>
+                        <th className="text-center py-2 px-2">المسجل</th>
                         <th className="text-center py-2 px-2">الساعات</th>
                         <th className="text-center py-2 px-2 text-green-700">المستحق</th>
                       </tr>
@@ -223,9 +224,18 @@ export default function PayrollPage() {
                             {row.hourlyRate != null ? row.hourlyRate : <span className="text-gray-300">—</span>}
                           </td>
                           <td className="py-2 px-2 text-center">
-                            {row.weeklyHours != null ? row.weeklyHours : <span className="text-gray-300">—</span>}
+                            {row.expectedHours > 0 ? (
+                              <span className="text-blue-700">{row.expectedHours}</span>
+                            ) : <span className="text-gray-300">—</span>}
                           </td>
-                          <td className="py-2 px-2 text-center">{row.entryCount}</td>
+                          <td className={`py-2 px-2 text-center font-medium ${row.expectedHours > 0 && row.totalHours !== row.expectedHours ? "text-amber-600" : ""}`}>
+                            {row.totalHours}
+                            {row.expectedHours > 0 && row.totalHours !== row.expectedHours && (
+                              <span className="text-xs text-amber-500 mr-1">
+                                ({row.totalHours > row.expectedHours ? "+" : ""}{(row.totalHours - row.expectedHours).toFixed(1)})
+                              </span>
+                            )}
+                          </td>
                           <td className="py-2 px-2 text-center font-medium">{row.totalHours}</td>
                           <td className="py-2 px-2 text-center font-bold text-green-700">
                             {row.earnings != null ? row.earnings.toLocaleString() : <span className="text-gray-300">—</span>}

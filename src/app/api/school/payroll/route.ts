@@ -5,6 +5,15 @@ import { prisma } from "@/lib/prisma"
 import { hasPermission, PERMISSIONS } from "@/lib/permissions"
 import { addUtcDays, formatDateOnly, getWeekStartDate } from "@/lib/date"
 
+function parseTimeToMinutes(time: string): number {
+  const [h, m] = time.split(":").map(Number)
+  return h * 60 + (m || 0)
+}
+
+function computeDuration(start: string, end: string): number {
+  return (parseTimeToMinutes(end) - parseTimeToMinutes(start)) / 60
+}
+
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
   const user = session?.user as any
@@ -52,6 +61,19 @@ export async function GET(req: NextRequest) {
     ],
   })
 
+  const scheduleEntries = await prisma.schedule.findMany({
+    where: { schoolId: user.schoolId, teacherId: { not: null } },
+    select: { teacherId: true, classroomId: true, subjectId: true, startTime: true, endTime: true, dayOfWeek: true },
+  })
+
+  const expectedHoursByKey = new Map<string, number>()
+  for (const s of scheduleEntries) {
+    if (!s.teacherId) continue
+    const key = `${s.teacherId}|${s.classroomId}|${s.subjectId}`
+    const current = expectedHoursByKey.get(key) || 0
+    expectedHoursByKey.set(key, current + computeDuration(s.startTime, s.endTime))
+  }
+
   const rows = assignments.map((assignment) => {
     const totalHours = Math.round(
       assignment.teachingHourEntries.reduce((sum, entry) => sum + entry.hoursTaught, 0) * 100
@@ -60,6 +82,9 @@ export async function GET(req: NextRequest) {
     const earnings = assignment.hourlyRate != null
       ? Math.round(totalHours * assignment.hourlyRate * 100) / 100
       : null
+
+    const expectedKey = `${assignment.teacherId}|${assignment.classroomId}|${assignment.subjectId}`
+    const expectedHours = expectedHoursByKey.get(expectedKey) || 0
 
     return {
       id: assignment.id,
@@ -72,6 +97,7 @@ export async function GET(req: NextRequest) {
       hourlyRate: assignment.hourlyRate,
       weeklyHours: assignment.weeklyHours,
       totalHours,
+      expectedHours,
       entryCount: assignment.teachingHourEntries.length,
       earnings,
     }
