@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { api } from "@/lib/api"
-import { Button, Card, Modal, Input, Select, Badge } from "@/components/ui"
+import { Button, Card, Modal, Input, Select, Badge, ConfirmModal } from "@/components/ui"
 import { Plus, BookOpen, Edit2, Trash2, Hash, Layers, School, Filter, CalendarRange } from "lucide-react"
 import toast from "react-hot-toast"
 
@@ -54,6 +54,7 @@ export default function SubjectsPage() {
 
   const [subjectFilterId, setSubjectFilterId] = useState("")
   const [levelFilterId, setLevelFilterId] = useState("")
+  const [coefficientToDelete, setCoefficientToDelete] = useState<CoefficientRule | null>(null)
 
   async function fetchData() {
     setLoading(true)
@@ -204,14 +205,9 @@ export default function SubjectsPage() {
   }
 
   async function deleteCoefficient(rule: CoefficientRule) {
-    if (!confirm(`سيتم حذف ضارب ${rule.subject.nameAr}. هل تريد المتابعة؟`)) return
-
     const { error } = await api.delete(`/api/school/subject-coefficients?id=${rule.id}`)
-    if (error) {
-      toast.error(error)
-      return
-    }
-
+    setCoefficientToDelete(null)
+    if (error) { toast.error(error); return }
     toast.success("تم حذف الضارب")
     await fetchData()
   }
@@ -492,7 +488,7 @@ export default function SubjectsPage() {
                           <button onClick={() => openEditCoefficient(rule)} className="ml-2 text-gray-400 hover:text-blue-600" aria-label="تعديل الضارب">
                             <Edit2 className="h-4 w-4" />
                           </button>
-                          <button onClick={() => void deleteCoefficient(rule)} className="text-red-400 hover:text-red-600" aria-label="حذف الضارب">
+                          <button onClick={() => setCoefficientToDelete(rule)} className="text-red-400 hover:text-red-600" aria-label="حذف الضارب">
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </td>
@@ -505,6 +501,17 @@ export default function SubjectsPage() {
           </Card>
         </div>
       )}
+
+      <ConfirmModal
+        open={!!coefficientToDelete}
+        onClose={() => setCoefficientToDelete(null)}
+        onConfirm={() => void deleteCoefficient(coefficientToDelete!)}
+        title="حذف الضارب"
+        message={coefficientToDelete ? `سيتم حذف ضارب ${coefficientToDelete.subject.nameAr}. هل تريد المتابعة؟` : ""}
+        confirmText="حذف"
+        cancelText="إلغاء"
+        variant="danger"
+      />
     </div>
   )
 }

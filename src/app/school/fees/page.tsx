@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { api } from "@/lib/api"
-import { Button, Card, Input, Select, Modal, Badge, LoadingPage } from "@/components/ui"
+import { Button, Card, Input, Select, Modal, Badge, LoadingPage, ConfirmModal } from "@/components/ui"
 import { Plus, Pencil, Trash2, Link2, Wallet } from "lucide-react"
 import toast from "react-hot-toast"
 
@@ -41,6 +41,7 @@ export default function FeesPage() {
   const [assignFeeId, setAssignFeeId] = useState<string | null>(null)
   const [assignClassroomId, setAssignClassroomId] = useState("")
   const [assigning, setAssigning] = useState(false)
+  const [feeToDelete, setFeeToDelete] = useState<string | null>(null)
 
   async function load() {
     const [feesRes, classroomsRes, levelsRes] = await Promise.all([
@@ -106,9 +107,8 @@ export default function FeesPage() {
   }
 
   async function remove(id: string) {
-    if (!confirm("هل أنت متأكد من حذف هذا الرسم؟")) return
-
     const { error } = await api.delete(`/api/school/fees/${id}`)
+    setFeeToDelete(null)
     if (error) {
       toast.error(error)
     } else {
@@ -272,7 +272,7 @@ export default function FeesPage() {
                     <Button variant="ghost" size="sm" onClick={() => openEdit(fee)} aria-label="تعديل الرسم">
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => remove(fee.id)} aria-label="حذف الرسم">
+                    <Button variant="ghost" size="sm" onClick={() => setFeeToDelete(fee.id)} aria-label="حذف الرسم">
                       <Trash2 className="h-4 w-4 text-red-500" />
                     </Button>
                   </div>
@@ -332,6 +332,17 @@ export default function FeesPage() {
           <Button fullWidth loading={assigning} onClick={doAssign}>تأكيد التعيين</Button>
         </div>
       </Modal>
+
+      <ConfirmModal
+        open={!!feeToDelete}
+        onClose={() => setFeeToDelete(null)}
+        onConfirm={() => void remove(feeToDelete!)}
+        title="حذف الرسم"
+        message="هل أنت متأكد من حذف هذا الرسم؟"
+        confirmText="حذف"
+        cancelText="إلغاء"
+        variant="danger"
+      />
     </div>
   )
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { api } from "@/lib/api"
-import { Button, Card, Modal, Input, Select, Badge } from "@/components/ui"
+import { Button, Card, Modal, Input, Select, Badge, ConfirmModal } from "@/components/ui"
 import { Plus, DoorOpen, Edit2, Trash2, Eye } from "lucide-react"
 import Link from "next/link"
 import toast from "react-hot-toast"
@@ -29,6 +29,7 @@ export default function ClassroomsPage() {
   const [levelId, setLevelId] = useState("")
   const [streamId, setStreamId] = useState("")
   const [capacity, setCapacity] = useState("40")
+  const [classroomToDelete, setClassroomToDelete] = useState<string | null>(null)
 
   async function fetchData() {
     const [classroomsRes, levelsRes, streamsRes] = await Promise.all([
@@ -101,8 +102,8 @@ export default function ClassroomsPage() {
   }
 
   async function deleteItem(id: string) {
-    if (!confirm("هل أنت متأكد؟")) return
     const { error } = await api.delete(`/api/school/classrooms?id=${id}`)
+    setClassroomToDelete(null)
     if (error) toast.error(error)
     else {
       toast.success("تم الحذف")
@@ -184,7 +185,7 @@ export default function ClassroomsPage() {
                 <button onClick={(e) => { e.preventDefault(); openEdit(classroom) }} className="p-1.5 hover:bg-gray-100 rounded" aria-label="تعديل القسم">
                   <Edit2 className="h-4 w-4" />
                 </button>
-                <button onClick={(e) => { e.preventDefault(); deleteItem(classroom.id) }} className="p-1.5 hover:bg-red-50 rounded text-red-400" aria-label="حذف القسم">
+                <button onClick={(e) => { e.preventDefault(); setClassroomToDelete(classroom.id) }} className="p-1.5 hover:bg-red-50 rounded text-red-400" aria-label="حذف القسم">
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
@@ -192,6 +193,17 @@ export default function ClassroomsPage() {
           ))}
         </div>
       )}
+
+      <ConfirmModal
+        open={!!classroomToDelete}
+        onClose={() => setClassroomToDelete(null)}
+        onConfirm={() => void deleteItem(classroomToDelete!)}
+        title="حذف القسم"
+        message="هل أنت متأكد؟"
+        confirmText="حذف"
+        cancelText="إلغاء"
+        variant="danger"
+      />
     </div>
   )
 }

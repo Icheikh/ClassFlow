@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { api } from "@/lib/api"
-import { Button, Card, Modal, Input, Badge } from "@/components/ui"
+import { Button, Card, Modal, Input, Badge, ConfirmModal } from "@/components/ui"
 import { Plus, Save, Layers, Edit, Trash2 } from "lucide-react"
 import toast from "react-hot-toast"
 
@@ -25,6 +25,7 @@ export default function LevelsPage() {
   const [levelOrder, setLevelOrder] = useState("")
   const [streamName, setStreamName] = useState("")
   const [streamCode, setStreamCode] = useState("")
+  const [deleteConfirm, setDeleteConfirm] = useState<{ type: "level" | "stream"; id: string } | null>(null)
 
   const fetchData = async () => {
     const { data } = await api.get<Stage[]>("/api/school/stages")
@@ -55,14 +56,14 @@ export default function LevelsPage() {
   }
 
   async function deleteLevel(id: string) {
-    if (!confirm("هل أنت متأكد؟")) return
     const { error } = await api.delete(`/api/school/levels?id=${id}`)
+    setDeleteConfirm(null)
     if (error) toast.error(error); else { toast.success("تم الحذف"); fetchData() }
   }
 
   async function deleteStream(id: string) {
-    if (!confirm("هل أنت متأكد؟")) return
     const { error } = await api.delete(`/api/school/streams?id=${id}`)
+    setDeleteConfirm(null)
     if (error) toast.error(error); else { toast.success("تم الحذف"); fetchData() }
   }
 
@@ -132,7 +133,7 @@ export default function LevelsPage() {
                   <div key={level.id} className="bg-gray-50 rounded-lg p-3">
                     <div className="flex items-center justify-between mb-2">
                       <span className="font-medium">{level.name}</span>
-                      <button onClick={() => deleteLevel(level.id)} className="text-red-400 hover:text-red-600" aria-label="حذف المستوى">
+                      <button onClick={() => setDeleteConfirm({ type: "level", id: level.id })} className="text-red-400 hover:text-red-600" aria-label="حذف المستوى">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
@@ -141,7 +142,7 @@ export default function LevelsPage() {
                         {level.streams.map((s) => (
                           <span key={s.id} className="inline-flex items-center gap-1 px-2 py-0.5 bg-white rounded text-xs">
                             {s.name}
-                            <button onClick={() => deleteStream(s.id)} className="text-red-300 hover:text-red-500" aria-label="حذف الشعبة">×</button>
+                            <button onClick={() => setDeleteConfirm({ type: "stream", id: s.id })} className="text-red-300 hover:text-red-500" aria-label="حذف الشعبة">×</button>
                           </span>
                         ))}
                       </div>
@@ -158,6 +159,20 @@ export default function LevelsPage() {
           ))}
         </div>
       )}
+
+      <ConfirmModal
+        open={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        onConfirm={() => {
+          if (deleteConfirm?.type === "level") void deleteLevel(deleteConfirm.id)
+          else if (deleteConfirm?.type === "stream") void deleteStream(deleteConfirm.id)
+        }}
+        title={deleteConfirm?.type === "level" ? "حذف المستوى" : "حذف الشعبة"}
+        message="هل أنت متأكد؟"
+        confirmText="حذف"
+        cancelText="إلغاء"
+        variant="danger"
+      />
     </div>
   )
 }

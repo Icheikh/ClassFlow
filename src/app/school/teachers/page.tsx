@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { api } from "@/lib/api"
-import { Button, Card, Modal, Input, Badge, LoadingPage } from "@/components/ui"
+import { Button, Card, Modal, Input, Badge, LoadingPage, ConfirmModal } from "@/components/ui"
 import { Plus, UserPlus, BookOpen, Trash2, X, ChevronDown, ChevronUp, Mail, Phone, Shield, Eye } from "lucide-react"
 import Link from "next/link"
 import toast from "react-hot-toast"
@@ -34,6 +34,7 @@ export default function TeachersPage() {
   const [editId, setEditId] = useState<string | null>(null)
   const [assignSubj, setAssignSubj] = useState("")
   const [assignClass, setAssignClass] = useState("")
+  const [teacherToDelete, setTeacherToDelete] = useState<string | null>(null)
 
   const fetchData = async () => {
     const [t, s, c] = await Promise.all([
@@ -61,8 +62,8 @@ export default function TeachersPage() {
   }
 
   async function deleteTeacher(id: string) {
-    if (!confirm("سيتم تعطيل حساب هذا الأستاذ. هل أنت متأكد؟")) return
     const { error } = await api.delete(`/api/school/teachers?id=${id}`)
+    setTeacherToDelete(null)
     if (error) toast.error(error); else { toast.success("تم التعطيل"); fetchData() }
   }
 
@@ -189,7 +190,7 @@ export default function TeachersPage() {
                   <Button variant="ghost" size="sm" onClick={(e) => { e.preventDefault(); setEditId(t.id); setForm({ name: t.user.name, email: t.user.email, phone: t.user.phone || "", password: "" }); setAddModal(true) }}>
                     تعديل
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={(e) => { e.preventDefault(); deleteTeacher(t.id) }} className="text-red-500" aria-label="حذف الأستاذ">
+                   <Button variant="ghost" size="sm" onClick={(e) => { e.preventDefault(); setTeacherToDelete(t.id) }} className="text-red-500" aria-label="حذف الأستاذ">
                     <Trash2 className="h-4 w-4" />
                   </Button>
                   <button onClick={(e) => { e.preventDefault(); setExpandedId(expandedId === t.id ? null : t.id) }}
@@ -233,6 +234,17 @@ export default function TeachersPage() {
           ))}
         </div>
       )}
+
+      <ConfirmModal
+        open={!!teacherToDelete}
+        onClose={() => setTeacherToDelete(null)}
+        onConfirm={() => void deleteTeacher(teacherToDelete!)}
+        title="تعطيل الأستاذ"
+        message="سيتم تعطيل حساب هذا الأستاذ. هل أنت متأكد؟"
+        confirmText="تعطيل"
+        cancelText="إلغاء"
+        variant="danger"
+      />
     </div>
   )
 }

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { api } from "@/lib/api"
-import { Button, Card, Input, Textarea, Badge } from "@/components/ui"
+import { Button, Card, Input, Textarea, Badge, ConfirmModal } from "@/components/ui"
 import { buildTermCalculationNote } from "@/lib/results"
 import toast from "react-hot-toast"
 import { useCurrentUser } from "@/hooks/useCurrentUser"
@@ -201,6 +201,7 @@ export default function SchoolResultRulesPage() {
     requireExam3: true,
     notes: "",
   })
+  const [discardConfirm, setDiscardConfirm] = useState(false)
 
   async function loadData() {
     const { data: response, error } = await api.get<ResultRuleResponse>("/api/school/result-rules")
@@ -253,8 +254,8 @@ export default function SchoolResultRulesPage() {
   }
 
   async function discardDraft() {
-    if (!confirm("سيتم حذف المسودة الحالية. هل أنت متأكد؟")) return
     const { error } = await api.delete("/api/school/result-rules")
+    setDiscardConfirm(false)
     if (error) toast.error(error)
     else {
       toast.success("تم حذف المسودة")
@@ -400,7 +401,7 @@ export default function SchoolResultRulesPage() {
             <div className="flex gap-3">
               <Button fullWidth loading={saving} onClick={saveDraft}>حفظ كمسودة</Button>
               <Button variant="secondary" fullWidth loading={publishing} onClick={publishDraft} disabled={!data.draftRule}>نشر المسودة</Button>
-              <Button variant="danger" fullWidth onClick={discardDraft} disabled={!data.draftRule}>حذف المسودة</Button>
+              <Button variant="danger" fullWidth onClick={() => setDiscardConfirm(true)} disabled={!data.draftRule}>حذف المسودة</Button>
             </div>
           </div>
         </Card>
@@ -438,6 +439,17 @@ export default function SchoolResultRulesPage() {
           </Card>
         </div>
       </div>
+
+      <ConfirmModal
+        open={discardConfirm}
+        onClose={() => setDiscardConfirm(false)}
+        onConfirm={() => void discardDraft()}
+        title="حذف المسودة"
+        message="سيتم حذف المسودة الحالية. هل أنت متأكد؟"
+        confirmText="حذف"
+        cancelText="إلغاء"
+        variant="danger"
+      />
     </div>
   )
 }

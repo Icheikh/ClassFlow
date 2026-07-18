@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { api } from "@/lib/api"
-import { Button, Card, Badge, Modal, LoadingPage } from "@/components/ui"
+import { Button, Card, Badge, Modal, LoadingPage, ConfirmModal } from "@/components/ui"
 import { ArrowLeft, User, Hash, Calendar, Phone, MapPin, BookOpen, Users, TrendingUp, ChevronRight, Edit3, Plus, BellRing, ReceiptText, GraduationCap, AlertTriangle, CheckCircle2 } from "lucide-react"
 import Link from "next/link"
 import toast from "react-hot-toast"
@@ -50,6 +50,7 @@ export default function StudentDetailPage() {
   const [enrollYearId, setEnrollYearId] = useState("")
 
   const [form, setForm] = useState({ firstName: "", lastName: "", gender: "", birthDate: "", studentNumber: "", address: "", phone: "", parentName: "", parentPhone: "", parentEmail: "" })
+  const [enrollToDelete, setEnrollToDelete] = useState<string | null>(null)
 
   const fetchStudent = useCallback(async () => {
     if (!id) {
@@ -85,8 +86,8 @@ export default function StudentDetailPage() {
   }
 
   async function deleteEnrollment(enrollmentId: string) {
-    if (!confirm("سيتم حذف هذا التسجيل. هل أنت متأكد؟")) return
     const { error } = await api.delete(`/api/school/enrollments?id=${enrollmentId}`)
+    setEnrollToDelete(null)
     if (error) toast.error(error)
     else { toast.success("تم الحذف"); fetchStudent() }
   }
@@ -386,7 +387,7 @@ export default function StudentDetailPage() {
                         </Badge>
                       </td>
                       <td className="py-2 px-3 text-left">
-                        <button onClick={() => deleteEnrollment(e.id)} className="text-red-400 hover:text-red-600 text-xs">
+                        <button onClick={() => setEnrollToDelete(e.id)} className="text-red-400 hover:text-red-600 text-xs">
                           حذف
                         </button>
                       </td>
@@ -446,6 +447,17 @@ export default function StudentDetailPage() {
           <Button fullWidth onClick={saveEnrollment}>تسجيل</Button>
         </div>
       </Modal>
+
+      <ConfirmModal
+        open={!!enrollToDelete}
+        onClose={() => setEnrollToDelete(null)}
+        onConfirm={() => void deleteEnrollment(enrollToDelete!)}
+        title="حذف التسجيل"
+        message="سيتم حذف هذا التسجيل. هل أنت متأكد؟"
+        confirmText="حذف"
+        cancelText="إلغاء"
+        variant="danger"
+      />
     </div>
   )
 }

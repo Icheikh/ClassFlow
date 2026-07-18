@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { api } from "@/lib/api"
-import { Button, Input, Card, LoadingPage } from "@/components/ui"
+import { Button, Input, Card, LoadingPage, ConfirmModal } from "@/components/ui"
 import { StaffList } from "@/components/staff/StaffList"
 import { StaffFormModal } from "@/components/staff/StaffFormModal"
 import { Plus, Search } from "lucide-react"
@@ -35,6 +35,7 @@ export default function StaffPage() {
   const [permTarget, setPermTarget] = useState<StaffMember | null>(null)
   const [permSelection, setPermSelection] = useState<string[]>([])
   const [permSaving, setPermSaving] = useState(false)
+  const [toggleTarget, setToggleTarget] = useState<{ id: string; current: boolean } | null>(null)
 
   const fetchStaff = useCallback(async () => {
     const { data, error } = await api.get<StaffMember[]>("/api/school/staff")
@@ -72,9 +73,8 @@ export default function StaffPage() {
   }
 
   async function handleToggleActive(id: string, current: boolean) {
-    const action = current ? "تعطيل" : "تفعيل"
-    if (!confirm(`سيتم ${action} حساب هذا الموظف. هل أنت متأكد؟`)) return
     const { error } = await api.put("/api/school/staff", { id, isActive: !current })
+    setToggleTarget(null)
     if (error) { toast.error(error); return }
     toast.success(current ? "تم التعطيل" : "تم التفعيل")
     fetchStaff()
@@ -140,7 +140,7 @@ export default function StaffPage() {
         items={filtered}
         onEdit={openEdit}
         onManagePermissions={openPermModal}
-        onToggleActive={handleToggleActive}
+         onToggleActive={(id, current) => setToggleTarget({ id, current })}
       />
 
       <StaffFormModal
@@ -248,6 +248,17 @@ export default function StaffPage() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        open={!!toggleTarget}
+        onClose={() => setToggleTarget(null)}
+        onConfirm={() => void handleToggleActive(toggleTarget!.id, toggleTarget!.current)}
+        title={toggleTarget?.current ? "تعطيل الموظف" : "تفعيل الموظف"}
+        message={`سيتم ${toggleTarget?.current ? "تعطيل" : "تفعيل"} حساب هذا الموظف. هل أنت متأكد؟`}
+        confirmText={toggleTarget?.current ? "تعطيل" : "تفعيل"}
+        cancelText="إلغاء"
+        variant={toggleTarget?.current ? "danger" : "primary"}
+      />
     </div>
   )
 }
