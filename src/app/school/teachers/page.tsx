@@ -77,8 +77,9 @@ export default function TeachersPage() {
   }
 
   async function deleteAssignment(id: string) {
-    await api.delete(`/api/school/teacher-assignments?id=${id}`)
-    fetchData()
+    const { error } = await api.delete(`/api/school/teacher-assignments?id=${id}`)
+    if (error) toast.error(error)
+    else { toast.success("تم حذف التكليف"); fetchData() }
   }
 
   const filtered = teachers.filter((t) =>

@@ -98,9 +98,22 @@ export async function DELETE(req: NextRequest) {
     if (!id) return NextResponse.json({ error: "id required" }, { status: 400 })
     const existing = await prisma.teacherAssignment.findFirst({ where: { id, schoolId: user.schoolId } })
     if (!existing) return NextResponse.json({ error: "غير موجود" }, { status: 404 })
+
+    const entryCount = await prisma.teachingHourEntry.count({
+      where: { teacherAssignmentId: id },
+    })
+    if (entryCount > 0) {
+      return NextResponse.json({
+        error: `لا يمكن حذف التكليف لأنه مرتبط بـ ${entryCount} سجل ساعات تدريس. قم بحذف ساعات التدريس أولاً.`,
+      }, { status: 400 })
+    }
+
     await prisma.teacherAssignment.delete({ where: { id } })
     return NextResponse.json({ success: true })
   } catch (e: any) {
-    return NextResponse.json({ error: e.message || "فشل الحذف" }, { status: 400 })
+    const msg = e?.code === "P2003"
+      ? "لا يمكن حذف التكليف لأنه مرتبط ببيانات أخرى"
+      : e.message || "فشل الحذف"
+    return NextResponse.json({ error: msg }, { status: 400 })
   }
 }
