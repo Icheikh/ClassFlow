@@ -44,6 +44,13 @@ export async function GET(req: NextRequest) {
     })
     const lessonCountMap = new Map(lessonCounts.map((l) => [l.teacherId, l._count]))
 
+    const dayOfWeek = today.getDay()
+    const scheduleEntries = await prisma.schedule.findMany({
+      where: { schoolId: user.schoolId, dayOfWeek, teacherId: { not: null } },
+      select: { teacherId: true },
+    })
+    const teachersWithSchedule = new Set(scheduleEntries.map((s) => s.teacherId!))
+
     const result = teachers.map((t) => {
       const att = attendanceMap.get(t.id)
       return {
@@ -63,6 +70,7 @@ export async function GET(req: NextRequest) {
         } : null,
         lessonCount: lessonCountMap.get(t.id) || 0,
         assignmentCount: t.teacherAssignments.length,
+        hasSchedule: teachersWithSchedule.has(t.id),
       }
     })
 

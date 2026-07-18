@@ -25,6 +25,7 @@ type TeacherRosterEntry = {
   attendance: { status: string; checkIn: string | null; checkOut: string | null; markedBy: string } | null
   lessonCount: number
   assignmentCount: number
+  hasSchedule: boolean
 }
 
 type RosterData = {
@@ -118,12 +119,14 @@ export function TeacherRosterManager() {
     if (filter === "marked") return !!teacher.attendance
     if (filter === "absent") return teacher.attendance?.status === "ABSENT"
     if (filter === "present") return teacher.attendance?.status === "PRESENT"
+    if (filter === "with-schedule") return teacher.hasSchedule
     return true
   }) || []
 
   const presentCount = data?.teachers.filter((teacher) => teacher.attendance?.status === "PRESENT").length || 0
   const absentCount = data?.teachers.filter((teacher) => teacher.attendance?.status === "ABSENT").length || 0
   const unmarkedCount = data?.teachers.filter((teacher) => !teacher.attendance).length || 0
+  const scheduledCount = data?.teachers.filter((teacher) => teacher.hasSchedule).length || 0
 
   return (
     <div>
@@ -170,12 +173,12 @@ export function TeacherRosterManager() {
           </div>
           <p className="text-2xl font-bold mt-1">{unmarkedCount}</p>
         </Card>
-        <Card padding="md">
+        <Card padding="md" className={scheduledCount > 0 && unmarkedCount > 0 ? "border-blue-200 bg-blue-50" : ""}>
           <div className="flex items-center gap-2 text-blue-600">
-            <BookOpen className="h-5 w-5" />
-            <span className="text-sm font-medium">الإجمالي</span>
+            <Calendar className="h-5 w-5" />
+            <span className="text-sm font-medium">بحصص اليوم</span>
           </div>
-          <p className="text-2xl font-bold mt-1">{data?.teachers.length || 0}</p>
+          <p className="text-2xl font-bold mt-1">{scheduledCount}</p>
         </Card>
       </div>
 
@@ -187,17 +190,18 @@ export function TeacherRosterManager() {
             </Button>
           ))}
         </div>
-        <select
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm w-40"
-        >
-          <option value="">كل الأساتذة</option>
-          <option value="unmarked">غير المسجلين</option>
-          <option value="marked">المسجلين</option>
-          <option value="present">الحاضرين</option>
-          <option value="absent">الغائبين</option>
-        </select>
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm w-40"
+          >
+            <option value="">كل الأساتذة</option>
+            <option value="with-schedule">بجدول اليوم</option>
+            <option value="unmarked">غير المسجلين</option>
+            <option value="marked">المسجلين</option>
+            <option value="present">الحاضرين</option>
+            <option value="absent">الغائبين</option>
+          </select>
       </div>
 
       {fetchError ? (
@@ -217,7 +221,7 @@ export function TeacherRosterManager() {
             const currentStatus = teacher.attendance?.status || ""
 
             return (
-              <Card key={teacher.id} padding="sm" className="hover:shadow-sm transition-shadow">
+              <Card key={teacher.id} padding="sm" className={`hover:shadow-sm transition-shadow ${teacher.hasSchedule && !teacher.attendance ? "border-blue-200 bg-blue-50/30" : ""}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3 min-w-0 flex-1">
                     <div
@@ -239,6 +243,9 @@ export function TeacherRosterManager() {
                         <span>{teacher.assignmentCount} تكليف</span>
                         {teacher.lessonCount > 0 && (
                           <Badge variant="info">{teacher.lessonCount} دروس اليوم</Badge>
+                        )}
+                        {teacher.hasSchedule && (
+                          <Badge variant="success">في الجدول</Badge>
                         )}
                       </div>
                     </div>
