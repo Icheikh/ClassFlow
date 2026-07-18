@@ -10,6 +10,15 @@ function canManageTeachingHours(user: { role?: string; permissions?: string[] } 
     || hasPermission(user as { role: string; permissions?: string[] } | null | undefined, PERMISSIONS.MANAGE_TEACHERS)
 }
 
+function parseTimeToMinutes(time: string): number {
+  const [h, m] = time.split(":").map(Number)
+  return h * 60 + (m || 0)
+}
+
+function computeDuration(start: string, end: string): number {
+  return (parseTimeToMinutes(end) - parseTimeToMinutes(start)) / 60
+}
+
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
   const user = session?.user as any
@@ -32,6 +41,7 @@ export async function GET(req: NextRequest) {
 
   const url = new URL(req.url)
   const date = parseDateOnly(url.searchParams.get("date"))
+  const dayOfWeek = date.getDay()
 
   const assignments = await prisma.teacherAssignment.findMany({
     where: {
@@ -54,7 +64,7 @@ export async function GET(req: NextRequest) {
   const teacherIds = Array.from(new Set(assignments.map((assignment) => assignment.teacherId)))
   const assignmentIds = assignments.map((assignment) => assignment.id)
 
-  const [attendanceRecords, existingEntries] = await Promise.all([
+  const [attendanceRecords, existingEntries, scheduleEntries] = await Promise.all([
     prisma.teacherAttendance.findMany({
       where: { teacherId: { in: teacherIds }, date },
       select: { teacherId: true, status: true },
@@ -62,6 +72,10 @@ export async function GET(req: NextRequest) {
     prisma.teachingHourEntry.findMany({
       where: { teacherAssignmentId: { in: assignmentIds }, date },
       include: { recordedByUser: { select: { id: true, name: true } } },
+    }),
+    prisma.schedule.findMany({
+      where: { schoolId: user.schoolId, dayOfWeek },
+      select: { teacherId: true, classroomId: true, subjectId: true, startTime: true, endTime: true },
     }),
   ])
 
@@ -72,8 +86,18 @@ export async function GET(req: NextRequest) {
     existingEntries.map((entry) => [entry.teacherAssignmentId, entry])
   )
 
+  const expectedHoursByKey = new Map<string, number>()
+  for (const s of scheduleEntries) {
+    if (!s.teacherId) continue
+    const key = `${s.teacherId}|${s.classroomId}|${s.subjectId}`
+    const current = expectedHoursByKey.get(key) || 0
+    expectedHoursByKey.set(key, current + computeDuration(s.startTime, s.endTime))
+  }
+
   const rows = assignments.map((assignment) => {
     const entry = entriesByAssignment.get(assignment.id)
+    const expectedKey = `${assignment.teacherId}|${assignment.classroomId}|${assignment.subjectId}`
+    const expectedHours = expectedHoursByKey.get(expectedKey) || 0
 
     return {
       teacherAssignmentId: assignment.id,
@@ -88,6 +112,7 @@ export async function GET(req: NextRequest) {
       weeklyHours: assignment.weeklyHours,
       attendanceStatus: attendanceByTeacher.get(assignment.teacherId) ?? null,
       hoursTaught: entry?.hoursTaught ?? 0,
+      expectedHours,
       notes: entry?.notes ?? "",
       recordedBy: entry?.recordedByUser?.name ?? null,
     }

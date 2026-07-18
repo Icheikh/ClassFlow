@@ -21,6 +21,7 @@ type TeachingHourRow = {
   weeklyHours: number | null
   attendanceStatus: string | null
   hoursTaught: number
+  expectedHours: number
   notes: string
   recordedBy: string | null
 }
@@ -235,6 +236,9 @@ export default function TeachingHoursPage() {
             <p className="mt-2 text-xs text-blue-700">
               هذه الصفحة هي المصدر الذي تعتمد عليه الرواتب الأسبوعية، لذلك لا يكفي تسجيل الحضور فقط من دون تسجيل الساعات المنجزة لكل تكليف.
             </p>
+            <p className="mt-2 text-xs text-blue-700">
+              <strong>الساعات المتوقعة</strong> مستخرجة من جدول الحصص المدرسي. اللون <span className="text-amber-600">البرتقالي</span> يعني اختلاف بين المسجل والمتوقع.
+            </p>
           </div>
           <div className="flex flex-col items-end gap-1">
             <Link href="/school/teacher-attendance" className="text-sm font-medium text-blue-700 hover:underline">
@@ -291,8 +295,8 @@ export default function TeachingHoursPage() {
                 const attendanceLabel = row.attendanceStatus ? ATTENDANCE_LABELS[row.attendanceStatus] || row.attendanceStatus : "غير مسجل"
 
                 return (
-                  <div key={row.teacherAssignmentId} className="rounded-xl border border-gray-200 p-4">
-                    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_120px_120px_minmax(0,1fr)] gap-3 items-start">
+                  <div key={row.teacherAssignmentId} className={`rounded-xl border p-4 ${row.expectedHours > 0 && Number(entry.hoursTaught || 0) !== row.expectedHours && Number(entry.hoursTaught || 0) > 0 ? "border-amber-200 bg-amber-50/50" : "border-gray-200"}`}>
+                    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_100px_100px_100px_minmax(0,1fr)] gap-3 items-start">
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-medium">{row.subjectName}</p>
@@ -322,8 +326,15 @@ export default function TeachingHoursPage() {
                         </div>
                       </div>
 
+                      <div className="space-y-1">
+                        <label className="block text-sm font-medium text-gray-700">المتوقع</label>
+                        <div className={`h-[42px] px-4 rounded-lg border flex items-center text-sm ${row.expectedHours > 0 ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-gray-50 border-gray-200 text-gray-400"}`}>
+                          {row.expectedHours > 0 ? `${row.expectedHours} س` : "—"}
+                        </div>
+                      </div>
+
                       <Input
-                        label="الساعات"
+                        label="المسجل"
                         type="number"
                         step="0.25"
                         min="0"
