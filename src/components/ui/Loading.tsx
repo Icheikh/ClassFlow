@@ -1,4 +1,5 @@
 import { Loader2 } from "lucide-react"
+import { useTranslations } from "next-intl"
 import { cn } from "@/lib/utils"
 
 type LoadingSpinnerProps = {
@@ -23,9 +24,10 @@ export function LoadingSpinner({ size = "md", className, message }: LoadingSpinn
 }
 
 export function LoadingPage() {
+  const t = useTranslations("common")
   return (
     <div className="flex items-center justify-center min-h-[60vh]">
-      <LoadingSpinner size="lg" message="جاري التحميل..." />
+      <LoadingSpinner size="lg" message={t("loading")} />
     </div>
   )
 }

@@ -1,10 +1,12 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useLocale, useTranslations } from "next-intl"
 import { academicYearsApi, termsApi } from "@/lib/api/school"
-import { Button, Card, Modal, Input, Select, Badge } from "@/components/ui"
-import { Plus, Save, Calendar } from "lucide-react"
+import { Button, Card, Modal, Input, Badge } from "@/components/ui"
+import { Plus, Calendar } from "lucide-react"
 import toast from "react-hot-toast"
+import { getDateLocale } from "@/lib/locale"
 
 type AcademicYear = {
   id: string
@@ -25,6 +27,10 @@ type Term = {
 }
 
 export default function AcademicYearsPage() {
+  const locale = useLocale()
+  const t = useTranslations("academicYearsPage")
+  const tStatus = useTranslations("status")
+  const tCommon = useTranslations("common")
   const [years, setYears] = useState<AcademicYear[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
@@ -52,7 +58,7 @@ export default function AcademicYearsPage() {
   useEffect(() => { fetchYears() }, [])
 
   async function saveYear() {
-    if (!yearName || !yearStart || !yearEnd) { toast.error("يرجى ملء جميع الحقول"); return }
+    if (!yearName || !yearStart || !yearEnd) { toast.error(t("fillFields")); return }
 
     const result = editYear
       ? await academicYearsApi.update({ id: editYear.id, name: yearName, startsAt: yearStart, endsAt: yearEnd })
@@ -60,7 +66,7 @@ export default function AcademicYearsPage() {
 
     if (result.error) toast.error(result.error)
     else {
-      toast.success(editYear ? "تم تعديل السنة" : "تم إنشاء السنة")
+      toast.success(editYear ? t("yearUpdated") : t("yearCreated"))
       setShowModal(false)
       setEditYear(null)
       resetYearForm()
@@ -73,17 +79,17 @@ export default function AcademicYearsPage() {
       id: year.id, name: year.name, startsAt: year.startsAt, endsAt: year.endsAt, isActive: true,
     })
     if (error) toast.error(error)
-    else { toast.success("تم تفعيل السنة"); fetchYears() }
+    else { toast.success(t("yearActivated")); fetchYears() }
   }
 
   async function saveTerm() {
-    if (!termName || !termStart || !termEnd || !selectedYear) { toast.error("يرجى ملء جميع الحقول"); return }
+    if (!termName || !termStart || !termEnd || !selectedYear) { toast.error(t("fillFields")); return }
     const { error } = await termsApi.create({
       academicYearId: selectedYear.id, name: termName, startsAt: termStart, endsAt: termEnd, order: termOrder,
     })
     if (error) toast.error(error)
     else {
-      toast.success("تم إضافة الفصل")
+      toast.success(t("termAdded"))
       setShowTermModal(false)
       resetTermForm()
       fetchYears()
@@ -99,35 +105,35 @@ export default function AcademicYearsPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">السنوات الدراسية والفصول</h1>
-          <p className="text-sm text-gray-500">إدارة السنوات الدراسية والفصول الثلاثة لكل سنة</p>
+          <h1 className="text-2xl font-bold">{t("title")}</h1>
+          <p className="text-sm text-gray-500">{t("subtitle")}</p>
         </div>
         <Button onClick={openAddYear}>
-          <Plus className="h-5 w-5" /> سنة جديدة
+          <Plus className="h-5 w-5" /> {t("newYear")}
         </Button>
       </div>
 
-      <Modal open={showModal} onClose={() => setShowModal(false)} title={editYear ? "تعديل سنة" : "إضافة سنة"}>
+      <Modal open={showModal} onClose={() => setShowModal(false)} title={editYear ? t("editYear") : t("addYear")}>
         <div className="space-y-4">
-          <Input label="اسم السنة" value={yearName} onChange={(e) => setYearName(e.target.value)} placeholder="مثال: 2026/2027" />
-          <Input label="تاريخ البداية" type="date" value={yearStart} onChange={(e) => setYearStart(e.target.value)} />
-          <Input label="تاريخ النهاية" type="date" value={yearEnd} onChange={(e) => setYearEnd(e.target.value)} />
+          <Input label={t("yearName")} value={yearName} onChange={(e) => setYearName(e.target.value)} placeholder={t("yearNamePlaceholder")} />
+          <Input label={t("startDate")} type="date" value={yearStart} onChange={(e) => setYearStart(e.target.value)} />
+          <Input label={t("endDate")} type="date" value={yearEnd} onChange={(e) => setYearEnd(e.target.value)} />
           <div className="flex gap-2">
-            <Button variant="secondary" fullWidth onClick={() => setShowModal(false)}>إلغاء</Button>
-            <Button fullWidth onClick={saveYear}>حفظ</Button>
+            <Button variant="secondary" fullWidth onClick={() => setShowModal(false)}>{tCommon("cancel")}</Button>
+            <Button fullWidth onClick={saveYear}>{t("save")}</Button>
           </div>
         </div>
       </Modal>
 
-      <Modal open={showTermModal} onClose={() => setShowTermModal(false)} title={`إضافة فصل لـ ${selectedYear?.name}`}>
+      <Modal open={showTermModal} onClose={() => setShowTermModal(false)} title={t("addTermFor", { name: selectedYear?.name || "" })}>
         <div className="space-y-4">
-          <Input label="اسم الفصل" value={termName} onChange={(e) => setTermName(e.target.value)} placeholder="مثال: الفصل الأول" />
-          <Input label="الترتيب" type="number" value={termOrder} onChange={(e) => setTermOrder(e.target.value)} min="1" max="3" />
-          <Input label="تاريخ البداية" type="date" value={termStart} onChange={(e) => setTermStart(e.target.value)} />
-          <Input label="تاريخ النهاية" type="date" value={termEnd} onChange={(e) => setTermEnd(e.target.value)} />
+          <Input label={t("termName")} value={termName} onChange={(e) => setTermName(e.target.value)} placeholder={t("termNamePlaceholder")} />
+          <Input label={t("order")} type="number" value={termOrder} onChange={(e) => setTermOrder(e.target.value)} min="1" max="3" />
+          <Input label={t("startDate")} type="date" value={termStart} onChange={(e) => setTermStart(e.target.value)} />
+          <Input label={t("endDate")} type="date" value={termEnd} onChange={(e) => setTermEnd(e.target.value)} />
           <div className="flex gap-2">
-            <Button variant="secondary" fullWidth onClick={() => setShowTermModal(false)}>إلغاء</Button>
-            <Button fullWidth onClick={saveTerm}>حفظ</Button>
+            <Button variant="secondary" fullWidth onClick={() => setShowTermModal(false)}>{tCommon("cancel")}</Button>
+            <Button fullWidth onClick={saveTerm}>{t("save")}</Button>
           </div>
         </div>
       </Modal>
@@ -138,10 +144,10 @@ export default function AcademicYearsPage() {
         <Card>
           <div className="text-center py-12">
             <Calendar className="h-12 w-12 mx-auto text-gray-300 mb-3" />
-            <p className="text-gray-500">لا توجد سنوات دراسية بعد</p>
-            <p className="text-sm text-gray-400 mt-1">أضف السنة الدراسية الأولى</p>
+            <p className="text-gray-500">{t("noYears")}</p>
+            <p className="text-sm text-gray-400 mt-1">{t("addFirstYear")}</p>
             <Button className="mt-4" onClick={openAddYear}>
-              <Plus className="h-5 w-5" /> إضافة سنة
+              <Plus className="h-5 w-5" /> {t("addYear")}
             </Button>
           </div>
         </Card>
@@ -155,30 +161,30 @@ export default function AcademicYearsPage() {
                   <div>
                     <h3 className="text-lg font-semibold">{year.name}</h3>
                     <p className="text-sm text-gray-500">
-                      {new Date(year.startsAt).toLocaleDateString("ar-MR")} → {new Date(year.endsAt).toLocaleDateString("ar-MR")}
+                      {new Date(year.startsAt).toLocaleDateString(getDateLocale(locale))} → {new Date(year.endsAt).toLocaleDateString(getDateLocale(locale))}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   {year.isActive ? (
-                    <Badge variant="success">نشطة</Badge>
+                    <Badge variant="success">{t("activeFemale")}</Badge>
                   ) : (
-                    <Button variant="ghost" size="sm" onClick={() => activateYear(year)}>تفعيل</Button>
+                    <Button variant="ghost" size="sm" onClick={() => activateYear(year)}>{t("activate")}</Button>
                   )}
-                  <Button variant="ghost" size="sm" onClick={() => openEditYear(year)}>تعديل</Button>
+                  <Button variant="ghost" size="sm" onClick={() => openEditYear(year)}>{tCommon("edit")}</Button>
                 </div>
               </div>
 
               <div className="border-t pt-4">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-medium text-gray-600">الفصول الدراسية</span>
+                  <span className="text-sm font-medium text-gray-600">{t("terms")}</span>
                   <Button variant="secondary" size="sm" onClick={() => { setSelectedYear(year); setShowTermModal(true) }}>
-                    <Plus className="h-4 w-4" /> إضافة فصل
+                    <Plus className="h-4 w-4" /> {t("addTerm")}
                   </Button>
                 </div>
 
                 {year.terms.length === 0 ? (
-                  <p className="text-sm text-gray-400">لا توجد فصول بعد</p>
+                  <p className="text-sm text-gray-400">{t("noTerms")}</p>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     {year.terms.sort((a, b) => a.order - b.order).map((term) => (
@@ -186,11 +192,11 @@ export default function AcademicYearsPage() {
                         <div className="flex items-center justify-between">
                           <span className="font-medium text-sm">{term.name}</span>
                           <Badge variant={term.isActive ? "success" : "default"}>
-                            {term.isActive ? "نشط" : "غير نشط"}
+                            {term.isActive ? tStatus("active") : tStatus("inactive")}
                           </Badge>
                         </div>
                         <p className="text-xs text-gray-400 mt-1">
-                          {new Date(term.startsAt).toLocaleDateString("ar-MR")} → {new Date(term.endsAt).toLocaleDateString("ar-MR")}
+                          {new Date(term.startsAt).toLocaleDateString(getDateLocale(locale))} → {new Date(term.endsAt).toLocaleDateString(getDateLocale(locale))}
                         </p>
                       </div>
                     ))}

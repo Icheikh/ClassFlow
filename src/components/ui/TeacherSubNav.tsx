@@ -1,5 +1,8 @@
+"use client"
+
 import Link from "next/link"
 import { Users, GraduationCap, BookOpen } from "lucide-react"
+import { useTranslations } from "next-intl"
 import { cn } from "@/lib/utils"
 
 type TeacherSubNavProps = {
@@ -9,16 +12,18 @@ type TeacherSubNavProps = {
 }
 
 const links = [
-  { id: "attendance" as const, label: "الغياب", icon: Users, href: "/teacher/attendance" },
-  { id: "grades" as const, label: "النقاط", icon: GraduationCap, href: "/teacher/grades" },
-  { id: "lessons" as const, label: "الدروس", icon: BookOpen, href: "/teacher/lessons" },
+  { id: "attendance" as const, labelKey: "attendance", icon: Users, href: "/teacher/attendance" },
+  { id: "grades" as const, labelKey: "grades", icon: GraduationCap, href: "/teacher/grades" },
+  { id: "lessons" as const, labelKey: "lessons", icon: BookOpen, href: "/teacher/lessons" },
 ]
 
 export function TeacherSubNav({ current, classroomId, subjectId }: TeacherSubNavProps) {
+  const tTeacher = useTranslations("teacher")
+  const tSubNav = useTranslations("teacherSubNav")
   const query = classroomId && subjectId ? `?classroomId=${classroomId}&subjectId=${subjectId}` : ""
 
   return (
-    <nav className="flex gap-1 mb-6 p-1 bg-gray-50 rounded-lg" aria-label="التنقل بين صفحات المعلم">
+    <nav className="mb-6 flex gap-1 rounded-lg bg-gray-50 p-1" aria-label={tSubNav("label")}>
       {links.map((link) => {
         const isActive = link.id === current
         return (
@@ -34,7 +39,7 @@ export function TeacherSubNav({ current, classroomId, subjectId }: TeacherSubNav
             aria-current={isActive ? "page" : undefined}
           >
             <link.icon className="h-4 w-4" aria-hidden="true" />
-            {link.label}
+            {tTeacher(link.labelKey)}
           </Link>
         )
       })}

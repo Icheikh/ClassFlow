@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react"
 import { WifiOff } from "lucide-react"
+import { useTranslations } from "next-intl"
 
 export function OfflineBanner() {
+  const t = useTranslations("offline")
   const [offline, setOffline] = useState(false)
 
   useEffect(() => {
@@ -26,7 +28,7 @@ export function OfflineBanner() {
       role="alert"
     >
       <WifiOff className="h-4 w-4" aria-hidden="true" />
-      أنت غير متصل بالإنترنت. قد لا تعمل بعض الميزات بشكل صحيح.
+      {t("message")}
     </div>
   )
 }

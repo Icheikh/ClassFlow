@@ -2,15 +2,17 @@
 
 import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
+import { useLocale, useTranslations } from "next-intl"
 import { api } from "@/lib/api"
 import { Card, Badge, Button, LoadingPage, ErrorDisplay } from "@/components/ui"
 import { ClipboardCheck, BookOpen, GraduationCap, Clock, Calendar, UserCheck, ShieldCheck, AlertTriangle } from "lucide-react"
 import Link from "next/link"
+import { getDateLocale, getLocalizedSubjectName } from "@/lib/locale"
 
 type Assignment = {
   id: string
   classroom: { id: string; name: string; level: { name: string }; stream: { name: string } | null }
-  subject: { id: string; nameAr: string }
+  subject: { id: string; nameAr: string; nameFr?: string | null }
   hourlyRate: number | null
 }
 
@@ -23,6 +25,8 @@ type AttendanceStatus = {
 }
 
 export default function TeacherPage() {
+  const locale = useLocale()
+  const t = useTranslations("teacherHome")
   const { data: session } = useSession()
   const [assignments, setAssignments] = useState<Assignment[]>([])
   const [attendance, setAttendance] = useState<AttendanceStatus | null>(null)
@@ -50,30 +54,30 @@ export default function TeacherPage() {
   if (fetchError) {
     return (
       <div className="my-20">
-        <ErrorDisplay message="تعذر تحميل البيانات" onRetry={() => { setLoading(true); fetchData() }} />
+        <ErrorDisplay onRetry={() => { setLoading(true); fetchData() }} />
       </div>
     )
   }
 
   const uniqueClassrooms = [...new Map(assignments.map((a) => [a.classroom.id, a.classroom])).values()]
   const attendanceBadge = attendance?.status === "PRESENT"
-    ? { label: "حضور مؤكد", variant: "success" as const, icon: ShieldCheck }
+    ? { label: t("attendanceConfirmed"), variant: "success" as const, icon: ShieldCheck }
     : attendance?.status === "ABSENT"
-      ? { label: "مسجل غياب", variant: "danger" as const, icon: AlertTriangle }
+      ? { label: t("attendanceAbsent"), variant: "danger" as const, icon: AlertTriangle }
       : attendance?.status === "LATE"
-        ? { label: "مسجل تأخر", variant: "warning" as const, icon: AlertTriangle }
+        ? { label: t("attendanceLate"), variant: "warning" as const, icon: AlertTriangle }
         : attendance?.status === "EXCUSED"
-          ? { label: "بعذر", variant: "info" as const, icon: ShieldCheck }
-          : { label: "بانتظار تأكيد الإدارة", variant: "default" as const, icon: Clock }
+          ? { label: t("attendanceExcused"), variant: "info" as const, icon: ShieldCheck }
+          : { label: t("attendancePending"), variant: "default" as const, icon: Clock }
   const AttendanceIcon = attendanceBadge.icon
 
   return (
     <div>
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">مرحباً، {session?.user?.name}</h1>
+          <h1 className="text-2xl font-bold">{t("greeting", { name: session?.user?.name || "" })}</h1>
           <p className="text-sm text-gray-500 mt-1">
-            <Calendar className="h-4 w-4 inline" /> {new Date().toLocaleDateString("ar-MR", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+            <Calendar className="h-4 w-4 inline" /> {new Date().toLocaleDateString(getDateLocale(locale), { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -85,7 +89,7 @@ export default function TeacherPage() {
 
       <Card padding="md" className="mb-6 bg-blue-50 border-blue-100">
         <p className="text-sm text-blue-700">
-          يتم تأكيد حضور الأساتذة يومياً من قبل مدير الدروس أو مدير المدرسة، وهذه الصفحة تعرض حالة اليوم فقط.
+          {t("attendanceInfo")}
         </p>
       </Card>
 
@@ -93,19 +97,19 @@ export default function TeacherPage() {
         <Card padding="md">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-50 rounded-lg"><BookOpen className="h-5 w-5 text-blue-600" /></div>
-            <div><p className="text-2xl font-bold">{assignments.length}</p><p className="text-xs text-gray-500">التكليفات</p></div>
+            <div><p className="text-2xl font-bold">{assignments.length}</p><p className="text-xs text-gray-500">{t("assignments")}</p></div>
           </div>
         </Card>
         <Card padding="md">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-green-50 rounded-lg"><UserCheck className="h-5 w-5 text-green-600" /></div>
-            <div><p className="text-2xl font-bold">{uniqueClassrooms.length}</p><p className="text-xs text-gray-500">الأقسام</p></div>
+            <div><p className="text-2xl font-bold">{uniqueClassrooms.length}</p><p className="text-xs text-gray-500">{t("classes")}</p></div>
           </div>
         </Card>
         <Card padding="md">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-purple-50 rounded-lg"><GraduationCap className="h-5 w-5 text-purple-600" /></div>
-            <div><p className="text-2xl font-bold">{attendance?.lessonCount || 0}</p><p className="text-xs text-gray-500">دروس اليوم</p></div>
+            <div><p className="text-2xl font-bold">{attendance?.lessonCount || 0}</p><p className="text-xs text-gray-500">{t("todayLessons")}</p></div>
           </div>
         </Card>
         <Card padding="md">
@@ -113,37 +117,37 @@ export default function TeacherPage() {
             <div className="p-2 bg-amber-50 rounded-lg"><Clock className="h-5 w-5 text-amber-600" /></div>
             <div>
               <p className="text-sm font-bold">{attendanceBadge.label}</p>
-              <p className="text-xs text-gray-500">حالة الحضور اليوم</p>
+              <p className="text-xs text-gray-500">{t("todayAttendanceStatus")}</p>
             </div>
           </div>
         </Card>
       </div>
 
       <Card padding="lg" className="mb-6">
-        <h2 className="font-semibold mb-4">تكليفاتي</h2>
+        <h2 className="font-semibold mb-4">{t("myAssignments")}</h2>
         {assignments.length === 0 ? (
-          <p className="text-gray-400 text-sm py-4 text-center">لا توجد تكليفات للسنة الدراسية الحالية</p>
+          <p className="text-gray-400 text-sm py-4 text-center">{t("noAssignments")}</p>
         ) : (
           <div className="space-y-2">
             {assignments.map((a) => (
               <div key={a.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-blue-50 transition-colors">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-sm font-bold">
-                    {a.subject.nameAr.charAt(0)}
+                    {getLocalizedSubjectName(a.subject, locale).charAt(0)}
                   </div>
                   <div>
-                    <p className="font-medium text-sm">{a.subject.nameAr}</p>
+                    <p className="font-medium text-sm">{getLocalizedSubjectName(a.subject, locale)}</p>
                     <p className="text-xs text-gray-500">{a.classroom.name} - {a.classroom.level.name}{a.classroom.stream ? ` (${a.classroom.stream.name})` : ""}</p>
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Link href={`/teacher/attendance?classroomId=${a.classroom.id}&subjectId=${a.subject.id}`} aria-label="تسجيل الحضور">
+                  <Link href={`/teacher/attendance?classroomId=${a.classroom.id}&subjectId=${a.subject.id}`} aria-label={t("recordAttendance")}>
                     <Button variant="ghost" size="sm"><ClipboardCheck className="h-4 w-4" /></Button>
                   </Link>
-                  <Link href={`/teacher/lessons?classroomId=${a.classroom.id}&subjectId=${a.subject.id}`} aria-label="تسجيل الدروس">
+                  <Link href={`/teacher/lessons?classroomId=${a.classroom.id}&subjectId=${a.subject.id}`} aria-label={t("recordLessons")}>
                     <Button variant="ghost" size="sm"><BookOpen className="h-4 w-4" /></Button>
                   </Link>
-                  <Link href={`/teacher/grades?classroomId=${a.classroom.id}&subjectId=${a.subject.id}`} aria-label="إدارة الدرجات">
+                  <Link href={`/teacher/grades?classroomId=${a.classroom.id}&subjectId=${a.subject.id}`} aria-label={t("manageGrades")}>
                     <Button variant="ghost" size="sm"><GraduationCap className="h-4 w-4" /></Button>
                   </Link>
                 </div>
@@ -159,32 +163,32 @@ export default function TeacherPage() {
           <div className="w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center mb-4">
             <Calendar className="h-6 w-6 text-amber-600" />
           </div>
-          <h2 className="text-lg font-semibold mb-2">جدولي</h2>
-          <p className="text-sm text-gray-500">عرض برنامج الحصص الأسبوعي</p>
+          <h2 className="text-lg font-semibold mb-2">{t("scheduleTitle")}</h2>
+          <p className="text-sm text-gray-500">{t("scheduleDescription")}</p>
         </Link>
 
         <Link href="/teacher/attendance" className="bg-white p-6 rounded-xl shadow-sm border hover:shadow-md transition-shadow">
           <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
             <ClipboardCheck className="h-6 w-6 text-blue-600" />
           </div>
-          <h2 className="text-lg font-semibold mb-2">دفتر الغياب</h2>
-          <p className="text-sm text-gray-500">سجل غياب التلاميذ وأرسل الإشعارات</p>
+          <h2 className="text-lg font-semibold mb-2">{t("attendanceTitle")}</h2>
+          <p className="text-sm text-gray-500">{t("attendanceDescription")}</p>
         </Link>
 
         <Link href="/teacher/lessons" className="bg-white p-6 rounded-xl shadow-sm border hover:shadow-md transition-shadow">
           <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
             <BookOpen className="h-6 w-6 text-green-600" />
           </div>
-          <h2 className="text-lg font-semibold mb-2">دفتر الدروس</h2>
-          <p className="text-sm text-gray-500">سجل عناوين الدروس والواجبات والمدة</p>
+          <h2 className="text-lg font-semibold mb-2">{t("lessonsTitle")}</h2>
+          <p className="text-sm text-gray-500">{t("lessonsDescription")}</p>
         </Link>
 
         <Link href="/teacher/grades" className="bg-white p-6 rounded-xl shadow-sm border hover:shadow-md transition-shadow">
           <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
             <GraduationCap className="h-6 w-6 text-purple-600" />
           </div>
-          <h2 className="text-lg font-semibold mb-2">دفتر النقاط</h2>
-          <p className="text-sm text-gray-500">أدخل النتائج واحسب المعدلات</p>
+          <h2 className="text-lg font-semibold mb-2">{t("gradesTitle")}</h2>
+          <p className="text-sm text-gray-500">{t("gradesDescription")}</p>
         </Link>
       </div>
     </div>

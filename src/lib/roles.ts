@@ -18,6 +18,10 @@ export const roleTranslations: Record<string, string> = {
   PARENT: "Parent",
 }
 
+export function getRoleLabel(role: string, locale: string) {
+  return locale === "fr" ? roleTranslations[role] || role : roleLabels[role] || role
+}
+
 export const roleRoutes: Record<string, string> = {
   SUPER_ADMIN: "/admin",
   SCHOOL_ADMIN: "/school",

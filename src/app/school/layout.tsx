@@ -4,7 +4,10 @@ import Link from "next/link"
 import { signOut, useSession } from "next-auth/react"
 import { SessionProvider } from "next-auth/react"
 import { redirect, usePathname } from "next/navigation"
-import { roleLabels } from "@/lib/roles"
+import { useLocale, useTranslations } from "next-intl"
+import { getRoleLabel } from "@/lib/roles"
+import { getLocaleDirection } from "@/i18n/config"
+import { LanguageSwitcher } from "@/components/ui"
 import {
   LayoutDashboard, Calendar, Layers, BookOpen, GraduationCap,
   Users, ClipboardList, Settings, LogOut, School, UserPlus, Wallet, Shield, DollarSign, Receipt, Clock3, Bell, CalendarDays,
@@ -15,27 +18,27 @@ const allowedRoles = ["SCHOOL_ADMIN", "STAFF", "SUPERVISOR", "ACCOUNTANT"]
 const adminOnlyPaths = ["/school/result-rules", "/school/staff", "/school/settings"]
 
 type NavItem = {
-  href: string; label: string; icon: React.ComponentType<{ className?: string }>; adminOnly?: boolean
+  href: string; labelKey: string; icon: React.ComponentType<{ className?: string }>; adminOnly?: boolean
 }
 const nav: NavItem[] = [
-  { href: "/school", label: "لوحة التحكم", icon: LayoutDashboard },
-  { href: "/school/academic-years", label: "السنوات والفصول", icon: Calendar },
-  { href: "/school/levels", label: "المستويات والشعب", icon: Layers },
-  { href: "/school/classrooms", label: "الأقسام", icon: School },
-  { href: "/school/schedules", label: "جدول الحصص", icon: CalendarDays },
-  { href: "/school/subjects", label: "المواد والضوارب", icon: BookOpen },
-  { href: "/school/teachers", label: "الأساتذة", icon: UserPlus },
-  { href: "/school/teacher-attendance", label: "حضور الأساتذة", icon: ClipboardList },
-  { href: "/school/teaching-hours", label: "الساعات اليومية", icon: Clock3 },
-  { href: "/school/result-rules", label: "قواعد النتائج", icon: ClipboardList, adminOnly: true },
-  { href: "/school/payroll", label: "الرواتب", icon: Wallet },
-  { href: "/school/fees", label: "الرسوم", icon: DollarSign },
-  { href: "/school/invoices", label: "الفواتير", icon: Receipt },
-  { href: "/school/notifications", label: "الإشعارات", icon: Bell },
-  { href: "/school/students", label: "الطلاب", icon: Users },
-  { href: "/school/results", label: "النتائج", icon: GraduationCap },
-  { href: "/school/staff", label: "الموظفون", icon: Shield, adminOnly: true },
-  { href: "/school/settings", label: "الإعدادات", icon: Settings, adminOnly: true },
+  { href: "/school", labelKey: "dashboard", icon: LayoutDashboard },
+  { href: "/school/academic-years", labelKey: "academicYears", icon: Calendar },
+  { href: "/school/levels", labelKey: "levels", icon: Layers },
+  { href: "/school/classrooms", labelKey: "classrooms", icon: School },
+  { href: "/school/schedules", labelKey: "schedules", icon: CalendarDays },
+  { href: "/school/subjects", labelKey: "subjects", icon: BookOpen },
+  { href: "/school/teachers", labelKey: "teachers", icon: UserPlus },
+  { href: "/school/teacher-attendance", labelKey: "teacherAttendance", icon: ClipboardList },
+  { href: "/school/teaching-hours", labelKey: "teachingHours", icon: Clock3 },
+  { href: "/school/result-rules", labelKey: "resultRules", icon: ClipboardList, adminOnly: true },
+  { href: "/school/payroll", labelKey: "payroll", icon: Wallet },
+  { href: "/school/fees", labelKey: "fees", icon: DollarSign },
+  { href: "/school/invoices", labelKey: "invoices", icon: Receipt },
+  { href: "/school/notifications", labelKey: "notifications", icon: Bell },
+  { href: "/school/students", labelKey: "students", icon: Users },
+  { href: "/school/results", labelKey: "results", icon: GraduationCap },
+  { href: "/school/staff", labelKey: "staff", icon: Shield, adminOnly: true },
+  { href: "/school/settings", labelKey: "settings", icon: Settings, adminOnly: true },
 ]
 
 const roleNavAccess: Record<string, string[]> = {
@@ -76,6 +79,12 @@ const roleNavAccess: Record<string, string[]> = {
 }
 
 function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
+  const locale = useLocale()
+  const direction = getLocaleDirection(locale)
+  const isRtl = direction === "rtl"
+  const tSchool = useTranslations("school")
+  const tShell = useTranslations("shell")
+  const tApp = useTranslations("app")
   const { data: session, status } = useSession()
   const pathname = usePathname()
   const user = session?.user as any
@@ -84,6 +93,7 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+        <span className="sr-only">{tShell("loadingUser")}</span>
       </div>
     )
   }
@@ -110,14 +120,19 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex print:block print:bg-white" dir="rtl">
-      <aside className="w-64 bg-white border-l shadow-sm flex flex-col shrink-0 print:hidden">
+    <div className="min-h-screen bg-gray-50 flex print:block print:bg-white" dir={direction}>
+      <aside className={cn("w-64 bg-white shadow-sm flex flex-col shrink-0 print:hidden", isRtl ? "border-l" : "border-r")}>
         <div className="p-5 border-b">
-          <h1 className="text-xl font-bold text-gray-900">ClassFlow</h1>
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="text-xl font-bold text-gray-900">{tApp("name")}</h1>
+          </div>
           <div className="mt-2">
             <p className="text-sm font-medium">{user.name}</p>
             <p className="text-xs text-blue-600">{user.school?.name}</p>
-            <p className="text-xs text-gray-400">{roleLabels[user.role]}</p>
+            <p className="text-xs text-gray-400">{getRoleLabel(user.role, locale)}</p>
+          </div>
+          <div className="mt-4 flex justify-center">
+            <LanguageSwitcher />
           </div>
         </div>
 
@@ -135,7 +150,7 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
                 aria-current={active ? "page" : undefined}
               >
                 <item.icon className="h-5 w-5" />
-                {item.label}
+                {tSchool(item.labelKey)}
               </Link>
             )
           })}
@@ -148,7 +163,7 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-red-600 hover:bg-red-50 transition-colors"
           >
             <LogOut className="h-5 w-5" />
-            تسجيل الخروج
+            {tShell("logout")}
           </button>
         </div>
       </aside>

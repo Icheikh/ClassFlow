@@ -1,4 +1,7 @@
+"use client"
+
 import { ChevronLeft, ChevronRight } from "lucide-react"
+import { useLocale, useTranslations } from "next-intl"
 import { Button } from "./Button"
 
 type PaginationProps = {
@@ -9,6 +12,8 @@ type PaginationProps = {
 }
 
 export function Pagination({ page, total, limit, onChange }: PaginationProps) {
+  const locale = useLocale()
+  const t = useTranslations("pagination")
   const totalPages = Math.max(1, Math.ceil(total / limit))
   const from = (page - 1) * limit + 1
   const to = Math.min(page * limit, total)
@@ -23,11 +28,11 @@ export function Pagination({ page, total, limit, onChange }: PaginationProps) {
   return (
     <div className="flex items-center justify-between pt-4 text-sm">
       <p className="text-gray-500">
-        {from}–{to} من {total}
+        {t("summary", { from, to, total })}
       </p>
       <div className="flex items-center gap-1">
-        <Button variant="ghost" size="sm" disabled={page <= 1} onClick={() => onChange(page - 1)} aria-label="الصفحة السابقة">
-          <ChevronRight className="h-4 w-4" />
+        <Button variant="ghost" size="sm" disabled={page <= 1} onClick={() => onChange(page - 1)} aria-label={t("previous")}>
+          {locale === "ar" ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </Button>
         {pages[0] > 1 && (
           <>
@@ -41,7 +46,7 @@ export function Pagination({ page, total, limit, onChange }: PaginationProps) {
             variant={p === page ? "primary" : "ghost"}
             size="sm"
             onClick={() => onChange(p)}
-            aria-label={`الصفحة ${p}`}
+            aria-label={t("page", { page: p })}
             aria-current={p === page ? "page" : undefined}
           >
             {p}
@@ -53,8 +58,8 @@ export function Pagination({ page, total, limit, onChange }: PaginationProps) {
             <Button variant="ghost" size="sm" onClick={() => onChange(totalPages)}>{totalPages}</Button>
           </>
         )}
-        <Button variant="ghost" size="sm" disabled={page >= totalPages} onClick={() => onChange(page + 1)} aria-label="الصفحة التالية">
-          <ChevronLeft className="h-4 w-4" />
+        <Button variant="ghost" size="sm" disabled={page >= totalPages} onClick={() => onChange(page + 1)} aria-label={t("next")}>
+          {locale === "ar" ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </Button>
       </div>
     </div>

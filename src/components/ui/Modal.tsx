@@ -2,6 +2,7 @@
 
 import * as Dialog from "@radix-ui/react-dialog"
 import { X } from "lucide-react"
+import { useTranslations } from "next-intl"
 import { cn } from "@/lib/utils"
 
 type ModalProps = {
@@ -13,6 +14,7 @@ type ModalProps = {
 }
 
 export function Modal({ open, onClose, title, children, className }: ModalProps) {
+  const tCommon = useTranslations("common")
   return (
     <Dialog.Root open={open} onOpenChange={onClose}>
       <Dialog.Portal>
@@ -27,7 +29,7 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
         >
           <div className="flex items-center justify-between mb-4">
             <Dialog.Title className="text-lg font-semibold">{title}</Dialog.Title>
-            <Dialog.Close className="p-1 rounded-lg hover:bg-gray-100 transition-colors" aria-label="إغلاق">
+            <Dialog.Close className="p-1 rounded-lg hover:bg-gray-100 transition-colors" aria-label={tCommon("close")}>
               <X className="h-5 w-5 text-gray-500" />
             </Dialog.Close>
           </div>

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { useSession } from "next-auth/react"
 import { useSearchParams } from "next/navigation"
+import { useLocale, useTranslations } from "next-intl"
 import { useClasses } from "@/hooks/useClasses"
 import { useStudents } from "@/hooks/useStudents"
 import { api } from "@/lib/api"
@@ -10,6 +11,7 @@ import { ASSESSMENT_TYPES, RESULT_PUBLICATION_STATUSES } from "@/lib/results"
 import { Button, Card, Badge, LoadingSpinner, Input, ConfirmModal, ErrorDisplay, TeacherSubNav } from "@/components/ui"
 import { Plus, Save, Calculator, ChevronDown, ChevronUp, Trash2, Edit2, Lock } from "lucide-react"
 import toast from "react-hot-toast"
+import { getDateLocale, getLocalizedSubjectName } from "@/lib/locale"
 
 type Assessment = {
   id: string
@@ -56,10 +58,13 @@ type GradeData = {
 }
 
 export function GradeBook() {
+  const locale = useLocale()
+  const t = useTranslations("gradeBook")
+  const tCommon = useTranslations("common")
   const { data: session } = useSession()
   const user = session?.user as any
   const searchParams = useSearchParams()
-  const { assignments, getSubjects, loading } = useClasses()
+  const { assignments, loading } = useClasses()
 
   const initialClassroom = searchParams?.get("classroomId") || ""
   const initialSubject = searchParams?.get("subjectId") || ""
@@ -82,15 +87,14 @@ export function GradeBook() {
   const [fetchError, setFetchError] = useState(false)
   const [retryTrigger, setRetryTrigger] = useState(0)
 
-  const subjects = getSubjects(classroomId)
   const assessmentTypeOptions = data
     ? [
-        { value: ASSESSMENT_TYPES.TEST, label: "الاختبارات" },
+        { value: ASSESSMENT_TYPES.TEST, label: t("tests") },
         ...(data.currentExamType && data.currentExamLabel
           ? [{ value: data.currentExamType, label: data.currentExamLabel }]
           : []),
       ]
-    : [{ value: ASSESSMENT_TYPES.TEST, label: "الاختبارات" }]
+    : [{ value: ASSESSMENT_TYPES.TEST, label: t("tests") }]
 
   const classroomOptions = useMemo(
     () => [...new Map(assignments.map((assignment) => [assignment.classroom.id, assignment.classroom])).values()],
@@ -107,9 +111,9 @@ export function GradeBook() {
         if (error) { toast.error(error); setFetchError(true); return }
         if (response) setData(response)
       })
-      .catch(() => { if (!cancelled) { toast.error("حدث خطأ أثناء تحميل بيانات النقاط"); setFetchError(true) } })
+      .catch(() => { if (!cancelled) { toast.error(t("loadError")); setFetchError(true) } })
     return () => { cancelled = true }
-  }, [classroomId, subjectId, retryTrigger])
+  }, [classroomId, subjectId, retryTrigger, t])
 
   async function reloadData(nextClassroomId = classroomId, nextSubjectId = subjectId) {
     if (!nextClassroomId || !nextSubjectId) { setData(null); return }
@@ -117,7 +121,7 @@ export function GradeBook() {
       const { data: response, error } = await api.get<GradeData>(`/api/grades?classroomId=${nextClassroomId}&subjectId=${nextSubjectId}`)
       if (error) { toast.error(error); return }
       if (response) setData(response)
-    } catch { toast.error("حدث خطأ أثناء تحميل بيانات النقاط") }
+    } catch { toast.error(t("loadError")) }
   }
 
   function resetForm() {
@@ -153,13 +157,13 @@ export function GradeBook() {
     e.preventDefault()
 
     if (!assessmentTitle.trim()) {
-      toast.error("يرجى إدخال اسم التقويم")
+      toast.error(t("missingTitle"))
       return
     }
 
     const missing = students.filter((student) => !scores[student.id]?.trim())
     if (missing.length) {
-      toast.error(`يرجى إدخال نتائج جميع التلاميذ (${missing.length} متبقي)`)
+      toast.error(t("missingScores", { count: missing.length }))
       return
     }
 
@@ -182,12 +186,12 @@ export function GradeBook() {
       if (result.error) {
         toast.error(result.error)
       } else {
-        toast.success(editingAssessment ? "تم تعديل التقويم" : "تم حفظ التقويم")
+        toast.success(editingAssessment ? t("editSuccess") : t("createSuccess"))
         resetForm()
         setShowForm(false)
         await reloadData()
       }
-    } catch { toast.error("فشل حفظ التقويم. حاول مرة أخرى.") }
+    } catch { toast.error(t("saveError")) }
     setSaving(false)
   }
 
@@ -198,13 +202,20 @@ export function GradeBook() {
       setAssessmentToDelete(null)
       if (error) toast.error(error)
       else {
-        toast.success("تم الحذف")
+        toast.success(t("deleteSuccess"))
         await reloadData()
       }
-    } catch { toast.error("فشل الحذف. حاول مرة أخرى."); setAssessmentToDelete(null) }
+    } catch { toast.error(t("deleteError")); setAssessmentToDelete(null) }
   }
 
   if (loading) return <LoadingSpinner />
+
+  const subjects = assignments
+    .filter((assignment) => assignment.classroomId === classroomId)
+    .map((assignment) => ({
+      id: assignment.subjectId,
+      name: getLocalizedSubjectName(assignment.subject, locale),
+    }))
 
   const allScores = data?.assessments.flatMap((assessment) => assessment.scores.map((score) => (score.score / assessment.maxScore) * 20)) || []
   const overallAvg = allScores.length ? (allScores.reduce((sum, score) => sum + score, 0) / allScores.length).toFixed(2) : null
@@ -216,7 +227,7 @@ export function GradeBook() {
     ? (readyAverages.reduce((sum, row) => sum + (row.finalAverage || 0), 0) / readyAverages.length).toFixed(2)
     : null
   const missingRequirements = data?.requiredAssessments.filter((item) => item.required && !item.ready).length || 0
-  const currentExamLabel = data?.currentExamLabel || "امتحان الفصل"
+  const currentExamLabel = data?.currentExamLabel || t("termExam")
 
   return (
     <div>
@@ -225,13 +236,13 @@ export function GradeBook() {
           <h1 className="text-2xl font-bold">دفتر النقاط</h1>
           {data?.term && (
             <p className="text-sm text-gray-500 mt-1">
-              الفصل الحالي: <span className="font-medium">{data.term.name}</span>
+              {t("currentTerm")} <span className="font-medium">{data.term.name}</span>
             </p>
           )}
         </div>
         {classroomId && subjectId && (
           <Button onClick={openCreateForm} disabled={editingDisabled || !data}>
-            <Plus className="h-5 w-5" /> تقويم جديد
+            <Plus className="h-5 w-5" /> {t("newAssessment")}
           </Button>
         )}
       </div>
@@ -247,9 +258,9 @@ export function GradeBook() {
             setShowForm(false)
             resetForm()
           }}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+          className={`w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${locale === "ar" ? "text-right" : "text-left"}`}
         >
-          <option value="">اختر القسم</option>
+          <option value="">{t("selectClassroom")}</option>
           {classroomOptions.map((classroom) => (
             <option key={classroom.id} value={classroom.id}>
               {classroom.name} - {(classroom as any).level?.name}
@@ -265,9 +276,9 @@ export function GradeBook() {
               setShowForm(false)
               resetForm()
             }}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            className={`w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${locale === "ar" ? "text-right" : "text-left"}`}
           >
-            <option value="">اختر المادة</option>
+            <option value="">{t("selectSubject")}</option>
             {subjects.map((subject) => (
               <option key={subject.id} value={subject.id}>
                 {subject.name}
@@ -280,19 +291,19 @@ export function GradeBook() {
       {data && (
         <div className="mb-6 flex items-center gap-3">
           <Badge variant={isLocked ? "danger" : data.publicationStatus === RESULT_PUBLICATION_STATUSES.APPROVED ? "success" : "info"}>
-            {isLocked ? "النتائج مقفولة" : data.publicationStatus === RESULT_PUBLICATION_STATUSES.APPROVED ? "النتائج معتمدة" : "النتائج مفتوحة"}
+            {isLocked ? t("resultsLocked") : data.publicationStatus === RESULT_PUBLICATION_STATUSES.APPROVED ? t("resultsApproved") : t("resultsOpen")}
           </Badge>
               <Badge variant="default">
                 {data.resultRule.name} (v{data.resultRule.version})
               </Badge>
           {isLocked && !canOverrideLockedResults && (
             <span className="text-sm text-red-500 flex items-center gap-1">
-              <Lock className="h-4 w-4" /> لا يمكن تعديل النقاط بعد القفل
+              <Lock className="h-4 w-4" /> {t("lockNoEdit")}
             </span>
           )}
           {isLocked && canOverrideLockedResults && (
             <span className="text-sm text-amber-600 flex items-center gap-1">
-              <Lock className="h-4 w-4" /> النتائج مقفولة، لكن حساب المدير يمكنه التعديل مع تسجيل العملية في السجل
+              <Lock className="h-4 w-4" /> {t("lockAdminEdit")}
             </span>
           )}
         </div>
@@ -302,19 +313,19 @@ export function GradeBook() {
         <Card padding="md">
           <div className="flex items-center gap-2 text-blue-600 mb-1">
             <Calculator className="h-5 w-5" />
-            <span className="text-sm font-medium">متوسط النقاط المسجلة</span>
+            <span className="text-sm font-medium">{t("recordedAverage")}</span>
           </div>
           <p className="text-2xl font-bold">{overallAvg || "—"}</p>
         </Card>
         <Card padding="md">
           <div className="flex items-center gap-2 text-green-600 mb-1">
-            <span className="text-sm font-medium">معدل المادة الحالي</span>
+            <span className="text-sm font-medium">{t("currentSubjectAverage")}</span>
           </div>
           <p className="text-2xl font-bold">{currentSubjectAverage || "—"}</p>
         </Card>
         <Card padding="md">
           <div className="flex items-center gap-2 text-amber-600 mb-1">
-            <span className="text-sm font-medium">النواقص المطلوبة</span>
+            <span className="text-sm font-medium">{t("missingRequirements")}</span>
           </div>
           <p className="text-2xl font-bold">{missingRequirements}</p>
         </Card>
@@ -323,7 +334,7 @@ export function GradeBook() {
       {data && classroomId && subjectId && (
         <Card className="mb-6">
           <div className="mb-4">
-            <h3 className="font-semibold text-lg">حالة اكتمال المادة</h3>
+            <h3 className="font-semibold text-lg">{t("subjectCompletion")}</h3>
             <p className="text-sm text-gray-500">
               {data.termPolicyNote}
             </p>
@@ -335,13 +346,13 @@ export function GradeBook() {
                 <div className="flex items-center justify-between gap-2">
                   <p className="font-medium">{requirement.label}</p>
                   <Badge variant={requirement.ready ? "success" : requirement.required ? "warning" : "default"}>
-                    {requirement.ready ? "جاهز" : requirement.required ? "ناقص" : "اختياري"}
+                    {requirement.ready ? t("ready") : requirement.required ? t("missing") : t("optional")}
                   </Badge>
                 </div>
                 <div className="mt-2 text-sm text-gray-500 space-y-1">
-                  <p>الوزن: {requirement.weight}</p>
-                  <p>الحد الأدنى: {requirement.minimumCount}</p>
-                  <p>عدد التقويمات: {requirement.count}</p>
+                  <p>{t("weight", { value: requirement.weight })}</p>
+                  <p>{t("minimumCount", { value: requirement.minimumCount })}</p>
+                  <p>{t("assessmentCount", { value: requirement.count })}</p>
                 </div>
               </div>
             ))}
@@ -351,7 +362,7 @@ export function GradeBook() {
 
       {fetchError && (
         <Card className="mb-6">
-          <ErrorDisplay message="تعذر تحميل بيانات النقاط" onRetry={() => setRetryTrigger(n => n + 1)} />
+          <ErrorDisplay message={t("loadError")} onRetry={() => setRetryTrigger(n => n + 1)} />
         </Card>
       )}
 
@@ -363,7 +374,7 @@ export function GradeBook() {
                 <select
                   value={assessmentType}
                   onChange={(e) => setAssessmentType(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className={`rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${locale === "ar" ? "text-right" : "text-left"}`}
                 >
                   {assessmentTypeOptions.map((type) => (
                     <option key={type.value} value={type.value}>
@@ -374,7 +385,7 @@ export function GradeBook() {
                 <Input
                   value={assessmentTitle}
                   onChange={(e) => setAssessmentTitle(e.target.value)}
-                  placeholder="اسم التقويم"
+                  placeholder={t("assessmentName")}
                 />
                 <Input
                   type="number"
@@ -382,7 +393,7 @@ export function GradeBook() {
                   min="1"
                   value={maxScore}
                   onChange={(e) => setMaxScore(e.target.value)}
-                  placeholder="الدرجة القصوى"
+                  placeholder={t("maxScore")}
                 />
                 <Input
                   type="date"
@@ -396,13 +407,13 @@ export function GradeBook() {
 
               <div className="bg-gray-50 rounded-lg p-4">
                 <div className="flex justify-between pb-2 border-b mb-2 text-sm font-medium text-gray-500">
-                  <span>التلميذ</span>
-                  <span>النقطة / {maxScore || 20}</span>
+                  <span>{t("student")}</span>
+                  <span>{t("scoreOutOf", { value: maxScore || 20 })}</span>
                 </div>
                 {studentsLoading ? (
-                  <p className="text-center text-gray-400 py-4 text-sm">جاري تحميل التلاميذ...</p>
+                  <p className="text-center text-gray-400 py-4 text-sm">{t("studentsLoading")}</p>
                 ) : students.length === 0 ? (
-                  <p className="text-center text-gray-400 py-4 text-sm">لا يوجد تلاميذ في هذا القسم</p>
+                  <p className="text-center text-gray-400 py-4 text-sm">{t("emptyClassroom")}</p>
                 ) : (
                   students.map((student) => (
                     <div key={student.id} className="flex items-center justify-between py-2">
@@ -424,10 +435,10 @@ export function GradeBook() {
 
               <div className="flex gap-3">
                 <Button type="button" variant="secondary" fullWidth onClick={() => { setShowForm(false); resetForm() }}>
-                  إلغاء
+                  {tCommon("cancel")}
                 </Button>
                 <Button fullWidth loading={saving} disabled={students.length === 0 || studentsLoading || editingDisabled}>
-                  <Save className="h-5 w-5" /> {editingAssessment ? "حفظ التعديل" : "حفظ التقويم"}
+                  <Save className="h-5 w-5" /> {editingAssessment ? t("saveEdit") : t("saveAssessment")}
                 </Button>
               </div>
             </div>
@@ -438,12 +449,12 @@ export function GradeBook() {
       <div className="space-y-3">
         {!classroomId && !subjectId && (
           <Card>
-            <p className="text-center text-gray-400 py-6">اختر القسم والمادة لعرض دفتر النقاط</p>
+            <p className="text-center text-gray-400 py-6">{t("chooseContext")}</p>
           </Card>
         )}
         {data?.assessments.length === 0 && classroomId && subjectId && !showForm && (
           <Card>
-            <p className="text-center text-gray-400 py-6">لا توجد تقويمات مسجلة</p>
+            <p className="text-center text-gray-400 py-6">{t("emptyAssessments")}</p>
           </Card>
         )}
         {data?.assessments.map((assessment) => {
@@ -474,14 +485,14 @@ export function GradeBook() {
                       <Badge variant="default">
                         {assessmentTypeOptions.find((type) => type.value === assessment.type)?.label || assessment.type}
                       </Badge>
-                      <span>{new Date(assessment.date).toLocaleDateString("ar-MR")}</span>
-                      <span>المعدل: {avg}</span>
-                      <span>على {assessment.maxScore}</span>
+                      <span>{new Date(assessment.date).toLocaleDateString(getDateLocale(locale))}</span>
+                      <span>{t("averageLabel", { value: avg })}</span>
+                      <span>{t("outOfLabel", { value: assessment.maxScore })}</span>
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-500">{assessment.scores.length} تلميذ</span>
+                  <span className="text-sm text-gray-500">{t("studentCount", { count: assessment.scores.length })}</span>
                   {!editingDisabled && (
                     <>
                       <button
@@ -490,7 +501,7 @@ export function GradeBook() {
                           openEditForm(assessment)
                         }}
                         className="p-1 hover:bg-gray-100 rounded text-blue-500"
-                        aria-label="تعديل التقويم"
+                        aria-label={t("editAria")}
                       >
                         <Edit2 className="h-4 w-4" />
                       </button>
@@ -500,7 +511,7 @@ export function GradeBook() {
                           setAssessmentToDelete(assessment)
                         }}
                         className="p-1 hover:bg-red-50 rounded text-red-400 hover:text-red-600"
-                        aria-label="حذف التقويم"
+                        aria-label={t("deleteAria")}
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -520,7 +531,7 @@ export function GradeBook() {
                           <span className="font-bold text-sm">{score.score}</span>
                           <span className="text-xs text-gray-400">/ {assessment.maxScore}</span>
                           <Badge variant={score.status === "DRAFT" ? "warning" : "success"}>
-                            {score.status === "DRAFT" ? "مسودة" : "معتمد"}
+                            {score.status === "DRAFT" ? t("draft") : t("approved")}
                           </Badge>
                         </div>
                       </div>
@@ -537,27 +548,27 @@ export function GradeBook() {
         <Card className="mt-6">
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <h3 className="font-semibold text-lg">التقدم الحالي لكل تلميذ في المادة</h3>
+              <h3 className="font-semibold text-lg">{t("studentProgressTitle")}</h3>
               <p className="text-sm text-gray-500">
-                يظهر هنا المتوسط الحالي لكل عنصر، ثم معدل المادة النهائي عندما تكتمل العناصر المطلوبة.
+                {t("studentProgressDescription")}
               </p>
             </div>
             <Badge variant={missingRequirements === 0 ? "success" : "warning"}>
-              {missingRequirements === 0 ? "المادة قابلة للحساب" : "المادة لم تكتمل بعد"}
+              {missingRequirements === 0 ? t("subjectReady") : t("subjectIncomplete")}
             </Badge>
           </div>
 
           {data.subjectProgress.length === 0 ? (
-            <p className="py-6 text-center text-gray-400">لا توجد بيانات كافية لعرض تقدم المادة.</p>
+            <p className="py-6 text-center text-gray-400">{t("insufficientData")}</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b text-gray-500">
-                    <th className="px-3 py-2 text-right">التلميذ</th>
-                    <th className="px-3 py-2 text-center">الاختبارات</th>
+                    <th className={`px-3 py-2 ${locale === "ar" ? "text-right" : "text-left"}`}>{t("student")}</th>
+                    <th className="px-3 py-2 text-center">{t("tests")}</th>
                     <th className="px-3 py-2 text-center">{currentExamLabel}</th>
-                    <th className="px-3 py-2 text-center">معدل المادة</th>
+                    <th className="px-3 py-2 text-center">{t("subjectAverage")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -576,7 +587,7 @@ export function GradeBook() {
                         {row.finalAverage != null ? (
                           <span className="font-semibold text-blue-700">{row.finalAverage.toFixed(2)}</span>
                         ) : (
-                          <Badge variant="warning">بانتظار الاكتمال</Badge>
+                          <Badge variant="warning">{t("waitingCompletion")}</Badge>
                         )}
                       </td>
                     </tr>
@@ -592,10 +603,10 @@ export function GradeBook() {
         open={!!assessmentToDelete}
         onClose={() => setAssessmentToDelete(null)}
         onConfirm={() => void handleConfirmDelete()}
-        title="حذف التقويم"
-        message={assessmentToDelete ? `سيتم حذف تقويم "${assessmentToDelete.title}". هل أنت متأكد؟` : ""}
-        confirmText="حذف"
-        cancelText="إلغاء"
+        title={t("deleteTitle")}
+        message={assessmentToDelete ? t("deleteMessage", { title: assessmentToDelete.title }) : ""}
+        confirmText={t("deleteConfirm")}
+        cancelText={tCommon("cancel")}
         variant="danger"
       />
     </div>

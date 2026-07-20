@@ -1,10 +1,12 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { useLocale, useTranslations } from "next-intl"
 import { api } from "@/lib/api"
 import { Button, Card, Modal, Input, Select, Badge, ConfirmModal } from "@/components/ui"
 import { Plus, BookOpen, Edit2, Trash2, Hash, Layers, School, Filter, CalendarRange } from "lucide-react"
 import toast from "react-hot-toast"
+import { getLocalizedSubjectName } from "@/lib/locale"
 
 type Subject = { id: string; nameAr: string; nameFr: string | null; code: string | null }
 type Level = { id: string; name: string; stage: { name: string } }
@@ -29,6 +31,9 @@ type CoefficientsResponse = {
 }
 
 export default function SubjectsPage() {
+  const locale = useLocale()
+  const t = useTranslations("subjectsPage")
+  const tCommon = useTranslations("common")
   const [subjects, setSubjects] = useState<Subject[]>([])
   const [coefficients, setCoefficients] = useState<CoefficientRule[]>([])
   const [levels, setLevels] = useState<Level[]>([])
@@ -134,18 +139,14 @@ export default function SubjectsPage() {
   }
 
   function getScopeLabel(rule: CoefficientRule) {
-    if (rule.classroom) {
-      return `استثناء خاص بالقسم ${rule.classroom.name}`
-    }
-    if (rule.stream) {
-      return `${rule.level.stage.name} - ${rule.level.name} - ${rule.stream.name}`
-    }
+    if (rule.classroom) return t("scopeClassroom", { name: rule.classroom.name })
+    if (rule.stream) return `${rule.level.stage.name} - ${rule.level.name} - ${rule.stream.name}`
     return `${rule.level.stage.name} - ${rule.level.name}`
   }
 
   async function saveSubject() {
     if (!subjectNameAr.trim()) {
-      toast.error("يرجى إدخال اسم المادة")
+      toast.error(t("missingSubjectName"))
       return
     }
 
@@ -167,14 +168,14 @@ export default function SubjectsPage() {
       return
     }
 
-    toast.success(editingSubject ? "تم تعديل المادة" : "تمت إضافة المادة")
+    toast.success(editingSubject ? t("subjectEditSuccess") : t("subjectCreateSuccess"))
     setShowSubjectModal(false)
     await fetchData()
   }
 
   async function saveCoefficient() {
     if (!coefficientSubjectId || !coefficientLevelId) {
-      toast.error("يرجى اختيار المادة والمستوى")
+      toast.error(t("missingSubjectLevel"))
       return
     }
 
@@ -198,7 +199,7 @@ export default function SubjectsPage() {
       return
     }
 
-    toast.success(editingCoefficient ? "تم تعديل الضارب" : "تم حفظ الضارب")
+    toast.success(editingCoefficient ? t("coefficientEditSuccess") : t("coefficientCreateSuccess"))
     setShowCoefficientModal(false)
     setEditingCoefficient(null)
     await fetchData()
@@ -207,8 +208,11 @@ export default function SubjectsPage() {
   async function deleteCoefficient(rule: CoefficientRule) {
     const { error } = await api.delete(`/api/school/subject-coefficients?id=${rule.id}`)
     setCoefficientToDelete(null)
-    if (error) { toast.error(error); return }
-    toast.success("تم حذف الضارب")
+    if (error) {
+      toast.error(error)
+      return
+    }
+    toast.success(t("coefficientDeleteSuccess"))
     await fetchData()
   }
 
@@ -216,10 +220,8 @@ export default function SubjectsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">المواد والضوارب</h1>
-          <p className="text-sm text-gray-500">
-            الضارب لا يثبت داخل المادة نفسها، بل يحدد حسب المستوى أو الشعبة أو كاستثناء خاص بالقسم.
-          </p>
+          <h1 className="text-2xl font-bold">{t("title")}</h1>
+          <p className="text-sm text-gray-500">{t("subtitle")}</p>
         </div>
         <div className="flex gap-2">
           <Button
@@ -232,10 +234,10 @@ export default function SubjectsPage() {
               setShowSubjectModal(true)
             }}
           >
-            <BookOpen className="h-5 w-5" /> مادة
+            <BookOpen className="h-5 w-5" /> {t("subjectCta")}
           </Button>
           <Button onClick={openCreateCoefficient}>
-            <Hash className="h-5 w-5" /> ضارب
+            <Hash className="h-5 w-5" /> {t("coefficientCta")}
           </Button>
         </div>
       </div>
@@ -244,28 +246,28 @@ export default function SubjectsPage() {
         <Card padding="md" className="space-y-2">
           <div className="flex items-center gap-2 text-gray-500">
             <CalendarRange className="h-4 w-4" />
-            <span className="text-sm font-medium">السنة النشطة</span>
+            <span className="text-sm font-medium">{t("activeYear")}</span>
           </div>
-          <p className="text-xl font-bold">{activeAcademicYear?.name || "غير محددة"}</p>
+          <p className="text-xl font-bold">{activeAcademicYear?.name || t("undefinedYear")}</p>
         </Card>
         <Card padding="md" className="space-y-2">
           <div className="flex items-center gap-2 text-gray-500">
             <Hash className="h-4 w-4" />
-            <span className="text-sm font-medium">الضوارب المعروضة</span>
+            <span className="text-sm font-medium">{t("visibleCoefficients")}</span>
           </div>
           <p className="text-xl font-bold">{visibleCoefficients.length}</p>
         </Card>
         <Card padding="md" className="space-y-2">
           <div className="flex items-center gap-2 text-gray-500">
             <School className="h-4 w-4" />
-            <span className="text-sm font-medium">استثناءات الأقسام</span>
+            <span className="text-sm font-medium">{t("classroomOverrides")}</span>
           </div>
           <p className="text-xl font-bold">{summary.classroomOverrides}</p>
         </Card>
         <Card padding="md" className="space-y-2">
           <div className="flex items-center gap-2 text-gray-500">
             <Layers className="h-4 w-4" />
-            <span className="text-sm font-medium">مواد مغطاة</span>
+            <span className="text-sm font-medium">{t("coveredSubjects")}</span>
           </div>
           <p className="text-xl font-bold">{summary.subjectScoped}</p>
         </Card>
@@ -274,39 +276,33 @@ export default function SubjectsPage() {
       <Card padding="md">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr_auto]">
           <Select
-            label="تصفية حسب المادة"
+            label={t("filterBySubject")}
             value={subjectFilterId}
             onChange={setSubjectFilterId}
-            options={[{ value: "", label: "كل المواد" }, ...subjects.map((subject) => ({ value: subject.id, label: subject.nameAr }))]}
-            placeholder="كل المواد"
+            options={[{ value: "", label: t("allSubjects") }, ...subjects.map((subject) => ({ value: subject.id, label: getLocalizedSubjectName(subject, locale) }))]}
+            placeholder={t("allSubjects")}
           />
           <Select
-            label="تصفية حسب المستوى"
+            label={t("filterByLevel")}
             value={levelFilterId}
             onChange={setLevelFilterId}
-            options={[{ value: "", label: "كل المستويات" }, ...levels.map((level) => ({ value: level.id, label: `${level.stage.name} - ${level.name}` }))]}
-            placeholder="كل المستويات"
+            options={[{ value: "", label: t("allLevels") }, ...levels.map((level) => ({ value: level.id, label: `${level.stage.name} - ${level.name}` }))]}
+            placeholder={t("allLevels")}
           />
           <div className="flex items-end">
             <Button variant="ghost" onClick={() => { setSubjectFilterId(""); setLevelFilterId("") }}>
-              <Filter className="h-4 w-4" /> مسح التصفية
+              <Filter className="h-4 w-4" /> {t("clearFilters")}
             </Button>
           </div>
         </div>
       </Card>
 
-      <Modal
-        open={showSubjectModal}
-        onClose={() => setShowSubjectModal(false)}
-        title={editingSubject ? "تعديل مادة" : "إضافة مادة"}
-      >
+      <Modal open={showSubjectModal} onClose={() => setShowSubjectModal(false)} title={editingSubject ? t("editSubject") : t("addSubject")}>
         <div className="space-y-4">
-          <Input label="الاسم (عربي)" value={subjectNameAr} onChange={(e) => setSubjectNameAr(e.target.value)} placeholder="الرياضيات" />
-          <Input label="الاسم (فرنسي)" value={subjectNameFr} onChange={(e) => setSubjectNameFr(e.target.value)} placeholder="Mathématiques" />
-          <Input label="الرمز" value={subjectCode} onChange={(e) => setSubjectCode(e.target.value)} placeholder="MATH" />
-          <Button fullWidth onClick={() => void saveSubject()}>
-            حفظ
-          </Button>
+          <Input label={t("nameAr")} value={subjectNameAr} onChange={(e) => setSubjectNameAr(e.target.value)} placeholder="الرياضيات" />
+          <Input label={t("nameFr")} value={subjectNameFr} onChange={(e) => setSubjectNameFr(e.target.value)} placeholder="Mathématiques" />
+          <Input label={t("code")} value={subjectCode} onChange={(e) => setSubjectCode(e.target.value)} placeholder="MATH" />
+          <Button fullWidth onClick={() => void saveSubject()}>{t("save")}</Button>
         </div>
       </Modal>
 
@@ -316,19 +312,19 @@ export default function SubjectsPage() {
           setShowCoefficientModal(false)
           setEditingCoefficient(null)
         }}
-        title={editingCoefficient ? "تعديل ضارب" : "إضافة ضارب"}
+        title={editingCoefficient ? t("editCoefficient") : t("addCoefficient")}
       >
         <div className="space-y-4">
           <Select
-            label="المادة"
+            label={t("subjectLabel")}
             value={coefficientSubjectId}
             onChange={setCoefficientSubjectId}
-            options={subjects.map((subject) => ({ value: subject.id, label: subject.nameAr }))}
-            placeholder="اختر المادة"
+            options={subjects.map((subject) => ({ value: subject.id, label: getLocalizedSubjectName(subject, locale) }))}
+            placeholder={t("selectSubject")}
           />
 
           <Select
-            label="المستوى"
+            label={t("levelLabel")}
             value={coefficientLevelId}
             onChange={(value) => {
               setCoefficientLevelId(value)
@@ -336,49 +332,47 @@ export default function SubjectsPage() {
               setCoefficientClassroomId("")
             }}
             options={levels.map((level) => ({ value: level.id, label: `${level.stage.name} - ${level.name}` }))}
-            placeholder="اختر المستوى"
+            placeholder={t("filterByLevel")}
           />
 
           {filteredStreams.length > 0 && (
             <Select
-              label="الشعبة"
+              label={t("streamLabel")}
               value={coefficientStreamId}
               onChange={setCoefficientStreamId}
               options={[
-                { value: "", label: "ضارب مشترك لكل شعب هذا المستوى" },
+                { value: "", label: t("sharedForStreams") },
                 ...filteredStreams.map((stream) => ({ value: stream.id, label: stream.name })),
               ]}
-              placeholder="اختر الشعبة"
+              placeholder={t("streamLabel")}
             />
           )}
 
           {filteredClassrooms.length > 0 && (
             <Select
-              label="قسم خاص (اختياري)"
+              label={t("classroomOptionalLabel")}
               value={coefficientClassroomId}
               onChange={(value) => {
                 setCoefficientClassroomId(value)
                 const classroom = classrooms.find((item) => item.id === value)
-                if (classroom?.stream?.id) {
-                  setCoefficientStreamId(classroom.stream.id)
-                }
+                if (classroom?.stream?.id) setCoefficientStreamId(classroom.stream.id)
               }}
               options={[
-                { value: "", label: "ضارب عام للمستوى أو الشعبة" },
+                { value: "", label: t("generalForLevel") },
                 ...filteredClassrooms.map((classroom) => ({ value: classroom.id, label: classroom.name })),
               ]}
-              placeholder="اختر القسم"
+              placeholder={t("selectClassroom")}
             />
           )}
 
           {selectedClassroom && (
             <div className="rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-700">
-              سيتم حفظ هذا كاستثناء خاص بالقسم <span className="font-semibold">{selectedClassroom.name}</span>
+              {t("specialClassroomNotice", { name: selectedClassroom.name })}
             </div>
           )}
 
           <Input
-            label="الضارب"
+            label={t("coefficientLabel")}
             type="number"
             step="0.5"
             min="0.5"
@@ -387,35 +381,31 @@ export default function SubjectsPage() {
             placeholder="1"
           />
 
-          <p className="text-xs text-gray-500">
-            الأولوية في الحساب: ضارب القسم الخاص ثم ضارب الشعبة ثم ضارب المستوى العام.
-          </p>
+          <p className="text-xs text-gray-500">{t("priorityNote")}</p>
 
-          <Button fullWidth onClick={() => void saveCoefficient()}>
-            حفظ
-          </Button>
+          <Button fullWidth onClick={() => void saveCoefficient()}>{t("save")}</Button>
         </div>
       </Modal>
 
       {loading ? (
         <Card>
-          <p className="py-8 text-center text-gray-400">جاري التحميل...</p>
+          <p className="py-8 text-center text-gray-400">{t("loading")}</p>
         </Card>
       ) : (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <Card padding="lg" className="lg:col-span-1">
             <h3 className="mb-3 flex items-center gap-2 font-semibold">
-              <BookOpen className="h-5 w-5" /> المواد
+              <BookOpen className="h-5 w-5" /> {t("subjectsTitle")}
             </h3>
             {subjects.length === 0 ? (
-              <p className="text-sm text-gray-400">لا توجد مواد بعد</p>
+              <p className="text-sm text-gray-400">{t("noSubjects")}</p>
             ) : (
               <div className="space-y-2">
                 {subjects.map((subject) => (
                   <div key={subject.id} className="flex items-center justify-between rounded-lg bg-gray-50 p-2">
                     <div>
-                      <span className="font-medium">{subject.nameAr}</span>
-                      {subject.code && <span className="mr-2 text-xs text-gray-400">{subject.code}</span>}
+                      <span className="font-medium">{getLocalizedSubjectName(subject, locale)}</span>
+                      {subject.code && <span className={`${locale === "ar" ? "mr-2" : "ml-2"} text-xs text-gray-400`}>{subject.code}</span>}
                     </div>
                     <button
                       onClick={() => {
@@ -425,7 +415,7 @@ export default function SubjectsPage() {
                         setSubjectCode(subject.code || "")
                         setShowSubjectModal(true)
                       }}
-                      aria-label="تعديل المادة"
+                      aria-label={t("editSubjectAria")}
                     >
                       <Edit2 className="h-4 w-4 text-gray-400" />
                     </button>
@@ -439,39 +429,35 @@ export default function SubjectsPage() {
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <h3 className="flex items-center gap-2 font-semibold">
-                  <Hash className="h-5 w-5" /> الضوارب
+                  <Hash className="h-5 w-5" /> {t("coefficientsTitle")}
                 </h3>
-                <p className="text-sm text-gray-500">
-                  الإدارة هنا تخص السنة النشطة فقط حتى لا تختلط ضوارب السنوات ببعضها.
-                </p>
+                <p className="text-sm text-gray-500">{t("coefficientsSubtitle")}</p>
               </div>
               <div className="flex gap-2">
-                <Badge variant="default">عام: {summary.levelSpecific}</Badge>
-                <Badge variant="info">شعب: {summary.streamSpecific}</Badge>
-                <Badge variant="warning">أقسام: {summary.classroomOverrides}</Badge>
+                <Badge variant="default">{t("generalBadge", { count: summary.levelSpecific })}</Badge>
+                <Badge variant="info">{t("streamBadge", { count: summary.streamSpecific })}</Badge>
+                <Badge variant="warning">{t("classroomBadge", { count: summary.classroomOverrides })}</Badge>
               </div>
             </div>
 
             {visibleCoefficients.length === 0 ? (
-              <p className="text-sm text-gray-400">
-                لا توجد ضوارب مطابقة للتصفية الحالية. أضف ضارباً عاماً للمستوى أو الشعبة ثم أضف استثناءات خاصة بالأقسام عند الحاجة.
-              </p>
+              <p className="text-sm text-gray-400">{t("noMatchingCoefficients")}</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b text-gray-500">
-                      <th className="px-3 py-2 text-right">المادة</th>
-                      <th className="px-3 py-2 text-right">النطاق</th>
-                      <th className="px-3 py-2 text-center">الضارب</th>
-                      <th className="px-3 py-2 text-center">النوع</th>
+                      <th className={`px-3 py-2 ${locale === "ar" ? "text-right" : "text-left"}`}>{t("subjectColumn")}</th>
+                      <th className={`px-3 py-2 ${locale === "ar" ? "text-right" : "text-left"}`}>{t("scopeColumn")}</th>
+                      <th className="px-3 py-2 text-center">{t("coefficientColumn")}</th>
+                      <th className="px-3 py-2 text-center">{t("typeColumn")}</th>
                       <th className="px-3 py-2"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {visibleCoefficients.map((rule) => (
                       <tr key={rule.id} className="border-b hover:bg-gray-50">
-                        <td className="px-3 py-2 font-medium">{rule.subject.nameAr}</td>
+                        <td className="px-3 py-2 font-medium">{getLocalizedSubjectName(rule.subject, locale)}</td>
                         <td className="px-3 py-2 text-gray-600">
                           <div className="flex items-center gap-2">
                             {rule.classroom ? <School className="h-4 w-4 text-blue-500" /> : <Layers className="h-4 w-4 text-gray-400" />}
@@ -481,14 +467,14 @@ export default function SubjectsPage() {
                         <td className="px-3 py-2 text-center font-semibold">{rule.coefficient}</td>
                         <td className="px-3 py-2 text-center">
                           <Badge variant={rule.classroom ? "warning" : rule.stream ? "info" : "default"}>
-                            {rule.classroom ? "استثناء قسم" : rule.stream ? "حسب الشعبة" : "عام"}
+                            {rule.classroom ? t("classroomException") : rule.stream ? t("byStream") : t("general")}
                           </Badge>
                         </td>
                         <td className="px-3 py-2 text-left">
-                          <button onClick={() => openEditCoefficient(rule)} className="ml-2 text-gray-400 hover:text-blue-600" aria-label="تعديل الضارب">
+                          <button onClick={() => openEditCoefficient(rule)} className={`${locale === "ar" ? "ml-2" : "mr-2"} text-gray-400 hover:text-blue-600`} aria-label={t("editCoefficientAria")}>
                             <Edit2 className="h-4 w-4" />
                           </button>
-                          <button onClick={() => setCoefficientToDelete(rule)} className="text-red-400 hover:text-red-600" aria-label="حذف الضارب">
+                          <button onClick={() => setCoefficientToDelete(rule)} className="text-red-400 hover:text-red-600" aria-label={t("deleteCoefficientAria")}>
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </td>
@@ -506,10 +492,10 @@ export default function SubjectsPage() {
         open={!!coefficientToDelete}
         onClose={() => setCoefficientToDelete(null)}
         onConfirm={() => void deleteCoefficient(coefficientToDelete!)}
-        title="حذف الضارب"
-        message={coefficientToDelete ? `سيتم حذف ضارب ${coefficientToDelete.subject.nameAr}. هل تريد المتابعة؟` : ""}
-        confirmText="حذف"
-        cancelText="إلغاء"
+        title={t("deleteTitle")}
+        message={coefficientToDelete ? t("deleteMessage", { subject: getLocalizedSubjectName(coefficientToDelete.subject, locale) }) : ""}
+        confirmText={tCommon("delete")}
+        cancelText={tCommon("cancel")}
         variant="danger"
       />
     </div>

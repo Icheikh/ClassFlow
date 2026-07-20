@@ -3,10 +3,15 @@
 import { useState } from "react"
 import { getSession, signIn } from "next-auth/react"
 import { useRouter } from "next/navigation"
+import { useTranslations } from "next-intl"
 import toast from "react-hot-toast"
 import { roleRoutes } from "@/lib/roles"
+import { LanguageSwitcher } from "@/components/ui"
 
 export default function LoginPage() {
+  const tApp = useTranslations("app")
+  const tAuth = useTranslations("auth")
+  const tCommon = useTranslations("common")
   const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -24,7 +29,7 @@ export default function LoginPage() {
       })
 
       if (!result || result.error) {
-        toast.error("البريد الإلكتروني أو كلمة المرور غير صحيحة")
+        toast.error(tAuth("invalidCredentials"))
         return
       }
 
@@ -35,38 +40,41 @@ export default function LoginPage() {
       router.replace(route)
       router.refresh()
     } catch {
-      toast.error("حدث خطأ في تسجيل الدخول")
+      toast.error(tAuth("loginError"))
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="w-full max-w-md p-8 bg-white rounded-2xl shadow-lg">
+    <div className="min-h-screen bg-gray-50 px-4 py-10">
+      <div className="mx-auto mb-6 flex w-full max-w-md justify-end">
+        <LanguageSwitcher />
+      </div>
+      <div className="mx-auto w-full max-w-md rounded-2xl bg-white p-8 shadow-lg">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">ClassFlow</h1>
-          <p className="text-gray-500 mt-2">منصة إدارة المدارس</p>
+          <h1 className="text-3xl font-bold text-gray-900">{tApp("name")}</h1>
+          <p className="text-gray-500 mt-2">{tApp("tagline")}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              البريد الإلكتروني
+              {tCommon("email")}
             </label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="teacher@school.com"
+              placeholder={tAuth("emailPlaceholder")}
               required
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              كلمة المرور
+              {tCommon("password")}
             </label>
             <input
               type="password"
@@ -83,7 +91,7 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium"
           >
-            {loading ? "جاري تسجيل الدخول..." : "تسجيل الدخول"}
+            {loading ? tAuth("loggingIn") : tCommon("login")}
           </button>
         </form>
       </div>
