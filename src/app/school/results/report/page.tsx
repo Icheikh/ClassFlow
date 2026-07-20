@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
+import { useTranslations } from "next-intl"
 import { ArrowLeft, Printer } from "lucide-react"
 import toast from "react-hot-toast"
 import { Badge, Button, Card, LoadingPage } from "@/components/ui"
@@ -58,12 +59,6 @@ type ReportResponse = {
   results: ResultRow[]
 }
 
-function getStatusLabel(status: string) {
-  if (status === RESULT_PUBLICATION_STATUSES.LOCKED) return "مقفول"
-  if (status === RESULT_PUBLICATION_STATUSES.APPROVED) return "معتمد"
-  return "مفتوح"
-}
-
 function getStatusVariant(status: string) {
   if (status === RESULT_PUBLICATION_STATUSES.LOCKED) return "danger" as const
   if (status === RESULT_PUBLICATION_STATUSES.APPROVED) return "success" as const
@@ -71,6 +66,7 @@ function getStatusVariant(status: string) {
 }
 
 export default function ResultsReportPage() {
+  const t = useTranslations("resultsReportPage")
   const searchParams = useSearchParams()
   const classroomId = searchParams?.get("classroomId") || ""
   const termId = searchParams?.get("termId") || ""
@@ -79,6 +75,11 @@ export default function ResultsReportPage() {
 
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<ReportResponse | null>(null)
+  function getStatusLabel(status: string) {
+    if (status === RESULT_PUBLICATION_STATUSES.LOCKED) return t("locked")
+    if (status === RESULT_PUBLICATION_STATUSES.APPROVED) return t("approved")
+    return t("open")
+  }
 
   useEffect(() => {
     async function loadReport() {
@@ -114,10 +115,10 @@ export default function ResultsReportPage() {
     return (
       <Card className="print:shadow-none print:border-0">
         <div className="py-12 text-center space-y-3" role="alert">
-          <p className="text-lg font-semibold">تعذر تحميل كشف القسم</p>
+          <p className="text-lg font-semibold">{t("loadError")}</p>
           <Link href="/school/results">
             <Button variant="secondary">
-              <ArrowLeft className="h-4 w-4" /> العودة إلى النتائج
+              <ArrowLeft className="h-4 w-4" /> {t("backToResults")}
             </Button>
           </Link>
         </div>
@@ -130,11 +131,11 @@ export default function ResultsReportPage() {
       <div className="flex items-center justify-between print:hidden">
         <Link href={isPreview ? "/school/settings" : "/school/results"}>
           <Button variant="secondary">
-            <ArrowLeft className="h-4 w-4" /> {isPreview ? "العودة إلى الإعدادات" : "العودة إلى النتائج"}
+            <ArrowLeft className="h-4 w-4" /> {isPreview ? t("backToSettings") : t("backToResults")}
           </Button>
         </Link>
         <Button onClick={() => window.print()}>
-          <Printer className="h-4 w-4" /> طباعة
+          <Printer className="h-4 w-4" /> {t("print")}
         </Button>
       </div>
 
@@ -142,16 +143,16 @@ export default function ResultsReportPage() {
         <div className="space-y-6 print:space-y-4">
           {isPreview && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-              هذه معاينة مباشرة للقالب المختار قبل اعتماده على كشف النتائج النهائي.
+              {t("previewHint")}
             </div>
           )}
           <div className="border-b pb-4 print:pb-3">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h1 className="text-3xl font-bold">{data.school.name || "المدرسة"}</h1>
+                <h1 className="text-3xl font-bold">{data.school.name || t("schoolFallback")}</h1>
                 {data.template.showSchoolContacts && (data.school.address || data.school.phone) && (
                   <p className="mt-2 text-sm text-gray-500">
-                    {data.school.address || "بدون عنوان"}
+                    {data.school.address || t("addressFallback")}
                     {data.school.phone ? ` · ${data.school.phone}` : ""}
                   </p>
                 )}
@@ -204,19 +205,19 @@ export default function ResultsReportPage() {
           )}
 
           {!hasComputedResults ? (
-            <p className="py-12 text-center text-gray-400">لا توجد نتائج كافية لتوليد كشف هذا القسم بعد.</p>
+            <p className="py-12 text-center text-gray-400">{t("noEnoughResults")}</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b text-gray-500">
-                    {data.template.showRank && <th className="px-3 py-2 text-right">الرتبة</th>}
-                    <th className="px-3 py-2 text-right">التلميذ</th>
+                    {data.template.showRank && <th className="px-3 py-2 text-right">{t("rank")}</th>}
+                    <th className="px-3 py-2 text-right">{t("student")}</th>
                     {subjectHeaders.map((subject) => (
                       <th key={subject.id} className="px-3 py-2 text-center">{subject.nameAr}</th>
                     ))}
-                    {data.template.showWeightedScore && <th className="px-3 py-2 text-center">المجموع الموزون</th>}
-                    <th className="px-3 py-2 text-center">المعدل العام</th>
+                    {data.template.showWeightedScore && <th className="px-3 py-2 text-center">{t("weightedTotal")}</th>}
+                    <th className="px-3 py-2 text-center">{t("overallAverage")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -232,7 +233,7 @@ export default function ResultsReportPage() {
                               <div>
                                 <div className="font-medium">{subjectResult.finalAverage.toFixed(2)}</div>
                                 {data.template.showSubjectCoefficient && (
-                                  <div className="text-xs text-gray-400">ض {subjectResult.coefficient}</div>
+                                  <div className="text-xs text-gray-400">{t("subjectCoefficientPrefix")} {subjectResult.coefficient}</div>
                                 )}
                               </div>
                             ) : "—"}

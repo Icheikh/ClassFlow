@@ -2,10 +2,16 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
+import { getTranslations } from "next-intl/server"
+import { getRequestLocale } from "@/i18n/getRequestLocale"
+import { getLocaleDirection } from "@/i18n/config"
 
 export default async function AdminPage() {
   const session = await getServerSession(authOptions)
   const user = session?.user as any
+  const locale = await getRequestLocale()
+  const dir = getLocaleDirection(locale)
+  const t = await getTranslations("adminPage")
 
   if (!session) {
     redirect("/auth/login")
@@ -16,26 +22,24 @@ export default async function AdminPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 p-6" dir="rtl">
+    <main className="min-h-screen bg-gray-50 p-6" dir={dir}>
       <div className="mx-auto max-w-3xl rounded-2xl border bg-white p-8 shadow-sm">
-        <p className="text-sm text-blue-600">مدير المنصة</p>
-        <h1 className="mt-2 text-3xl font-bold text-gray-900">لوحة المنصة قيد التوسعة</h1>
-        <p className="mt-3 text-gray-600">
-          تم تفعيل صفحة دخول مستقرة لمدير المنصة حتى لا يتعطل تسجيل الدخول. إدارة المدارس والاشتراكات ستبنى في مرحلة المنصة.
-        </p>
+        <p className="text-sm text-blue-600">{t("role")}</p>
+        <h1 className="mt-2 text-3xl font-bold text-gray-900">{t("title")}</h1>
+        <p className="mt-3 text-gray-600">{t("description")}</p>
 
         <div className="mt-8 rounded-xl bg-gray-50 p-5">
-          <p className="font-medium text-gray-900">الحالة الحالية</p>
+          <p className="font-medium text-gray-900">{t("statusTitle")}</p>
           <ul className="mt-3 space-y-2 text-sm text-gray-600">
-            <li>الدخول يعمل لهذا الدور دون تحويل إلى صفحة مفقودة.</li>
-            <li>يمكن استخدام هذه الصفحة كنقطة هبوط مستقرة مؤقتًا.</li>
-            <li>المرحلة التالية لهذا الدور هي بناء إدارة المدارس والاشتراكات.</li>
+            <li>{t("status1")}</li>
+            <li>{t("status2")}</li>
+            <li>{t("status3")}</li>
           </ul>
         </div>
 
         <div className="mt-6">
           <Link href="/auth/login" className="text-sm font-medium text-blue-700 hover:underline">
-            العودة إلى تسجيل الدخول
+            {t("backToLogin")}
           </Link>
         </div>
       </div>

@@ -2,13 +2,15 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
+import { useLocale, useTranslations } from "next-intl"
 import { api } from "@/lib/api"
-import { Button, Input, Card, LoadingPage, ConfirmModal } from "@/components/ui"
+import { Button, Card, LoadingPage, ConfirmModal } from "@/components/ui"
 import { StaffList } from "@/components/staff/StaffList"
 import { StaffFormModal } from "@/components/staff/StaffFormModal"
 import { Plus, Search } from "lucide-react"
 import toast from "react-hot-toast"
 import { useCurrentUser } from "@/hooks/useCurrentUser"
+import { getLocaleDirection } from "@/i18n/config"
 
 interface StaffMember {
   id: string
@@ -23,6 +25,13 @@ interface StaffMember {
 export default function StaffPage() {
   const router = useRouter()
   const user = useCurrentUser()
+  const locale = useLocale()
+  const dir = getLocaleDirection(locale)
+  const t = useTranslations("staffPage")
+  const tPermissions = useTranslations("permissionLabels")
+  const tCategories = useTranslations("permissionCategories")
+  const tPresets = useTranslations("permissionPresets")
+  const tCommon = useTranslations("common")
   const [staff, setStaff] = useState<StaffMember[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
@@ -57,7 +66,7 @@ export default function StaffPage() {
   async function handleCreate(data: { name: string; email: string; phone: string; password: string; permissions: string[] }) {
     const { error } = await api.post("/api/school/staff", data)
     if (error) { toast.error(error); return }
-    toast.success("تمت إضافة الموظف")
+    toast.success(t("createSuccess"))
     setAddModal(false)
     fetchStaff()
   }
@@ -66,7 +75,7 @@ export default function StaffPage() {
     if (!editTarget) return
     const { error } = await api.put("/api/school/staff", { id: editTarget.id, name: data.name, phone: data.phone })
     if (error) { toast.error(error); return }
-    toast.success("تم التعديل")
+    toast.success(t("editSuccess"))
     setEditModal(false)
     setEditTarget(null)
     fetchStaff()
@@ -76,7 +85,7 @@ export default function StaffPage() {
     const { error } = await api.put("/api/school/staff", { id, isActive: !current })
     setToggleTarget(null)
     if (error) { toast.error(error); return }
-    toast.success(current ? "تم التعطيل" : "تم التفعيل")
+    toast.success(current ? t("disableSuccess") : t("enableSuccess"))
     fetchStaff()
   }
 
@@ -98,7 +107,7 @@ export default function StaffPage() {
       permissions: permSelection,
     })
     if (error) { toast.error(error); return }
-    toast.success("تم تحديث الصلاحيات")
+    toast.success(t("permissionsUpdated"))
     setPermModal(false)
     setPermTarget(null)
     setPermSaving(false)
@@ -116,11 +125,11 @@ export default function StaffPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">الموظفون والصلاحيات</h1>
-          <p className="text-sm text-gray-500">إدارة حسابات الموظفين وتحديد صلاحياتهم</p>
+          <h1 className="text-2xl font-bold">{t("title")}</h1>
+          <p className="text-sm text-gray-500">{t("subtitle")}</p>
         </div>
         <Button onClick={() => setAddModal(true)}>
-          <Plus className="h-5 w-5" /> إضافة موظف
+          <Plus className="h-5 w-5" /> {t("addStaff")}
         </Button>
       </div>
 
@@ -128,10 +137,11 @@ export default function StaffPage() {
         <div className="relative">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
           <input
-            placeholder="ابحث بالاسم أو البريد الإلكتروني..."
+            dir={dir}
+            placeholder={t("searchPlaceholder")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pr-10 pl-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-right"
+            className="w-full pr-10 pl-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
       </Card>
@@ -147,7 +157,7 @@ export default function StaffPage() {
         open={addModal}
         onClose={() => setAddModal(false)}
         onSave={handleCreate}
-        title="إضافة موظف جديد"
+        title={t("addModalTitle")}
       />
 
       {editTarget && (
@@ -163,7 +173,7 @@ export default function StaffPage() {
             password: "",
             permissions: editTarget.permissions,
           }}
-          title="تعديل بيانات الموظف"
+          title={t("editModalTitle")}
         />
       )}
 
@@ -173,7 +183,7 @@ export default function StaffPage() {
           <div className="fixed inset-0 bg-black/50" onClick={() => setPermModal(false)} />
           <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6 max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold">صلاحيات {permTarget.name}</h2>
+              <h2 className="text-lg font-bold">{t("permissionsTitle", { name: permTarget.name })}</h2>
               <button onClick={() => setPermModal(false)} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
             </div>
 
@@ -181,16 +191,16 @@ export default function StaffPage() {
             <div className="mb-4">
               <div className="flex flex-wrap gap-2">
                 {[
-                  { label: "مدير الدراسات", perms: ["MANAGE_SUBJECTS", "MANAGE_COEFFICIENTS", "REVIEW_LESSONS", "APPROVE_GRADES"] },
-                  { label: "محاسب", perms: ["MANAGE_FEES", "RECORD_PAYMENTS", "VIEW_FINANCE_REPORTS"] },
-                  { label: "مساعد مدير", perms: ["MANAGE_STUDENTS", "MANAGE_TEACHERS", "VIEW_REPORTS"] },
+                  { label: "academicManager", perms: ["MANAGE_SUBJECTS", "MANAGE_COEFFICIENTS", "REVIEW_LESSONS", "APPROVE_GRADES"] },
+                  { label: "accountant", perms: ["MANAGE_FEES", "RECORD_PAYMENTS", "VIEW_FINANCE_REPORTS"] },
+                  { label: "assistantDirector", perms: ["MANAGE_STUDENTS", "MANAGE_TEACHERS", "VIEW_REPORTS"] },
                 ].map((preset) => (
                   <button
                     key={preset.label}
                     onClick={() => setPermSelection(preset.perms)}
                     className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-full text-gray-700 transition-colors"
                   >
-                    {preset.label}
+                    {tPresets(preset.label)}
                   </button>
                 ))}
               </div>
@@ -198,17 +208,17 @@ export default function StaffPage() {
 
             <div className="space-y-4">
               {Object.entries({
-                USERS: { label: "إدارة المستخدمين", codes: ["MANAGE_USERS"] },
-                STUDENTS: { label: "الطلاب", codes: ["MANAGE_STUDENTS"] },
-                TEACHERS: { label: "الأساتذة والمواد", codes: ["MANAGE_TEACHERS", "MANAGE_SUBJECTS", "MANAGE_COEFFICIENTS"] },
-                ACADEMIC: { label: "السنوات والأقسام", codes: ["MANAGE_ACADEMIC_YEARS", "MANAGE_CLASSROOMS"] },
-                GRADES: { label: "الدرجات والدروس", codes: ["REVIEW_LESSONS", "APPROVE_GRADES", "LOCK_GRADES"] },
-                FINANCE: { label: "المالية", codes: ["MANAGE_FEES", "RECORD_PAYMENTS", "VIEW_FINANCE_REPORTS"] },
-                REPORTS: { label: "التقارير", codes: ["VIEW_REPORTS"] },
-                NOTIFICATIONS: { label: "الإشعارات", codes: ["SEND_NOTIFICATIONS"] },
-              } as Record<string, { label: string; codes: string[] }>).map(([key, cat]) => (
+                USERS: { codes: ["MANAGE_USERS"] },
+                STUDENTS: { codes: ["MANAGE_STUDENTS"] },
+                TEACHERS: { codes: ["MANAGE_TEACHERS", "MANAGE_SUBJECTS", "MANAGE_COEFFICIENTS"] },
+                ACADEMIC: { codes: ["MANAGE_ACADEMIC_YEARS", "MANAGE_CLASSROOMS"] },
+                GRADES: { codes: ["REVIEW_LESSONS", "APPROVE_GRADES", "LOCK_GRADES"] },
+                FINANCE: { codes: ["MANAGE_FEES", "RECORD_PAYMENTS", "VIEW_FINANCE_REPORTS"] },
+                REPORTS: { codes: ["VIEW_REPORTS"] },
+                NOTIFICATIONS: { codes: ["SEND_NOTIFICATIONS"] },
+              } as Record<string, { codes: string[] }>).map(([key, cat]) => (
                 <div key={key}>
-                  <h4 className="text-sm font-semibold text-gray-800 mb-2">{cat.label}</h4>
+                  <h4 className="text-sm font-semibold text-gray-800 mb-2">{tCategories.has(key) ? tCategories(key) : key}</h4>
                   <div className="grid grid-cols-2 gap-2">
                     {cat.codes.map((code) => (
                       <label key={code} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer p-1.5 rounded hover:bg-gray-50">
@@ -222,7 +232,7 @@ export default function StaffPage() {
                           }}
                           className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                         />
-                        {code}
+                        {tPermissions.has(code) ? tPermissions(code) : code}
                       </label>
                     ))}
                   </div>
@@ -236,13 +246,13 @@ export default function StaffPage() {
                 disabled={permSaving}
                 className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium"
               >
-                {permSaving ? "جاري الحفظ..." : "حفظ الصلاحيات"}
+                {permSaving ? t("savingPermissions") : t("savePermissions")}
               </button>
               <button
                 onClick={() => { setPermModal(false); setPermTarget(null) }}
                 className="px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700"
               >
-                إلغاء
+                {tCommon("cancel")}
               </button>
             </div>
           </div>
@@ -253,10 +263,10 @@ export default function StaffPage() {
         open={!!toggleTarget}
         onClose={() => setToggleTarget(null)}
         onConfirm={() => void handleToggleActive(toggleTarget!.id, toggleTarget!.current)}
-        title={toggleTarget?.current ? "تعطيل الموظف" : "تفعيل الموظف"}
-        message={`سيتم ${toggleTarget?.current ? "تعطيل" : "تفعيل"} حساب هذا الموظف. هل أنت متأكد؟`}
-        confirmText={toggleTarget?.current ? "تعطيل" : "تفعيل"}
-        cancelText="إلغاء"
+        title={toggleTarget?.current ? t("disableTitle") : t("enableTitle")}
+        message={toggleTarget?.current ? t("disableMessage") : t("enableMessage")}
+        confirmText={toggleTarget?.current ? t("disableConfirm") : t("enableConfirm")}
+        cancelText={tCommon("cancel")}
         variant={toggleTarget?.current ? "danger" : "primary"}
       />
     </div>

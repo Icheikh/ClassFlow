@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { Fragment } from "react"
+import { useTranslations } from "next-intl"
 import { api } from "@/lib/api"
 import { Button, Card, Badge, Select } from "@/components/ui"
 import { RESULT_PUBLICATION_STATUSES } from "@/lib/results"
@@ -89,6 +90,7 @@ type ResultsResponse = {
 }
 
 export default function SchoolResultsPage() {
+  const t = useTranslations("resultsPage")
   const searchParams = useSearchParams()
   const initialClassroomId = searchParams?.get("classroomId") || ""
   const initialTermId = searchParams?.get("termId") || ""
@@ -167,9 +169,9 @@ async function updatePublicationStatus(status: string) {
       toast.error(error)
     } else {
       if (status === RESULT_PUBLICATION_STATUSES.APPROVED && data?.notificationCampaign) {
-        toast.success(`تم اعتماد النتائج وإنشاء حملة إشعار لعدد ${data.notificationCampaign.recipientsCount} مستلمين`)
+        toast.success(t("approvedCampaignCreated", { count: data.notificationCampaign.recipientsCount }))
       } else {
-        toast.success(status === RESULT_PUBLICATION_STATUSES.LOCKED ? "تم قفل النتائج" : status === RESULT_PUBLICATION_STATUSES.APPROVED ? "تم اعتماد النتائج" : "تم فتح النتائج")
+        toast.success(status === RESULT_PUBLICATION_STATUSES.LOCKED ? t("lockedSuccess") : status === RESULT_PUBLICATION_STATUSES.APPROVED ? t("approvedSuccess") : t("openedSuccess"))
       }
       await reloadResults()
     }
@@ -182,15 +184,15 @@ async function updatePublicationStatus(status: string) {
   const computedStudents = data?.results.filter((row) => row.average != null) || []
   const topStudents = computedStudents.slice(0, 3)
   const publicationBadge = data?.publicationStatus === RESULT_PUBLICATION_STATUSES.LOCKED
-    ? { label: "مقفول", variant: "danger" as const }
+    ? { label: t("lockedStatus"), variant: "danger" as const }
     : data?.publicationStatus === RESULT_PUBLICATION_STATUSES.APPROVED
-      ? { label: "معتمد", variant: "success" as const }
-      : { label: "مفتوح", variant: "info" as const }
+      ? { label: t("approvedStatus"), variant: "success" as const }
+      : { label: t("openStatus"), variant: "info" as const }
 
   if (loading) {
     return (
-      <Card>
-        <p className="text-center text-gray-400 py-8">جاري التحميل...</p>
+        <Card>
+        <p className="text-center text-gray-400 py-8">{t("loading")}</p>
       </Card>
     )
   }
@@ -200,7 +202,7 @@ async function updatePublicationStatus(status: string) {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">النتائج</h1>
-          <p className="text-sm text-gray-500">مراجعة نتائج كل قسم حسب الفصل، ثم اعتمادها وقفلها بعد اكتمال الحسابات.</p>
+          <p className="text-sm text-gray-500">{t("subtitle")}</p>
         </div>
         {data && (
           <div className="flex items-center gap-2">
@@ -212,11 +214,11 @@ async function updatePublicationStatus(status: string) {
       <Card>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Select
-            label="القسم"
+            label={t("classroom")}
             value={classroomId}
             onChange={setClassroomId}
             options={[
-              { value: "", label: "اختر القسم" },
+              { value: "", label: t("selectClassroom") },
               ...classrooms.map((classroom) => ({
                 value: classroom.id,
                 label: `${classroom.name} - ${classroom.level.stage.name} - ${classroom.level.name}`,
@@ -225,11 +227,11 @@ async function updatePublicationStatus(status: string) {
           />
 
           <Select
-            label="الفصل"
+            label={t("term")}
             value={termId}
             onChange={setTermId}
             options={[
-              { value: "", label: "اختر الفصل" },
+              { value: "", label: t("selectTerm") },
               ...terms.map((term) => ({
                 value: term.id,
                 label: `${term.academicYear.name} - ${term.name}`,
@@ -245,26 +247,26 @@ async function updatePublicationStatus(status: string) {
             <Card padding="md">
               <div className="flex items-center gap-2 text-blue-700">
                 <Info className="h-4 w-4" />
-                <span className="text-sm font-medium">قاعدة الحساب الحالية</span>
+                <span className="text-sm font-medium">{t("currentRule")}</span>
               </div>
               <p className="mt-3 text-sm text-gray-700">{data.termCalculationNote}</p>
             </Card>
             <Card padding="md">
               <div className="flex items-center gap-2 text-amber-700">
                 <ClipboardCheck className="h-4 w-4" />
-                <span className="text-sm font-medium">سياسة هذا الفصل</span>
+                <span className="text-sm font-medium">{t("currentPolicy")}</span>
               </div>
               <p className="mt-3 text-sm text-gray-700">{data.termPolicyNote}</p>
             </Card>
             <Card padding="md">
               <div className="flex items-center gap-2 text-purple-700">
                 <Lock className="h-4 w-4" />
-                <span className="text-sm font-medium">ماذا تعني الحالات؟</span>
+                <span className="text-sm font-medium">{t("statusesMeaning")}</span>
               </div>
               <div className="mt-3 space-y-1 text-sm text-gray-700">
-                <p><span className="font-medium">مفتوح:</span> ما زالت المراجعة والتعديل ممكنة.</p>
-                <p><span className="font-medium">معتمد:</span> النتائج صالحة ويمكن تجهيز نشرها.</p>
-                <p><span className="font-medium">مقفول:</span> تم تثبيت النتائج ومنع تعديلها.</p>
+                <p><span className="font-medium">{t("openMeaning")}</span> {t("openMeaningText")}</p>
+                <p><span className="font-medium">{t("approvedMeaning")}</span> {t("approvedMeaningText")}</p>
+                <p><span className="font-medium">{t("lockedMeaning")}</span> {t("lockedMeaningText")}</p>
               </div>
             </Card>
           </div>
@@ -273,20 +275,20 @@ async function updatePublicationStatus(status: string) {
             <Card padding="md">
               <div className="flex items-center gap-2 text-blue-600 mb-1">
                 <Trophy className="h-5 w-5" />
-                <span className="text-sm font-medium">معدل القسم</span>
+                <span className="text-sm font-medium">{t("classAverage")}</span>
               </div>
               <p className="text-2xl font-bold">{data.stats.classAverage != null ? data.stats.classAverage.toFixed(2) : "—"}</p>
             </Card>
             <Card padding="md">
               <div className="flex items-center gap-2 text-green-600 mb-1">
                 <BarChart3 className="h-5 w-5" />
-                <span className="text-sm font-medium">عدد التقويمات</span>
+                <span className="text-sm font-medium">{t("assessmentsCount")}</span>
               </div>
               <p className="text-2xl font-bold">{data.stats.assessments}</p>
             </Card>
             <Card padding="md">
               <div className="flex items-center gap-2 text-purple-600 mb-1">
-                <span className="text-sm font-medium">عدد التلاميذ</span>
+                <span className="text-sm font-medium">{t("studentsCount")}</span>
               </div>
               <p className="text-2xl font-bold">{data.stats.students}</p>
             </Card>
@@ -296,9 +298,9 @@ async function updatePublicationStatus(status: string) {
             <Card>
               <div className="flex items-center justify-between gap-4 mb-4">
                 <div>
-                  <h2 className="font-semibold text-lg">جاهزية المواد</h2>
+                  <h2 className="font-semibold text-lg">{t("subjectsReadiness")}</h2>
                   <p className="text-sm text-gray-500">
-                    يوضح هذا الجدول المواد الجاهزة للحساب والمواد التي ما زالت تنقصها تقويمات أو ضوارب.
+                    {t("subjectsReadinessText")}
                   </p>
                 </div>
                 <Badge variant={data.readiness.publishable ? "success" : "warning"}>
@@ -307,7 +309,7 @@ async function updatePublicationStatus(status: string) {
               </div>
 
               {data.readiness.assignedSubjectsCount === 0 ? (
-                <p className="py-8 text-center text-gray-400">لا توجد مواد مرتبطة بهذا القسم بعد.</p>
+                <p className="py-8 text-center text-gray-400">{t("noAssignedSubjects")}</p>
               ) : (
                 <div className="space-y-3">
                   {subjectHeaders.map((subject) => {
@@ -322,19 +324,19 @@ async function updatePublicationStatus(status: string) {
                             <p className="font-semibold">{subject.nameAr}</p>
                             <p className="mt-1 text-sm text-gray-500">
                               {ready
-                                ? "المادة مكتملة ويمكن احتسابها لجميع التلاميذ."
+                                ? t("subjectComplete")
                                 : incomplete
-                                  ? `${incomplete.readyStudents}/${incomplete.studentsCount} تلميذ مكتمل`
-                                  : "ينقص تحديد الضارب لهذه المادة."}
+                                  ? t("subjectCompletedCount", { ready: incomplete.readyStudents, total: incomplete.studentsCount })
+                                  : t("subjectMissingCoefficient")}
                             </p>
                             {!ready && incomplete && incomplete.missingAssessmentTypes.length > 0 && (
                               <p className="mt-1 text-xs text-amber-700">
-                                ينقص: {incomplete.missingAssessmentTypes.join("، ")}
+                                {t("missingItems", { items: incomplete.missingAssessmentTypes.join("، ") })}
                               </p>
                             )}
                           </div>
                           <Badge variant={ready ? "success" : "warning"}>
-                            {ready ? "جاهزة" : "ناقصة"}
+                            {ready ? t("ready") : t("incomplete")}
                           </Badge>
                         </div>
                       </div>
@@ -346,25 +348,25 @@ async function updatePublicationStatus(status: string) {
 
             <Card>
               <div className="mb-4">
-                <h2 className="font-semibold text-lg">ملخص القسم</h2>
+                <h2 className="font-semibold text-lg">{t("classSummary")}</h2>
                 <p className="text-sm text-gray-500">
-                  أفضل النتائج الحالية وعدد التلاميذ الذين اكتملت نتائجهم في هذا الفصل.
+                  {t("classSummaryText")}
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <div className="rounded-xl bg-blue-50 px-4 py-3">
-                  <p className="text-sm text-blue-700">مكتملون</p>
+                  <p className="text-sm text-blue-700">{t("completed")}</p>
                   <p className="text-2xl font-bold text-blue-900">{data.readiness.fullyComputedStudents}</p>
                 </div>
                 <div className="rounded-xl bg-amber-50 px-4 py-3">
-                  <p className="text-sm text-amber-700">بانتظار الاستكمال</p>
+                  <p className="text-sm text-amber-700">{t("waitingCompletion")}</p>
                   <p className="text-2xl font-bold text-amber-900">{data.readiness.studentsCount - data.readiness.fullyComputedStudents}</p>
                 </div>
               </div>
 
               {topStudents.length === 0 ? (
-                <p className="py-6 text-center text-gray-400">لم تكتمل نتائج أي تلميذ بعد.</p>
+                <p className="py-6 text-center text-gray-400">{t("noCompletedStudents")}</p>
               ) : (
                 <div className="space-y-3">
                   {topStudents.map((row, index) => (
@@ -372,10 +374,10 @@ async function updatePublicationStatus(status: string) {
                       <div className="flex items-center justify-between gap-4">
                         <div>
                           <p className="font-semibold">{row.studentName}</p>
-                          <p className="text-sm text-gray-500">الرتبة الحالية: {row.rank || index + 1}</p>
+                          <p className="text-sm text-gray-500">{t("currentRank", { rank: row.rank || index + 1 })}</p>
                         </div>
                         <div className="text-left">
-                          <p className="text-xs text-gray-400">المعدل</p>
+                          <p className="text-xs text-gray-400">{t("average")}</p>
                           <p className="text-xl font-bold text-blue-700">{row.average?.toFixed(2) || "—"}</p>
                         </div>
                       </div>
@@ -406,6 +408,7 @@ async function updatePublicationStatus(status: string) {
               <Link href={`/school/results/report?classroomId=${classroomId}&termId=${termId}`}>
                 <Button variant="secondary">
                   <Printer className="h-4 w-4" /> طباعة كشف القسم
+                  <Printer className="h-4 w-4" /> {t("printClassReport")}
                 </Button>
               </Link>
                 <Button
@@ -414,7 +417,7 @@ async function updatePublicationStatus(status: string) {
                   onClick={() => updatePublicationStatus(RESULT_PUBLICATION_STATUSES.OPEN)}
                   disabled={data.publicationStatus === RESULT_PUBLICATION_STATUSES.OPEN}
                 >
-                  فتح
+                  {t("open")}
                 </Button>
                 <Button
                   variant="secondary"
@@ -422,14 +425,14 @@ async function updatePublicationStatus(status: string) {
                   onClick={() => updatePublicationStatus(RESULT_PUBLICATION_STATUSES.APPROVED)}
                   disabled={data.publicationStatus === RESULT_PUBLICATION_STATUSES.APPROVED || !canApproveOrLock}
                 >
-                  <CheckCircle2 className="h-4 w-4" /> اعتماد
+                  <CheckCircle2 className="h-4 w-4" /> {t("approve")}
                 </Button>
                 <Button
                   loading={saving}
                   onClick={() => updatePublicationStatus(RESULT_PUBLICATION_STATUSES.LOCKED)}
                   disabled={data.publicationStatus === RESULT_PUBLICATION_STATUSES.LOCKED || !canApproveOrLock || data.publicationStatus !== RESULT_PUBLICATION_STATUSES.APPROVED}
                 >
-                  <Lock className="h-4 w-4" /> قفل
+                  <Lock className="h-4 w-4" /> {t("lock")}
                 </Button>
               </div>
             </div>
@@ -438,31 +441,31 @@ async function updatePublicationStatus(status: string) {
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="font-semibold">
-                    {data.readiness.publishable ? "النتائج مكتملة وقابلة للاعتماد" : "النتائج غير مكتملة بعد"}
+                    {data.readiness.publishable ? t("resultsReady") : t("resultsNotReady")}
                   </p>
                   <p className="mt-1">
-                    المواد الجاهزة: {data.readiness.readySubjectsCount} من {data.readiness.assignedSubjectsCount}
+                    {t("readySubjectsCount", { ready: data.readiness.readySubjectsCount, total: data.readiness.assignedSubjectsCount })}
                     {" · "}
-                    التلاميذ المكتملون: {data.readiness.fullyComputedStudents} من {data.readiness.studentsCount}
+                    {t("completedStudentsCount", { done: data.readiness.fullyComputedStudents, total: data.readiness.studentsCount })}
                   </p>
                   <p className="mt-1">{data.termPolicyNote}</p>
                 </div>
                 <Badge variant={data.readiness.publishable ? "success" : "warning"}>
-                  {data.readiness.publishable ? "جاهز للنشر" : "بانتظار الاستكمال"}
+                  {data.readiness.publishable ? t("readyToPublish") : t("waitingToComplete")}
                 </Badge>
               </div>
               <div className="mt-3 grid gap-2 md:grid-cols-3">
                 <div className="rounded-lg bg-white/70 px-3 py-2">
-                  <p className="text-xs opacity-70">الخطوة 1</p>
-                  <p className="font-medium">إكمال التقويمات والضوارب</p>
+                  <p className="text-xs opacity-70">{t("step1")}</p>
+                  <p className="font-medium">{t("step1Text")}</p>
                 </div>
                 <div className="rounded-lg bg-white/70 px-3 py-2">
-                  <p className="text-xs opacity-70">الخطوة 2</p>
-                  <p className="font-medium">اعتماد النتائج</p>
+                  <p className="text-xs opacity-70">{t("step2")}</p>
+                  <p className="font-medium">{t("step2Text")}</p>
                 </div>
                 <div className="rounded-lg bg-white/70 px-3 py-2">
-                  <p className="text-xs opacity-70">الخطوة 3</p>
-                  <p className="font-medium">قفل النتائج ثم طباعة الكشف</p>
+                  <p className="text-xs opacity-70">{t("step3")}</p>
+                  <p className="font-medium">{t("step3Text")}</p>
                 </div>
               </div>
 
@@ -470,13 +473,13 @@ async function updatePublicationStatus(status: string) {
                 <div className="mt-3 space-y-2">
                   {data.readiness.missingCoefficientSubjects.length > 0 && (
                     <p>
-                      مواد بدون ضوارب: {data.readiness.missingCoefficientSubjects.map((item) => item.subjectName).join("، ")}
+                      {t("subjectsWithoutCoefficients", { items: data.readiness.missingCoefficientSubjects.map((item) => item.subjectName).join("، ") })}
                     </p>
                   )}
                   {data.readiness.incompleteSubjects.slice(0, 4).map((subject) => (
                     <p key={subject.subjectId}>
-                      {subject.subjectName}: {subject.readyStudents}/{subject.studentsCount} تلميذ مكتمل
-                      {subject.missingAssessmentTypes.length > 0 ? ` · ينقص: ${subject.missingAssessmentTypes.join("، ")}` : ""}
+                      {t("subjectStudentComplete", { subject: subject.subjectName, ready: subject.readyStudents, total: subject.studentsCount })}
+                      {subject.missingAssessmentTypes.length > 0 ? t("subjectMissingTypes", { items: subject.missingAssessmentTypes.join("، ") }) : ""}
                     </p>
                   ))}
                 </div>
@@ -484,19 +487,19 @@ async function updatePublicationStatus(status: string) {
             </div>
 
             {!hasComputedResults ? (
-              <p className="text-center text-gray-400 py-8">لا توجد نتائج كافية لتوليد كشف هذا القسم بعد</p>
+              <p className="text-center text-gray-400 py-8">{t("noEnoughResults")}</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b text-gray-500">
-                      {data.template.showRank && <th className="text-right py-2 px-3">الرتبة</th>}
-                      <th className="text-right py-2 px-3">التلميذ</th>
+                      {data.template.showRank && <th className="text-right py-2 px-3">{t("rank")}</th>}
+                      <th className="text-right py-2 px-3">{t("student")}</th>
                       {subjectHeaders.map((subject) => (
                         <th key={subject.id} className="text-center py-2 px-3">{subject.nameAr}</th>
                       ))}
-                      {data.template.showWeightedScore && <th className="text-center py-2 px-3">المجموع الموزون</th>}
-                      <th className="text-center py-2 px-3">المعدل العام</th>
+                      {data.template.showWeightedScore && <th className="text-center py-2 px-3">{t("weightedTotal")}</th>}
+                      <th className="text-center py-2 px-3">{t("overallAverage")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -513,10 +516,10 @@ async function updatePublicationStatus(status: string) {
                             {data.template.showRank && <td className="py-2 px-3 font-semibold">{row.rank ?? "—"}</td>}
                             <td className="py-2 px-3">
                               <div className="flex items-center justify-between gap-3">
-                                <div>
-                                  <div className="font-medium">{row.studentName}</div>
-                                  <div className="text-xs text-gray-400">
-                                    مواد مكتملة: {completedSubjects}/{subjectHeaders.length}
+                                  <div>
+                                    <div className="font-medium">{row.studentName}</div>
+                                    <div className="text-xs text-gray-400">
+                                    {t("completedSubjects", { done: completedSubjects, total: subjectHeaders.length })}
                                   </div>
                                 </div>
                                 {isExpanded ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
@@ -546,25 +549,25 @@ async function updatePublicationStatus(status: string) {
                                 <div className="space-y-3">
                                   <div className="flex items-center justify-between gap-3">
                                     <div>
-                                      <p className="font-semibold">تفاصيل حساب {row.studentName}</p>
+                                      <p className="font-semibold">{t("calculationDetails", { name: row.studentName })}</p>
                                       <p className="text-sm text-gray-500">{data.termCalculationNote}</p>
                                     </div>
                                     <Badge variant={row.average != null ? "success" : "warning"}>
-                                      {row.average != null ? "النتيجة مكتملة" : "بانتظار الاستكمال"}
+                                      {row.average != null ? t("resultComplete") : t("resultPending")}
                                     </Badge>
                                   </div>
                                   <div className="overflow-x-auto">
                                     <table className="w-full text-sm">
                                       <thead>
                                         <tr className="border-b text-gray-500">
-                                          <th className="px-3 py-2 text-right">المادة</th>
-                                          <th className="px-3 py-2 text-center">الاختبارات</th>
-                                          <th className="px-3 py-2 text-center">امتحان 1</th>
-                                          <th className="px-3 py-2 text-center">امتحان 2</th>
-                                          <th className="px-3 py-2 text-center">امتحان 3</th>
-                                          <th className="px-3 py-2 text-center">ضارب المادة</th>
-                                          <th className="px-3 py-2 text-center">معدل المادة</th>
-                                          <th className="px-3 py-2 text-center">المجموع الموزون</th>
+                                          <th className="px-3 py-2 text-right">{t("subject")}</th>
+                                          <th className="px-3 py-2 text-center">{t("tests")}</th>
+                                          <th className="px-3 py-2 text-center">{t("exam1")}</th>
+                                          <th className="px-3 py-2 text-center">{t("exam2")}</th>
+                                          <th className="px-3 py-2 text-center">{t("exam3")}</th>
+                                          <th className="px-3 py-2 text-center">{t("subjectCoefficient")}</th>
+                                          <th className="px-3 py-2 text-center">{t("subjectAverage")}</th>
+                                          <th className="px-3 py-2 text-center">{t("weightedTotal")}</th>
                                         </tr>
                                       </thead>
                                       <tbody>
@@ -584,7 +587,7 @@ async function updatePublicationStatus(status: string) {
                                                 {subjectResult?.finalAverage != null ? (
                                                   <span className="font-semibold text-blue-700">{subjectResult.finalAverage.toFixed(2)}</span>
                                                 ) : (
-                                                  <Badge variant="warning">ناقص</Badge>
+                                                  <Badge variant="warning">{t("missing")}</Badge>
                                                 )}
                                               </td>
                                               <td className="px-3 py-2 text-center">

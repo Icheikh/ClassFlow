@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import { useLocale, useTranslations } from "next-intl"
 import { api } from "@/lib/api"
 import { Button, Card, Input, LoadingPage, Textarea } from "@/components/ui"
 import toast from "react-hot-toast"
 import { useCurrentUser } from "@/hooks/useCurrentUser"
+import { getDateLocale } from "@/lib/locale"
 
 type TemplateSummary = {
   id: string
@@ -70,54 +72,50 @@ type TermOption = {
   isActive: boolean
 }
 
-const EMPTY_TEMPLATE: TemplateDetail = {
-  id: "",
-  name: "القالب الرئيسي",
-  sourceType: "CUSTOM",
-  sourceFileName: null,
-  sourceDescription: null,
-  sourcePreview: null,
-  definitionVersion: 1,
-  isActive: true,
-  title: "كشف نتائج القسم",
-  subtitle: "",
-  footerNote: "",
-  notesLabel: "ملاحظات الإدارة",
-  signatureLabel: "الختم والتوقيع",
-  classroomLabel: "القسم",
-  termLabel: "الفصل",
-  statsLabel: "إحصاءات",
-  studentsCountLabel: "عدد التلاميذ",
-  classAverageLabel: "معدل القسم",
-  showRank: true,
-  showWeightedScore: true,
-  showRuleNotes: true,
-  showPolicyNote: true,
-  showSubjectCoefficient: true,
-  showSchoolContacts: true,
-  showNotesSection: true,
-  showSignatureSection: true,
-  createdAt: "",
-  updatedAt: "",
+function createEmptyTemplate(t: (key: string) => string): TemplateDetail {
+  return {
+    id: "",
+    name: t("defaultTemplateName"),
+    sourceType: "CUSTOM",
+    sourceFileName: null,
+    sourceDescription: null,
+    sourcePreview: null,
+    definitionVersion: 1,
+    isActive: true,
+    title: t("defaultReportTitle"),
+    subtitle: "",
+    footerNote: "",
+    notesLabel: t("defaultNotesLabel"),
+    signatureLabel: t("defaultSignatureLabel"),
+    classroomLabel: t("defaultClassroomLabel"),
+    termLabel: t("defaultTermLabel"),
+    statsLabel: t("defaultStatsLabel"),
+    studentsCountLabel: t("defaultStudentsCountLabel"),
+    classAverageLabel: t("defaultClassAverageLabel"),
+    showRank: true,
+    showWeightedScore: true,
+    showRuleNotes: true,
+    showPolicyNote: true,
+    showSubjectCoefficient: true,
+    showSchoolContacts: true,
+    showNotesSection: true,
+    showSignatureSection: true,
+    createdAt: "",
+    updatedAt: "",
+  }
 }
 
-const EMPTY_FORM: SettingsResponse = {
-  name: "",
-  phone: "",
-  email: "",
-  address: "",
-  activeTemplateId: "",
-  templates: [],
-  template: EMPTY_TEMPLATE,
+function createEmptyForm(t: (key: string) => string): SettingsResponse {
+  return {
+    name: "",
+    phone: "",
+    email: "",
+    address: "",
+    activeTemplateId: "",
+    templates: [],
+    template: createEmptyTemplate(t),
+  }
 }
-
-const SOURCE_OPTIONS = [
-  { value: "CUSTOM", label: "قالب مخصص داخل النظام" },
-  { value: "SYSTEM", label: "قالب نظامي" },
-  { value: "WORD", label: "مستند Word" },
-  { value: "EXCEL", label: "ملف Excel" },
-  { value: "JSON_IMPORT", label: "استيراد JSON" },
-]
 
 const TEMPLATE_PLACEHOLDERS = [
   "{{school.name}}",
@@ -140,6 +138,15 @@ const TEMPLATE_PLACEHOLDERS = [
 export default function SchoolSettingsPage() {
   const router = useRouter()
   const user = useCurrentUser()
+  const locale = useLocale()
+  const t = useTranslations("settingsPage")
+  const sourceOptions = [
+    { value: "CUSTOM", label: t("sourceOptionCustom") },
+    { value: "SYSTEM", label: t("sourceOptionSystem") },
+    { value: "WORD", label: t("sourceOptionWord") },
+    { value: "EXCEL", label: t("sourceOptionExcel") },
+    { value: "JSON_IMPORT", label: t("sourceOptionJsonImport") },
+  ]
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [templateBusy, setTemplateBusy] = useState(false)
@@ -150,7 +157,7 @@ export default function SchoolSettingsPage() {
   const [terms, setTerms] = useState<TermOption[]>([])
   const [previewClassroomId, setPreviewClassroomId] = useState("")
   const [previewTermId, setPreviewTermId] = useState("")
-  const [form, setForm] = useState<SettingsResponse>(EMPTY_FORM)
+  const [form, setForm] = useState<SettingsResponse>(() => createEmptyForm(t))
 
   function updateTemplate<Key extends keyof TemplateDetail>(key: Key, value: TemplateDetail[Key]) {
     setForm((current) => ({
@@ -229,7 +236,7 @@ export default function SchoolSettingsPage() {
 
   async function save() {
     if (!form.name) {
-      toast.error("اسم المدرسة مطلوب")
+      toast.error(t("schoolNameRequired"))
       return
     }
 
@@ -239,7 +246,7 @@ export default function SchoolSettingsPage() {
       toast.error(error)
     } else if (data) {
       applySettings(data)
-      toast.success("تم حفظ الإعدادات")
+      toast.success(t("settingsSaved"))
     }
     setSaving(false)
   }
@@ -252,7 +259,7 @@ export default function SchoolSettingsPage() {
       template: TemplateDetail
     }>("/api/school/result-report-templates", {
       action: "create",
-      name: `${form.template.name} - نسخة`,
+      name: `${form.template.name} - ${t("templateCopySuffix")}`,
     })
 
     if (error) {
@@ -272,7 +279,7 @@ export default function SchoolSettingsPage() {
         },
       }))
       setExportPayload("")
-      toast.success("تم إنشاء نسخة جديدة من القالب")
+      toast.success(t("templateCopyCreated"))
     }
     setTemplateBusy(false)
   }
@@ -326,14 +333,14 @@ export default function SchoolSettingsPage() {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(serialized).catch(() => null)
       }
-      toast.success("تم تجهيز تصدير القالب")
+      toast.success(t("templateExportPrepared"))
     }
     setTemplateBusy(false)
   }
 
   async function importTemplate() {
     if (!importPayload.trim()) {
-      toast.error("ألصق JSON القالب أولاً")
+      toast.error(t("pasteTemplateJson"))
       return
     }
 
@@ -364,14 +371,14 @@ export default function SchoolSettingsPage() {
       }))
       setExportPayload("")
       setImportPayload("")
-      toast.success("تم استيراد القالب وتفعيله")
+      toast.success(t("templateImported"))
     }
     setTemplateBusy(false)
   }
 
   async function importTemplateFile() {
     if (!importFile) {
-      toast.error("اختر ملف Word أو Excel أولاً")
+      toast.error(t("selectWordOrExcel"))
       return
     }
 
@@ -404,18 +411,18 @@ export default function SchoolSettingsPage() {
       }))
       setImportFile(null)
       setExportPayload("")
-      toast.success("تم استيراد ملف القالب وتفعيله")
+      toast.success(t("templateFileImported"))
     }
     setTemplateBusy(false)
   }
 
   async function deleteTemplate() {
     if (form.templates.length <= 1) {
-      toast.error("يجب الإبقاء على قالب واحد على الأقل")
+      toast.error(t("keepAtLeastOneTemplate"))
       return
     }
 
-    const confirmed = window.confirm(`سيتم حذف القالب "${form.template.name}"`)
+    const confirmed = window.confirm(t("confirmDeleteTemplate", { name: form.template.name }))
     if (!confirmed) return
 
     setTemplateBusy(true)
@@ -423,7 +430,7 @@ export default function SchoolSettingsPage() {
     if (error) {
       toast.error(error)
     } else {
-      toast.success("تم حذف القالب")
+      toast.success(t("templateDeleted"))
       await reloadSettings()
       setExportPayload("")
     }
@@ -432,7 +439,7 @@ export default function SchoolSettingsPage() {
 
   function openPreview() {
     if (!previewClassroomId || !previewTermId || !form.activeTemplateId) {
-      toast.error("اختر قسماً وفصلاً للمعاينة أولاً")
+      toast.error(t("selectPreviewContext"))
       return
     }
 
@@ -451,13 +458,13 @@ export default function SchoolSettingsPage() {
   return (
     <div className="space-y-6">
       <div className="max-w-2xl">
-        <h1 className="mb-6 text-2xl font-bold">إعدادات المدرسة</h1>
+        <h1 className="mb-6 text-2xl font-bold">{t("title")}</h1>
         <Card padding="lg">
           <div className="space-y-4">
-            <Input label="اسم المدرسة" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-            <Input label="الهاتف" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-            <Input label="البريد الإلكتروني" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-            <Input label="العنوان" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+            <Input label={t("schoolName")} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            <Input label={t("phone")} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+            <Input label={t("email")} type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+            <Input label={t("address")} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
           </div>
         </Card>
       </div>
@@ -466,20 +473,20 @@ export default function SchoolSettingsPage() {
         <div className="space-y-6">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
-              <h2 className="text-lg font-semibold">قوالب كشوف النتائج</h2>
+              <h2 className="text-lg font-semibold">{t("templatesTitle")}</h2>
               <p className="mt-1 text-sm text-gray-500">
-                لكل مدرسة عدة قوالب، والنظام يولد الكشف دائماً وفق القالب النشط.
+                {t("templatesSubtitle")}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button variant="secondary" onClick={createTemplateCopy} loading={templateBusy}>
-                نسخ القالب الحالي
+                {t("copyCurrentTemplate")}
               </Button>
               <Button variant="secondary" onClick={exportTemplate} loading={templateBusy}>
-                تصدير JSON
+                {t("exportJson")}
               </Button>
               <Button variant="danger" onClick={deleteTemplate} loading={templateBusy}>
-                حذف القالب
+                {t("deleteTemplate")}
               </Button>
             </div>
           </div>
@@ -487,7 +494,7 @@ export default function SchoolSettingsPage() {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-4">
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">القالب النشط</label>
+                <label className="block text-sm font-medium text-gray-700">{t("activeTemplate")}</label>
                 <select
                   value={form.activeTemplateId}
                   onChange={(e) => void activateTemplate(e.target.value)}
@@ -495,22 +502,22 @@ export default function SchoolSettingsPage() {
                 >
                   {form.templates.map((template) => (
                     <option key={template.id} value={template.id}>
-                      {template.name} {template.isActive ? "• نشط" : ""}
+                      {template.name} {template.isActive ? ` ${t("activeBadge")}` : ""}
                     </option>
                   ))}
                 </select>
               </div>
 
               <div className="rounded-xl border border-gray-200 p-4 text-sm text-gray-700">
-                <p className="font-medium text-gray-900">معلومات القالب</p>
-                <p className="mt-2">المصدر: {SOURCE_OPTIONS.find((item) => item.value === form.template.sourceType)?.label || form.template.sourceType}</p>
-                <p className="mt-1">آخر تعديل: {form.template.updatedAt ? new Date(form.template.updatedAt).toLocaleString("ar") : "—"}</p>
-                <p className="mt-1">المرجع الأصلي: {form.template.sourceFileName || "غير محدد"}</p>
+                <p className="font-medium text-gray-900">{t("templateInfo")}</p>
+                <p className="mt-2">{t("source")}: {sourceOptions.find((item) => item.value === form.template.sourceType)?.label || form.template.sourceType}</p>
+                <p className="mt-1">{t("updatedAt")}: {form.template.updatedAt ? new Date(form.template.updatedAt).toLocaleString(getDateLocale(locale)) : "—"}</p>
+                <p className="mt-1">{t("originalReference")}: {form.template.sourceFileName || t("unspecified")}</p>
               </div>
 
               {form.template.sourcePreview ? (
                 <div className="rounded-xl border border-gray-200 p-4 text-sm text-gray-700">
-                  <p className="font-medium text-gray-900">معاينة المرجع المستورد</p>
+                  <p className="font-medium text-gray-900">{t("importedSourcePreview")}</p>
                   <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap rounded-lg bg-gray-50 p-3 text-xs leading-6 text-gray-700">
                     {form.template.sourcePreview}
                   </pre>
@@ -518,16 +525,16 @@ export default function SchoolSettingsPage() {
               ) : null}
 
               <div className="rounded-xl border border-gray-200 p-4 text-sm text-gray-700">
-                <p className="font-medium text-gray-900">معاينة القالب</p>
+                <p className="font-medium text-gray-900">{t("templatePreview")}</p>
                 <div className="mt-3 space-y-3">
                   <div className="space-y-1">
-                    <label className="block text-sm font-medium text-gray-700">قسم المعاينة</label>
+                    <label className="block text-sm font-medium text-gray-700">{t("previewClassroom")}</label>
                     <select
                       value={previewClassroomId}
                       onChange={(e) => setPreviewClassroomId(e.target.value)}
                       className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="">اختر القسم</option>
+                      <option value="">{t("selectClassroom")}</option>
                       {classrooms.map((classroom) => (
                         <option key={classroom.id} value={classroom.id}>
                           {classroom.name} · {classroom.level.stage.name} - {classroom.level.name}
@@ -537,22 +544,22 @@ export default function SchoolSettingsPage() {
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="block text-sm font-medium text-gray-700">فصل المعاينة</label>
+                    <label className="block text-sm font-medium text-gray-700">{t("previewTerm")}</label>
                     <select
                       value={previewTermId}
                       onChange={(e) => setPreviewTermId(e.target.value)}
                       className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="">اختر الفصل</option>
+                      <option value="">{t("selectTerm")}</option>
                       {terms.map((term) => (
                         <option key={term.id} value={term.id}>
-                          {term.name} {term.isActive ? "• نشط" : ""}
+                          {term.name} {term.isActive ? ` ${t("activeBadge")}` : ""}
                         </option>
                       ))}
                     </select>
                   </div>
                   <Button variant="secondary" onClick={openPreview}>
-                    فتح المعاينة الحية
+                    {t("openLivePreview")}
                   </Button>
                 </div>
               </div>
@@ -560,20 +567,20 @@ export default function SchoolSettingsPage() {
 
             <div className="space-y-4">
               <Textarea
-                label="استيراد قالب JSON"
+                label={t("importJsonTemplate")}
                 value={importPayload}
                 onChange={(e) => setImportPayload(e.target.value)}
                 rows={8}
-                placeholder='ألصق هنا JSON الذي تم تصديره من مدرسة أخرى أو من هذا النظام.'
+                placeholder={t("importJsonPlaceholder")}
               />
               <Button onClick={importTemplate} loading={templateBusy}>
-                استيراد وتفعيل
+                {t("importAndActivate")}
               </Button>
 
               <div className="rounded-xl border border-dashed border-gray-300 p-4">
-                <p className="text-sm font-medium text-gray-900">استيراد ملف Word أو Excel</p>
+                <p className="text-sm font-medium text-gray-900">{t("importWordOrExcel")}</p>
                 <p className="mt-1 text-sm text-gray-500">
-                  ارفع ملف المدرسة الحالي بصيغة <code>.docx</code> أو <code>.xlsx/.xls</code> ليتم إنشاء قالب جديد منه داخل النظام.
+                  {t("importWordOrExcelText")}
                 </p>
                 <input
                   type="file"
@@ -582,10 +589,10 @@ export default function SchoolSettingsPage() {
                   className="mt-3 block w-full text-sm text-gray-700 file:ml-4 file:rounded-lg file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-blue-700"
                 />
                 <p className="mt-2 text-xs text-gray-500">
-                  {importFile ? `الملف المحدد: ${importFile.name}` : "لم يتم اختيار ملف بعد."}
+                  {importFile ? t("selectedFile", { name: importFile.name }) : t("noFileSelected")}
                 </p>
                 <Button className="mt-3" variant="secondary" onClick={importTemplateFile} loading={templateBusy}>
-                  رفع الملف وإنشاء قالب
+                  {t("uploadFileCreateTemplate")}
                 </Button>
               </div>
             </div>
@@ -593,18 +600,18 @@ export default function SchoolSettingsPage() {
 
           <div className="grid gap-4 md:grid-cols-2">
             <Input
-              label="اسم القالب داخل النظام"
+              label={t("templateSystemName")}
               value={form.template.name}
               onChange={(e) => updateTemplate("name", e.target.value)}
             />
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">نوع المصدر</label>
+              <label className="block text-sm font-medium text-gray-700">{t("sourceType")}</label>
               <select
                 value={form.template.sourceType}
                 onChange={(e) => updateTemplate("sourceType", e.target.value)}
                 className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                {SOURCE_OPTIONS.map((option) => (
+                {sourceOptions.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
@@ -612,77 +619,77 @@ export default function SchoolSettingsPage() {
               </select>
             </div>
             <Input
-              label="اسم ملف المرجع"
+              label={t("sourceFileName")}
               value={form.template.sourceFileName || ""}
               onChange={(e) => updateTemplate("sourceFileName", e.target.value)}
-              placeholder="مثال: result-template.docx"
+              placeholder={t("sourceFilePlaceholder")}
             />
             <Input
-              label="عنوان الكشف"
+              label={t("reportTitle")}
               value={form.template.title}
               onChange={(e) => updateTemplate("title", e.target.value)}
             />
             <Input
-              label="عنوان فرعي"
+              label={t("reportSubtitle")}
               value={form.template.subtitle || ""}
               onChange={(e) => updateTemplate("subtitle", e.target.value)}
             />
             <Input
-              label="عنوان خانة الملاحظات"
+              label={t("notesSectionTitle")}
               value={form.template.notesLabel}
               onChange={(e) => updateTemplate("notesLabel", e.target.value)}
             />
             <Input
-              label="عنوان خانة التوقيع"
+              label={t("signatureSectionTitle")}
               value={form.template.signatureLabel}
               onChange={(e) => updateTemplate("signatureLabel", e.target.value)}
             />
             <Textarea
-              label="وصف مصدر القالب"
+              label={t("sourceDescription")}
               value={form.template.sourceDescription || ""}
               onChange={(e) => updateTemplate("sourceDescription", e.target.value)}
               rows={3}
-              placeholder="مثال: مبني على الكشف القديم للمدرسة من ملف Word لسنة 2025"
+              placeholder={t("sourceDescriptionPlaceholder")}
             />
           </div>
 
           <div>
-            <h3 className="font-medium text-gray-900">ربط الحقول ببيانات النظام</h3>
+            <h3 className="font-medium text-gray-900">{t("bindingTitle")}</h3>
             <p className="mt-1 text-sm text-gray-500">
-              يمكنك إدخال متغيرات مثل {`{{school.name}}`} أو {`{{classroom.fullLabel}}`} داخل العناوين والنصوص، وسيتم استبدالها تلقائياً عند المعاينة والطباعة.
+              {t("bindingText")}
             </p>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
             <Input
-              label="عنوان بطاقة القسم"
+              label={t("classroomCardTitle")}
               value={form.template.classroomLabel}
               onChange={(e) => updateTemplate("classroomLabel", e.target.value)}
             />
             <Input
-              label="عنوان بطاقة الفصل"
+              label={t("termCardTitle")}
               value={form.template.termLabel}
               onChange={(e) => updateTemplate("termLabel", e.target.value)}
             />
             <Input
-              label="عنوان بطاقة الإحصاءات"
+              label={t("statsCardTitle")}
               value={form.template.statsLabel}
               onChange={(e) => updateTemplate("statsLabel", e.target.value)}
             />
             <Input
-              label="نص عدد التلاميذ"
+              label={t("studentsCountText")}
               value={form.template.studentsCountLabel}
               onChange={(e) => updateTemplate("studentsCountLabel", e.target.value)}
             />
             <Input
-              label="نص معدل القسم"
+              label={t("classAverageText")}
               value={form.template.classAverageLabel}
               onChange={(e) => updateTemplate("classAverageLabel", e.target.value)}
             />
           </div>
 
           <div className="rounded-xl border border-dashed border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
-            <p className="font-medium">المتغيرات المتاحة داخل القالب</p>
+            <p className="font-medium">{t("availablePlaceholders")}</p>
             <div className="mt-3 flex flex-wrap gap-2">
               {TEMPLATE_PLACEHOLDERS.map((placeholder) => (
                 <code key={placeholder} className="rounded bg-white px-2 py-1 text-xs text-blue-800">
@@ -693,69 +700,69 @@ export default function SchoolSettingsPage() {
           </div>
 
           <Textarea
-            label="ملاحظة أسفل الكشف"
+            label={t("footerNote")}
             value={form.template.footerNote || ""}
             onChange={(e) => updateTemplate("footerNote", e.target.value)}
             rows={3}
           />
 
           <div>
-            <h3 className="font-medium text-gray-900">العناصر الظاهرة في الكشف</h3>
+            <h3 className="font-medium text-gray-900">{t("visibleElementsTitle")}</h3>
             <p className="mt-1 text-sm text-gray-500">
-              هذه الخيارات تحدد ما سيظهر عند توليد الكشف النهائي من هذا القالب.
+              {t("visibleElementsText")}
             </p>
           </div>
 
           <div className="grid grid-cols-1 gap-3 text-sm text-gray-700 md:grid-cols-2">
             <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 px-3 py-2">
               <input type="checkbox" checked={form.template.showRank} onChange={(e) => updateTemplate("showRank", e.target.checked)} className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-              إظهار الرتبة
+              {t("showRank")}
             </label>
             <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 px-3 py-2">
               <input type="checkbox" checked={form.template.showWeightedScore} onChange={(e) => updateTemplate("showWeightedScore", e.target.checked)} className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-              إظهار المجموع الموزون
+              {t("showWeightedScore")}
             </label>
             <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 px-3 py-2">
               <input type="checkbox" checked={form.template.showRuleNotes} onChange={(e) => updateTemplate("showRuleNotes", e.target.checked)} className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-              إظهار قاعدة الحساب
+              {t("showRuleNotes")}
             </label>
             <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 px-3 py-2">
               <input type="checkbox" checked={form.template.showPolicyNote} onChange={(e) => updateTemplate("showPolicyNote", e.target.checked)} className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-              إظهار سياسة الفصل
+              {t("showPolicyNote")}
             </label>
             <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 px-3 py-2">
               <input type="checkbox" checked={form.template.showSubjectCoefficient} onChange={(e) => updateTemplate("showSubjectCoefficient", e.target.checked)} className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-              إظهار ضارب المادة
+              {t("showSubjectCoefficient")}
             </label>
             <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 px-3 py-2">
               <input type="checkbox" checked={form.template.showSchoolContacts} onChange={(e) => updateTemplate("showSchoolContacts", e.target.checked)} className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-              إظهار عنوان المدرسة وهاتفها
+              {t("showSchoolContacts")}
             </label>
             <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 px-3 py-2">
               <input type="checkbox" checked={form.template.showNotesSection} onChange={(e) => updateTemplate("showNotesSection", e.target.checked)} className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-              إظهار خانة الملاحظات
+              {t("showNotesSection")}
             </label>
             <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 px-3 py-2">
               <input type="checkbox" checked={form.template.showSignatureSection} onChange={(e) => updateTemplate("showSignatureSection", e.target.checked)} className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-              إظهار خانة التوقيع
+              {t("showSignatureSection")}
             </label>
           </div>
 
           <Textarea
-            label="آخر JSON تم تصديره"
+            label={t("lastExportedJson")}
             value={exportPayload}
             onChange={() => null}
             rows={10}
             readOnly
-            placeholder="عند الضغط على تصدير JSON سيظهر محتوى القالب هنا."
+            placeholder={t("exportPlaceholder")}
           />
 
           <p className="text-xs text-gray-500">
-            هذه المرحلة تبني محرك القوالب داخل النظام. استيراد ملفات Word وExcel نفسها وتحويلها تلقائياً إلى هذا القالب سيكون المرحلة التالية.
+            {t("phaseNote")}
           </p>
 
           <Button fullWidth loading={saving} onClick={save}>
-            حفظ إعدادات المدرسة والقالب النشط
+            {t("saveAll")}
           </Button>
         </div>
       </Card>

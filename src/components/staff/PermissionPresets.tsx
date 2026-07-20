@@ -1,22 +1,23 @@
 "use client"
 
 import { Button } from "@/components/ui"
+import { useTranslations } from "next-intl"
 
-const PRESETS: { label: string; permissions: string[] }[] = [
+const PRESETS: { key: string; permissions: string[] }[] = [
   {
-    label: "مدير الدراسات",
+    key: "academicManager",
     permissions: ["MANAGE_SUBJECTS", "MANAGE_COEFFICIENTS", "REVIEW_LESSONS", "APPROVE_GRADES"],
   },
   {
-    label: "محاسب",
+    key: "accountant",
     permissions: ["MANAGE_FEES", "RECORD_PAYMENTS", "VIEW_FINANCE_REPORTS"],
   },
   {
-    label: "مساعد مدير",
+    key: "assistantDirector",
     permissions: ["MANAGE_STUDENTS", "MANAGE_TEACHERS", "VIEW_REPORTS"],
   },
   {
-    label: "مراقب",
+    key: "supervisor",
     permissions: ["VIEW_REPORTS"],
   },
 ]
@@ -26,18 +27,20 @@ interface PermissionPresetsProps {
 }
 
 export function PermissionPresets({ onSelect }: PermissionPresetsProps) {
+  const t = useTranslations("permissionPresets")
+
   return (
     <div className="space-y-2">
-      <h4 className="text-sm font-semibold text-gray-700">قوالب سريعة</h4>
+      <h4 className="text-sm font-semibold text-gray-700">{t("title")}</h4>
       <div className="flex flex-wrap gap-2">
         {PRESETS.map((preset) => (
           <Button
-            key={preset.label}
+            key={preset.key}
             variant="secondary"
             size="sm"
             onClick={() => onSelect(preset.permissions)}
           >
-            {preset.label}
+            {t(preset.key)}
           </Button>
         ))}
       </div>

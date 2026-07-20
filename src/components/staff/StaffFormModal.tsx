@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useTranslations } from "next-intl"
 import { Modal, Input, Button } from "@/components/ui"
 import { PermissionGrid } from "./PermissionGrid"
 import { PermissionPresets } from "./PermissionPresets"
@@ -21,6 +22,8 @@ interface StaffFormModalProps {
 }
 
 export function StaffFormModal({ open, onClose, onSave, initial, title }: StaffFormModalProps) {
+  const t = useTranslations("staffForm")
+  const tCommon = useTranslations("common")
   const [form, setForm] = useState<StaffFormData>(
     initial || { name: "", email: "", phone: "", password: "password123" }
   )
@@ -46,27 +49,27 @@ export function StaffFormModal({ open, onClose, onSave, initial, title }: StaffF
     <Modal open={open} onClose={onClose} title={title}>
       <div className="space-y-4">
         <Input
-          label="الاسم الكامل"
+          label={t("nameLabel")}
           value={form.name}
           onChange={(e) => setForm({ ...form, name: e.target.value })}
-          placeholder="أحمد محمد"
+          placeholder={t("namePlaceholder")}
         />
         <Input
-          label="البريد الإلكتروني"
+          label={t("emailLabel")}
           type="email"
           value={form.email}
           onChange={(e) => setForm({ ...form, email: e.target.value })}
           placeholder="staff@school.edu"
         />
         <Input
-          label="الهاتف"
+          label={t("phoneLabel")}
           value={form.phone}
           onChange={(e) => setForm({ ...form, phone: e.target.value })}
-          placeholder="+222 12 34 56 78"
+          placeholder={t("phonePlaceholder")}
         />
         {!initial?.id && (
           <Input
-            label="كلمة المرور"
+            label={t("passwordLabel")}
             type="password"
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
@@ -82,7 +85,7 @@ export function StaffFormModal({ open, onClose, onSave, initial, title }: StaffF
         </div>
 
         <Button fullWidth onClick={handleSave} disabled={saving}>
-          {saving ? "جاري الحفظ..." : "حفظ"}
+          {saving ? t("saving") : tCommon("save")}
         </Button>
       </div>
     </Modal>

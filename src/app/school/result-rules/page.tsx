@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import { useLocale, useTranslations } from "next-intl"
 import { api } from "@/lib/api"
 import { Button, Card, Input, Textarea, Badge, ConfirmModal } from "@/components/ui"
 import { buildTermCalculationNote } from "@/lib/results"
+import { getDateLocale } from "@/lib/locale"
 import toast from "react-hot-toast"
 import { useCurrentUser } from "@/hooks/useCurrentUser"
 
@@ -174,6 +176,9 @@ function buildPreviewRule(form: RuleForm): ResultRule {
 export default function SchoolResultRulesPage() {
   const router = useRouter()
   const user = useCurrentUser()
+  const locale = useLocale()
+  const t = useTranslations("resultRulesPage")
+  const tCommon = useTranslations("common")
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [publishing, setPublishing] = useState(false)
@@ -236,7 +241,7 @@ export default function SchoolResultRulesPage() {
 
     if (error) toast.error(error)
     else {
-      toast.success("تم حفظ المسودة")
+      toast.success(t("draftSaved"))
       await loadData()
     }
     setSaving(false)
@@ -247,7 +252,7 @@ export default function SchoolResultRulesPage() {
     const { error } = await api.put("/api/school/result-rules", { action: "publish" })
     if (error) toast.error(error)
     else {
-      toast.success("تم نشر القاعدة")
+      toast.success(t("published"))
       await loadData()
     }
     setPublishing(false)
@@ -258,7 +263,7 @@ export default function SchoolResultRulesPage() {
     setDiscardConfirm(false)
     if (error) toast.error(error)
     else {
-      toast.success("تم حذف المسودة")
+      toast.success(t("draftDeleted"))
       await loadData()
     }
   }
@@ -266,7 +271,7 @@ export default function SchoolResultRulesPage() {
   if (loading || !data) {
     return (
       <Card>
-        <p className="text-center text-gray-400 py-8">جاري تحميل قواعد النتائج...</p>
+        <p className="text-center text-gray-400 py-8">{t("loading")}</p>
       </Card>
     )
   }
@@ -280,12 +285,12 @@ export default function SchoolResultRulesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">قواعد النتائج</h1>
-          <p className="text-sm text-gray-500">المدير يضبط أوزان الفصلين الأول والثاني، ثم يحدد صيغة النتيجة النهائية للفصل الثالث وينشر القاعدة بعد المعاينة</p>
+          <h1 className="text-2xl font-bold">{t("title")}</h1>
+          <p className="text-sm text-gray-500">{t("subtitle")}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant="success">المنشورة: الإصدار {data.publishedRule.version}</Badge>
-          {data.draftRule && <Badge variant="warning">هناك مسودة جديدة</Badge>}
+          <Badge variant="success">{t("publishedVersion", { version: data.publishedRule.version })}</Badge>
+          {data.draftRule && <Badge variant="warning">{t("hasDraft")}</Badge>}
         </div>
       </div>
 
@@ -296,141 +301,141 @@ export default function SchoolResultRulesPage() {
 
             <div className="grid gap-4 lg:grid-cols-3">
               <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm">
-                <p className="font-medium text-gray-900">الفصل الأول والثاني</p>
+                <p className="font-medium text-gray-900">{t("term12Title")}</p>
                 <p className="mt-2 text-gray-600">
-                  لكل فصل قاعدة مستقلة: وزن الاختبارات + وزن امتحان ذلك الفصل + المقام الخاص به.
+                  {t("term12Description")}
                 </p>
               </div>
               <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm">
-                <p className="font-medium text-blue-900">الفصل الثالث</p>
+                <p className="font-medium text-blue-900">{t("term3Title")}</p>
                 <p className="mt-2 text-blue-800">
-                  هنا تضبط القاعدة النهائية التراكمية التي يمكن أن تجمع معدل الاختبارات مع الامتحان الأول والثاني والأخير.
+                  {t("term3Description")}
                 </p>
               </div>
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm">
-                <p className="font-medium text-amber-900">طريقة العمل</p>
+                <p className="font-medium text-amber-900">{t("workflowTitle")}</p>
                 <p className="mt-2 text-amber-800">
-                  عدّل القاعدة كمسودة أولاً، راجع المعاينة أسفل الصفحة، ثم انشرها عندما تتأكد من أنها الصيغة المعتمدة للمدرسة.
+                  {t("workflowDescription")}
                 </p>
               </div>
             </div>
 
             <div className="grid grid-cols-1 gap-4">
               <div className="rounded-xl border border-gray-200 p-4">
-                <h3 className="font-semibold mb-3">الفصل الأول</h3>
+                <h3 className="font-semibold mb-3">{t("term1Title")}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Input label="وزن الاختبارات" type="number" step="0.1" min="0" value={form.term1TestWeight} onChange={(e) => setForm({ ...form, term1TestWeight: e.target.value })} />
-                  <Input label="وزن الامتحان الأول" type="number" step="0.1" min="0" value={form.term1ExamWeight} onChange={(e) => setForm({ ...form, term1ExamWeight: e.target.value })} />
-                  <Input label="المقام" type="number" step="0.1" min="0.1" value={form.term1Denominator} onChange={(e) => setForm({ ...form, term1Denominator: e.target.value })} />
+                  <Input label={t("testWeight")} type="number" step="0.1" min="0" value={form.term1TestWeight} onChange={(e) => setForm({ ...form, term1TestWeight: e.target.value })} />
+                  <Input label={t("term1ExamWeight")} type="number" step="0.1" min="0" value={form.term1ExamWeight} onChange={(e) => setForm({ ...form, term1ExamWeight: e.target.value })} />
+                  <Input label={t("denominator")} type="number" step="0.1" min="0.1" value={form.term1Denominator} onChange={(e) => setForm({ ...form, term1Denominator: e.target.value })} />
                 </div>
                 <div className="mt-3 flex flex-wrap gap-4 text-sm">
                   <label className="flex items-center gap-2">
                     <input type="checkbox" checked={form.term1RequireTest} onChange={(e) => setForm({ ...form, term1RequireTest: e.target.checked })} />
-                    الاختبارات إجبارية
+                    {t("testRequired")}
                   </label>
                   <label className="flex items-center gap-2">
                     <input type="checkbox" checked={form.term1RequireExam} onChange={(e) => setForm({ ...form, term1RequireExam: e.target.checked })} />
-                    الامتحان الأول إجباري
+                    {t("exam1Required")}
                   </label>
                 </div>
               </div>
 
               <div className="rounded-xl border border-gray-200 p-4">
-                <h3 className="font-semibold mb-3">الفصل الثاني</h3>
+                <h3 className="font-semibold mb-3">{t("term2Title")}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Input label="وزن الاختبارات" type="number" step="0.1" min="0" value={form.term2TestWeight} onChange={(e) => setForm({ ...form, term2TestWeight: e.target.value })} />
-                  <Input label="وزن الامتحان الثاني" type="number" step="0.1" min="0" value={form.term2ExamWeight} onChange={(e) => setForm({ ...form, term2ExamWeight: e.target.value })} />
-                  <Input label="المقام" type="number" step="0.1" min="0.1" value={form.term2Denominator} onChange={(e) => setForm({ ...form, term2Denominator: e.target.value })} />
+                  <Input label={t("testWeight")} type="number" step="0.1" min="0" value={form.term2TestWeight} onChange={(e) => setForm({ ...form, term2TestWeight: e.target.value })} />
+                  <Input label={t("term2ExamWeight")} type="number" step="0.1" min="0" value={form.term2ExamWeight} onChange={(e) => setForm({ ...form, term2ExamWeight: e.target.value })} />
+                  <Input label={t("denominator")} type="number" step="0.1" min="0.1" value={form.term2Denominator} onChange={(e) => setForm({ ...form, term2Denominator: e.target.value })} />
                 </div>
                 <div className="mt-3 flex flex-wrap gap-4 text-sm">
                   <label className="flex items-center gap-2">
                     <input type="checkbox" checked={form.term2RequireTest} onChange={(e) => setForm({ ...form, term2RequireTest: e.target.checked })} />
-                    الاختبارات إجبارية
+                    {t("testRequired")}
                   </label>
                   <label className="flex items-center gap-2">
                     <input type="checkbox" checked={form.term2RequireExam} onChange={(e) => setForm({ ...form, term2RequireExam: e.target.checked })} />
-                    الامتحان الثاني إجباري
+                    {t("exam2Required")}
                   </label>
                 </div>
               </div>
 
               <div className="rounded-xl border border-gray-200 p-4">
-                <h3 className="font-semibold mb-3">الفصل الثالث / النتيجة النهائية</h3>
+                <h3 className="font-semibold mb-3">{t("term3FinalTitle")}</h3>
                 <p className="text-sm text-gray-500 mb-3">
-                  في هذا الفصل تُدخل اختبارات الفصل الثالث والامتحان الأخير، لكن النتيجة النهائية نفسها يمكن أن تجمع أيضاً الامتحان الأول والثاني حسب القاعدة أدناه.
+                  {t("term3FinalDescription")}
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                  <Input label="وزن الاختبارات" type="number" step="0.1" min="0" value={form.testWeight} onChange={(e) => setForm({ ...form, testWeight: e.target.value })} />
-                  <Input label="وزن الامتحان الأول" type="number" step="0.1" min="0" value={form.exam1Weight} onChange={(e) => setForm({ ...form, exam1Weight: e.target.value })} />
-                  <Input label="وزن الامتحان الثاني" type="number" step="0.1" min="0" value={form.exam2Weight} onChange={(e) => setForm({ ...form, exam2Weight: e.target.value })} />
-                  <Input label="وزن الامتحان الأخير" type="number" step="0.1" min="0" value={form.exam3Weight} onChange={(e) => setForm({ ...form, exam3Weight: e.target.value })} />
-                  <Input label="المقام" type="number" step="0.1" min="0.1" value={form.denominator} onChange={(e) => setForm({ ...form, denominator: e.target.value })} />
+                  <Input label={t("testWeight")} type="number" step="0.1" min="0" value={form.testWeight} onChange={(e) => setForm({ ...form, testWeight: e.target.value })} />
+                  <Input label={t("exam1Weight")} type="number" step="0.1" min="0" value={form.exam1Weight} onChange={(e) => setForm({ ...form, exam1Weight: e.target.value })} />
+                  <Input label={t("exam2Weight")} type="number" step="0.1" min="0" value={form.exam2Weight} onChange={(e) => setForm({ ...form, exam2Weight: e.target.value })} />
+                  <Input label={t("exam3Weight")} type="number" step="0.1" min="0" value={form.exam3Weight} onChange={(e) => setForm({ ...form, exam3Weight: e.target.value })} />
+                  <Input label={t("denominator")} type="number" step="0.1" min="0.1" value={form.denominator} onChange={(e) => setForm({ ...form, denominator: e.target.value })} />
                 </div>
                 <div className="mt-3 flex flex-wrap gap-4 text-sm">
                   <label className="flex items-center gap-2">
                     <input type="checkbox" checked={form.requireTest} onChange={(e) => setForm({ ...form, requireTest: e.target.checked })} />
-                    الاختبارات إجبارية
+                    {t("testRequired")}
                   </label>
                   <label className="flex items-center gap-2">
                     <input type="checkbox" checked={form.requireExam1} onChange={(e) => setForm({ ...form, requireExam1: e.target.checked })} />
-                    الامتحان الأول إجباري
+                    {t("exam1Required")}
                   </label>
                   <label className="flex items-center gap-2">
                     <input type="checkbox" checked={form.requireExam2} onChange={(e) => setForm({ ...form, requireExam2: e.target.checked })} />
-                    الامتحان الثاني إجباري
+                    {t("exam2Required")}
                   </label>
                   <label className="flex items-center gap-2">
                     <input type="checkbox" checked={form.requireExam3} onChange={(e) => setForm({ ...form, requireExam3: e.target.checked })} />
-                    الامتحان الأخير إجباري
+                    {t("exam3Required")}
                   </label>
                 </div>
               </div>
             </div>
 
-            <Textarea label="ملاحظات" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="شرح مختصر لطريقة الحساب" />
+            <Textarea label={t("notes")} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder={t("notesPlaceholder")} />
 
             <div className="rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-700">
-              <div className="font-medium mb-1">معاينة القاعدة</div>
+              <div className="font-medium mb-1">{t("previewTitle")}</div>
               <div className="space-y-1">
-                <div>الفصل الأول: {previewTerm1}</div>
-                <div>الفصل الثاني: {previewTerm2}</div>
-                <div>الفصل الثالث / النتيجة النهائية: {previewTerm3}</div>
+                <div>{t("previewTerm1", { value: previewTerm1 })}</div>
+                <div>{t("previewTerm2", { value: previewTerm2 })}</div>
+                <div>{t("previewTerm3", { value: previewTerm3 })}</div>
               </div>
             </div>
 
             <div className="flex gap-3">
-              <Button fullWidth loading={saving} onClick={saveDraft}>حفظ كمسودة</Button>
-              <Button variant="secondary" fullWidth loading={publishing} onClick={publishDraft} disabled={!data.draftRule}>نشر المسودة</Button>
-              <Button variant="danger" fullWidth onClick={() => setDiscardConfirm(true)} disabled={!data.draftRule}>حذف المسودة</Button>
+              <Button fullWidth loading={saving} onClick={saveDraft}>{t("saveDraft")}</Button>
+              <Button variant="secondary" fullWidth loading={publishing} onClick={publishDraft} disabled={!data.draftRule}>{t("publishDraft")}</Button>
+              <Button variant="danger" fullWidth onClick={() => setDiscardConfirm(true)} disabled={!data.draftRule}>{t("deleteDraft")}</Button>
             </div>
           </div>
         </Card>
 
         <div className="space-y-6">
           <Card padding="lg">
-            <h2 className="font-semibold mb-3">القاعدة المنشورة</h2>
+            <h2 className="font-semibold mb-3">{t("publishedRule")}</h2>
             <div className="space-y-2 text-sm text-gray-600">
-              <div>الاسم: <span className="font-medium text-gray-900">{data.publishedRule.name}</span></div>
-              <div>الإصدار: <span className="font-medium text-gray-900">{data.publishedRule.version}</span></div>
-              <div>الفصل الأول: <span className="font-medium text-gray-900">{buildTermCalculationNote(data.publishedRule, 1)}</span></div>
-              <div>الفصل الثاني: <span className="font-medium text-gray-900">{buildTermCalculationNote(data.publishedRule, 2)}</span></div>
-              <div>الفصل الثالث: <span className="font-medium text-gray-900">{buildTermCalculationNote(data.publishedRule, 3)}</span></div>
+              <div>{t("nameLabel")}: <span className="font-medium text-gray-900">{data.publishedRule.name}</span></div>
+              <div>{t("versionLabel")}: <span className="font-medium text-gray-900">{data.publishedRule.version}</span></div>
+              <div>{t("term1Title")}: <span className="font-medium text-gray-900">{buildTermCalculationNote(data.publishedRule, 1)}</span></div>
+              <div>{t("term2Title")}: <span className="font-medium text-gray-900">{buildTermCalculationNote(data.publishedRule, 2)}</span></div>
+              <div>{t("term3Title")}: <span className="font-medium text-gray-900">{buildTermCalculationNote(data.publishedRule, 3)}</span></div>
               {data.publishedRule.publishedAt && (
-                <div>تاريخ النشر: <span className="font-medium text-gray-900">{new Date(data.publishedRule.publishedAt).toLocaleString("ar-MR")}</span></div>
+                <div>{t("publishedAt")}: <span className="font-medium text-gray-900">{new Date(data.publishedRule.publishedAt).toLocaleString(getDateLocale(locale))}</span></div>
               )}
             </div>
           </Card>
 
           <Card padding="lg">
-            <h2 className="font-semibold mb-3">آخر التغييرات</h2>
+            <h2 className="font-semibold mb-3">{t("latestChanges")}</h2>
             <div className="space-y-3">
               {data.auditLogs.length === 0 ? (
-                <p className="text-sm text-gray-400">لا توجد تغييرات مسجلة بعد</p>
+                <p className="text-sm text-gray-400">{t("noLogs")}</p>
               ) : data.auditLogs.map((log) => (
                 <div key={log.id} className="border rounded-lg p-3">
                   <div className="flex items-center justify-between gap-2">
                     <Badge variant={log.entityType === "ASSESSMENT_OVERRIDE" ? "danger" : "info"}>{log.action}</Badge>
-                    <span className="text-xs text-gray-400">{new Date(log.createdAt).toLocaleString("ar-MR")}</span>
+                    <span className="text-xs text-gray-400">{new Date(log.createdAt).toLocaleString(getDateLocale(locale))}</span>
                   </div>
                   <p className="text-sm text-gray-700 mt-2">{log.description || `${log.entityType} - ${log.action}`}</p>
                 </div>
@@ -444,10 +449,10 @@ export default function SchoolResultRulesPage() {
         open={discardConfirm}
         onClose={() => setDiscardConfirm(false)}
         onConfirm={() => void discardDraft()}
-        title="حذف المسودة"
-        message="سيتم حذف المسودة الحالية. هل أنت متأكد؟"
-        confirmText="حذف"
-        cancelText="إلغاء"
+        title={t("deleteDraftTitle")}
+        message={t("deleteDraftMessage")}
+        confirmText={tCommon("delete")}
+        cancelText={tCommon("cancel")}
         variant="danger"
       />
     </div>

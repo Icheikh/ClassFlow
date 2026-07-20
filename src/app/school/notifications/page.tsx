@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useCallback, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
+import { useTranslations } from "next-intl"
 import toast from "react-hot-toast"
 import { Badge, Button, Card, Input, LoadingPage, Select, Textarea } from "@/components/ui"
 import { api } from "@/lib/api"
@@ -36,49 +37,8 @@ type Campaign = {
 
 type OptionItem = { id: string; name: string }
 
-const typeOptions = [
-  { value: "GENERAL", label: "إشعار عام" },
-  { value: "ATTENDANCE", label: "غياب وحضور" },
-  { value: "FEES", label: "رسوم" },
-  { value: "RESULTS", label: "نتائج" },
-  { value: "EVENT", label: "فعالية" },
-]
-
-const audienceOptions = [
-  { value: "ALL_PARENTS", label: "كل الأولياء" },
-  { value: "CLASSROOM", label: "أولياء قسم" },
-  { value: "LEVEL", label: "أولياء مستوى" },
-  { value: "STREAM", label: "أولياء شعبة" },
-  { value: "UNPAID_FEES", label: "أولياء المتأخرين في الرسوم" },
-]
-
-const statusLabels: Record<string, { label: string; variant: "success" | "warning" | "danger" | "default" }> = {
-  DRAFT: { label: "مسودة", variant: "default" },
-  PENDING_APPROVAL: { label: "بانتظار الاعتماد", variant: "warning" },
-  APPROVED: { label: "معتمد", variant: "success" },
-  SCHEDULED: { label: "مجدول", variant: "warning" },
-  REJECTED: { label: "مرفوض", variant: "danger" },
-  SENT: { label: "مرسل", variant: "success" },
-  FAILED: { label: "فشل", variant: "danger" },
-}
-
-const audienceLabels: Record<string, string> = {
-  ALL_PARENTS: "كل الأولياء",
-  CLASSROOM: "أولياء قسم",
-  LEVEL: "أولياء مستوى",
-  STREAM: "أولياء شعبة",
-  UNPAID_FEES: "أولياء المتأخرين في الرسوم",
-}
-
-function getCampaignAudienceSummary(campaign: Campaign) {
-  return audienceLabels[campaign.audienceType] || campaign.audienceType
-}
-
-function getCampaignTypeSummary(type: string) {
-  return typeOptions.find((option) => option.value === type)?.label || type
-}
-
 export default function SchoolNotificationsPage() {
+  const t = useTranslations("notificationsPage")
   const searchParams = useSearchParams()
   const initialAudienceType = searchParams?.get("audienceType") || "ALL_PARENTS"
   const initialClassroomId = searchParams?.get("classroomId") || ""
@@ -117,6 +77,37 @@ export default function SchoolNotificationsPage() {
     streamId: initialStreamId,
     month: initialMonth,
   })
+  const typeOptions = [
+    { value: "GENERAL", label: t("typeGeneral") },
+    { value: "ATTENDANCE", label: t("typeAttendance") },
+    { value: "FEES", label: t("typeFees") },
+    { value: "RESULTS", label: t("typeResults") },
+    { value: "EVENT", label: t("typeEvent") },
+  ]
+  const audienceOptions = [
+    { value: "ALL_PARENTS", label: t("audienceAllParents") },
+    { value: "CLASSROOM", label: t("audienceClassroom") },
+    { value: "LEVEL", label: t("audienceLevel") },
+    { value: "STREAM", label: t("audienceStream") },
+    { value: "UNPAID_FEES", label: t("audienceUnpaidFees") },
+  ]
+  const statusLabels: Record<string, { label: string; variant: "success" | "warning" | "danger" | "default" }> = {
+    DRAFT: { label: t("statusDraft"), variant: "default" },
+    PENDING_APPROVAL: { label: t("statusPendingApproval"), variant: "warning" },
+    APPROVED: { label: t("statusApproved"), variant: "success" },
+    SCHEDULED: { label: t("statusScheduled"), variant: "warning" },
+    REJECTED: { label: t("statusRejected"), variant: "danger" },
+    SENT: { label: t("statusSent"), variant: "success" },
+    FAILED: { label: t("statusFailed"), variant: "danger" },
+  }
+
+  function getCampaignAudienceSummary(campaign: Campaign) {
+    return audienceOptions.find((option) => option.value === campaign.audienceType)?.label || campaign.audienceType
+  }
+
+  function getCampaignTypeSummary(type: string) {
+    return typeOptions.find((option) => option.value === type)?.label || type
+  }
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -160,7 +151,7 @@ export default function SchoolNotificationsPage() {
 
   async function createTemplate() {
     if (!templateForm.name || !templateForm.titleTemplate || !templateForm.messageTemplate) {
-      toast.error("أكمل بيانات القالب")
+      toast.error(t("fillTemplateFields"))
       return
     }
 
@@ -182,12 +173,13 @@ export default function SchoolNotificationsPage() {
       })
       await loadData()
     }
+    if (!error && data) toast.success(t("templateSaved"))
     setSavingTemplate(false)
   }
 
   async function createCampaign() {
     if (!campaignForm.title || !campaignForm.message) {
-      toast.error("أدخل عنوان الإشعار ونصه")
+      toast.error(t("fillCampaignFields"))
       return
     }
 
@@ -213,7 +205,7 @@ export default function SchoolNotificationsPage() {
 
     if (error) toast.error(error)
       else {
-        toast.success("تم إنشاء الحملة كمسودة")
+        toast.success(t("campaignCreated"))
         setCampaignForm({
           templateId: "",
           type: initialType,
@@ -238,9 +230,9 @@ export default function SchoolNotificationsPage() {
     if (error) toast.error(error)
     else {
       toast.success(
-        action === "submit" ? "تم إرسال الحملة للاعتماد"
-          : action === "approve" ? "تم اعتماد الحملة"
-            : "تم رفض الحملة"
+        action === "submit" ? t("campaignSubmitted")
+          : action === "approve" ? t("campaignApproved")
+            : t("campaignRejected")
       )
       await loadData()
     }
@@ -267,38 +259,38 @@ export default function SchoolNotificationsPage() {
         <div>
           <h1 className="text-2xl font-bold">مركز الإشعارات</h1>
           <p className="text-sm text-gray-500 mt-1">
-            جميع الرسائل إلى الأولياء تمر من هنا أولاً قبل الإرسال الفعلي عبر واتساب.
+            {t("subtitle")}
           </p>
         </div>
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          الإرسال الخارجي لم يُفعّل بعد. هذه المرحلة تغطي القوالب، الحملات، والموافقات.
+          {t("externalSendingNotEnabled")}
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card padding="md">
-          <p className="text-sm text-gray-400">كل الحملات</p>
+          <p className="text-sm text-gray-400">{t("allCampaigns")}</p>
           <p className="text-2xl font-bold">{campaignStats.total}</p>
         </Card>
         <Card padding="md">
-          <p className="text-sm text-gray-400">بانتظار الاعتماد</p>
+          <p className="text-sm text-gray-400">{t("pendingApproval")}</p>
           <p className="text-2xl font-bold text-amber-600">{campaignStats.pendingApproval}</p>
         </Card>
         <Card padding="md">
-          <p className="text-sm text-gray-400">معتمدة وجاهزة</p>
+          <p className="text-sm text-gray-400">{t("approvedReady")}</p>
           <p className="text-2xl font-bold text-blue-700">{campaignStats.approved}</p>
         </Card>
         <Card padding="md">
-          <p className="text-sm text-gray-400">مرسلة</p>
+          <p className="text-sm text-gray-400">{t("sent")}</p>
           <p className="text-2xl font-bold text-green-600">{campaignStats.sent}</p>
         </Card>
       </div>
 
       {(initialClassroomId || initialLevelId || initialStreamId || initialMonth || initialAudienceType !== "ALL_PARENTS") && (
         <Card padding="md" className="border-blue-100 bg-blue-50">
-          <p className="text-sm font-medium text-blue-900">تم فتح مركز الإشعارات بسياق جاهز</p>
+          <p className="text-sm font-medium text-blue-900">{t("openedWithContext")}</p>
           <p className="mt-1 text-sm text-blue-700">
-            الجمهور الحالي مضبوط مسبقاً حسب الصفحة التي جئت منها. يمكن تعديل الاختيار قبل إنشاء الحملة إذا أردت.
+            {t("openedWithContextText")}
           </p>
         </Card>
       )}
@@ -306,56 +298,56 @@ export default function SchoolNotificationsPage() {
       <div className="grid gap-6 xl:grid-cols-2">
         <Card padding="lg">
           <div className="mb-4">
-            <h2 className="text-lg font-semibold">قالب إشعار</h2>
-            <p className="text-sm text-gray-500 mt-1">أنشئ قالبًا يعاد استخدامه للرسوم أو الغياب أو النتائج.</p>
+            <h2 className="text-lg font-semibold">{t("templateTitle")}</h2>
+            <p className="text-sm text-gray-500 mt-1">{t("templateSubtitle")}</p>
           </div>
 
           <div className="grid gap-4">
             <Input
-              label="اسم القالب"
+              label={t("templateName")}
               value={templateForm.name}
               onChange={(e) => setTemplateForm((current) => ({ ...current, name: e.target.value }))}
             />
             <div className="grid gap-4 md:grid-cols-2">
               <Select
-                label="نوع الإشعار"
+                label={t("notificationType")}
                 value={templateForm.type}
                 onChange={(value) => setTemplateForm((current) => ({ ...current, type: value }))}
                 options={typeOptions}
               />
               <Select
-                label="القناة"
+                label={t("channel")}
                 value={templateForm.channel}
                 onChange={(value) => setTemplateForm((current) => ({ ...current, channel: value }))}
-                options={[{ value: "WHATSAPP", label: "واتساب" }, { value: "IN_APP", label: "داخل النظام" }]}
+                options={[{ value: "WHATSAPP", label: t("whatsapp") }, { value: "IN_APP", label: t("inApp") }]}
               />
             </div>
             <Input
-              label="عنوان الرسالة"
+              label={t("messageTitle")}
               value={templateForm.titleTemplate}
               onChange={(e) => setTemplateForm((current) => ({ ...current, titleTemplate: e.target.value }))}
             />
             <Textarea
-              label="نص القالب"
+              label={t("templateBody")}
               rows={4}
               value={templateForm.messageTemplate}
               onChange={(e) => setTemplateForm((current) => ({ ...current, messageTemplate: e.target.value }))}
             />
             <Button loading={savingTemplate} onClick={createTemplate}>
-              <BellRing className="h-4 w-4" /> حفظ القالب
+              <BellRing className="h-4 w-4" /> {t("saveTemplate")}
             </Button>
           </div>
         </Card>
 
         <Card padding="lg">
           <div className="mb-4">
-            <h2 className="text-lg font-semibold">حملة جديدة</h2>
-            <p className="text-sm text-gray-500 mt-1">أنشئ الحملة كمسودة، راجع جمهورها ورسالتها، ثم أرسلها للاعتماد قبل أي إرسال فعلي للأولياء.</p>
+            <h2 className="text-lg font-semibold">{t("newCampaignTitle")}</h2>
+            <p className="text-sm text-gray-500 mt-1">{t("newCampaignSubtitle")}</p>
           </div>
 
           <div className="grid gap-4">
             <Select
-              label="قالب جاهز"
+              label={t("readyTemplate")}
               value={campaignForm.templateId}
               onChange={(value) => {
                 const selectedTemplate = templates.find((template) => template.id === value)
@@ -368,29 +360,29 @@ export default function SchoolNotificationsPage() {
                   message: selectedTemplate?.messageTemplate || current.message,
                 }))
               }}
-              options={[{ value: "", label: "بدون قالب" }, ...templates.map((template) => ({ value: template.id, label: template.name }))]}
+              options={[{ value: "", label: t("withoutTemplate") }, ...templates.map((template) => ({ value: template.id, label: template.name }))]}
             />
             <div className="grid gap-4 md:grid-cols-2">
               <Select
-                label="نوع الإشعار"
+                label={t("notificationType")}
                 value={campaignForm.type}
                 onChange={(value) => setCampaignForm((current) => ({ ...current, type: value }))}
                 options={typeOptions}
               />
               <Select
-                label="الجمهور"
+                label={t("audience")}
                 value={campaignForm.audienceType}
                 onChange={(value) => setCampaignForm((current) => ({ ...current, audienceType: value }))}
                 options={audienceOptions}
               />
             </div>
             <Input
-              label="عنوان الحملة"
+              label={t("campaignTitle")}
               value={campaignForm.title}
               onChange={(e) => setCampaignForm((current) => ({ ...current, title: e.target.value }))}
             />
             <Textarea
-              label="نص الحملة"
+              label={t("campaignBody")}
               rows={4}
               value={campaignForm.message}
               onChange={(e) => setCampaignForm((current) => ({ ...current, message: e.target.value }))}
@@ -398,16 +390,16 @@ export default function SchoolNotificationsPage() {
 
             {(campaignForm.audienceType === "CLASSROOM" || campaignForm.audienceType === "UNPAID_FEES") && (
               <Select
-                label="القسم"
+                label={t("classroom")}
                 value={campaignForm.classroomId}
                 onChange={(value) => setCampaignForm((current) => ({ ...current, classroomId: value }))}
-                options={[{ value: "", label: "كل الأقسام" }, ...classrooms.map((item) => ({ value: item.id, label: item.name }))]}
+                options={[{ value: "", label: t("allClassrooms") }, ...classrooms.map((item) => ({ value: item.id, label: item.name }))]}
               />
             )}
 
             {campaignForm.audienceType === "LEVEL" && (
               <Select
-                label="المستوى"
+                label={t("level")}
                 value={campaignForm.levelId}
                 onChange={(value) => setCampaignForm((current) => ({ ...current, levelId: value }))}
                 options={levels.map((item) => ({ value: item.id, label: item.name }))}
@@ -416,7 +408,7 @@ export default function SchoolNotificationsPage() {
 
             {campaignForm.audienceType === "STREAM" && (
               <Select
-                label="الشعبة"
+                label={t("stream")}
                 value={campaignForm.streamId}
                 onChange={(value) => setCampaignForm((current) => ({ ...current, streamId: value }))}
                 options={streams.map((item) => ({ value: item.id, label: item.name }))}
@@ -425,7 +417,7 @@ export default function SchoolNotificationsPage() {
 
             {campaignForm.audienceType === "UNPAID_FEES" && (
               <Input
-                label="شهر الرسوم"
+                label={t("feesMonth")}
                 type="month"
                 value={campaignForm.month}
                 onChange={(e) => setCampaignForm((current) => ({ ...current, month: e.target.value }))}
@@ -433,11 +425,11 @@ export default function SchoolNotificationsPage() {
             )}
 
             <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
-              الحفظ هنا لا يرسل أي رسالة مباشرة. سيتم إنشاء الحملة أولاً كمسودة، ثم يراجعها المدير أو الجهة المخولة قبل الاعتماد.
+              {t("draftHint")}
             </div>
 
             <Button loading={savingCampaign} onClick={createCampaign}>
-              <Send className="h-4 w-4" /> إنشاء الحملة
+              <Send className="h-4 w-4" /> {t("createCampaign")}
             </Button>
           </div>
         </Card>
@@ -445,31 +437,31 @@ export default function SchoolNotificationsPage() {
 
       <Card padding="lg">
         <div className="mb-4">
-          <h2 className="text-lg font-semibold">الحملات الحالية</h2>
-          <p className="text-sm text-gray-500 mt-1">راجع الحالة الحالية لكل حملة، ثم اعتمد أو ارفض.</p>
+            <h2 className="text-lg font-semibold">{t("currentCampaigns")}</h2>
+            <p className="text-sm text-gray-500 mt-1">{t("currentCampaignsSubtitle")}</p>
         </div>
 
         <div className="mb-4 grid gap-4 md:grid-cols-2">
           <Select
-            label="فلترة حسب الحالة"
+            label={t("filterByStatus")}
             value={campaignStatusFilter}
             onChange={setCampaignStatusFilter}
             options={[
-              { value: "", label: "كل الحالات" },
+              { value: "", label: t("allStatuses") },
               ...Object.entries(statusLabels).map(([value, meta]) => ({ value, label: meta.label })),
             ]}
           />
           <Select
-            label="فلترة حسب النوع"
+            label={t("filterByType")}
             value={campaignTypeFilter}
             onChange={setCampaignTypeFilter}
-            options={[{ value: "", label: "كل الأنواع" }, ...typeOptions]}
+            options={[{ value: "", label: t("allTypes") }, ...typeOptions]}
           />
         </div>
 
         {visibleCampaigns.length === 0 ? (
           <div className="rounded-xl border border-dashed border-gray-200 p-8 text-center text-gray-500">
-            لا توجد حملات مطابقة لهذا الفلتر
+            {t("noMatchingCampaigns")}
           </div>
         ) : (
           <div className="space-y-4">
@@ -485,11 +477,11 @@ export default function SchoolNotificationsPage() {
                       </div>
                       <p className="text-sm text-gray-600 line-clamp-2">{campaign.message}</p>
                       <div className="flex flex-wrap gap-2 text-xs text-gray-500">
-                        <span>النوع: {getCampaignTypeSummary(campaign.type)}</span>
-                        <span>الجمهور: {getCampaignAudienceSummary(campaign)}</span>
-                        <span>المستلمون: {campaign.recipientsCount}</span>
-                        <span>المنشئ: {campaign.createdByUser?.name || "غير معروف"}</span>
-                        {campaign.approvedByUser && <span>المعتمد: {campaign.approvedByUser.name}</span>}
+                        <span>{t("typeLabel", { value: getCampaignTypeSummary(campaign.type) })}</span>
+                        <span>{t("audienceLabel", { value: getCampaignAudienceSummary(campaign) })}</span>
+                        <span>{t("recipientsLabel", { count: campaign.recipientsCount })}</span>
+                        <span>{t("creatorLabel", { name: campaign.createdByUser?.name || t("unknownUser") })}</span>
+                        {campaign.approvedByUser && <span>{t("approverLabel", { name: campaign.approvedByUser.name })}</span>}
                       </div>
                       {campaign.statusSummary && (
                         <div className="flex flex-wrap gap-2 text-xs text-gray-600">
@@ -505,21 +497,21 @@ export default function SchoolNotificationsPage() {
                     <div className="flex flex-wrap gap-2">
                       <Link href={`/school/notifications/${campaign.id}`}>
                         <Button variant="secondary" size="sm">
-                          <Eye className="h-4 w-4" /> التفاصيل
+                          <Eye className="h-4 w-4" /> {t("details")}
                         </Button>
                       </Link>
                       {(campaign.status === "DRAFT" || campaign.status === "REJECTED") && (
                         <Button size="sm" onClick={() => void updateCampaignStatus(campaign.id, "submit")}>
-                          <Send className="h-4 w-4" /> إرسال للاعتماد
+                          <Send className="h-4 w-4" /> {t("submitForApproval")}
                         </Button>
                       )}
                       {campaign.status === "PENDING_APPROVAL" && (
                         <>
                           <Button size="sm" onClick={() => void updateCampaignStatus(campaign.id, "approve")}>
-                            <CheckCircle2 className="h-4 w-4" /> اعتماد
+                            <CheckCircle2 className="h-4 w-4" /> {t("approve")}
                           </Button>
                           <Button variant="danger" size="sm" onClick={() => void updateCampaignStatus(campaign.id, "reject")}>
-                            <XCircle className="h-4 w-4" /> رفض
+                            <XCircle className="h-4 w-4" /> {t("reject")}
                           </Button>
                         </>
                       )}

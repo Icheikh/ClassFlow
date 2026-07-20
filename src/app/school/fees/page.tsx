@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { useTranslations } from "next-intl"
 import { api } from "@/lib/api"
 import { Button, Card, Input, Select, Modal, Badge, LoadingPage, ConfirmModal } from "@/components/ui"
 import { Plus, Pencil, Trash2, Link2, Wallet } from "lucide-react"
@@ -20,13 +21,9 @@ type Fee = {
 type Classroom = { id: string; name: string }
 type Level = { id: string; name: string }
 
-const frequencyLabels: Record<string, string> = {
-  MONTHLY: "شهري",
-  YEARLY: "سنوي",
-  ONE_TIME: "لمرة واحدة",
-}
-
 export default function FeesPage() {
+  const t = useTranslations("feesPage")
+  const tCommon = useTranslations("common")
   const [fees, setFees] = useState<Fee[]>([])
   const [classrooms, setClassrooms] = useState<Classroom[]>([])
   const [levels, setLevels] = useState<Level[]>([])
@@ -79,7 +76,7 @@ export default function FeesPage() {
 
   async function save() {
     if (!form.name || !form.amount) {
-      toast.error("الاسم والمبلغ مطلوبان")
+      toast.error(t("nameAmountRequired"))
       return
     }
 
@@ -98,7 +95,7 @@ export default function FeesPage() {
     if (error) {
       toast.error(error)
     } else {
-      toast.success(editId ? "تم تعديل الرسم" : "تمت إضافة الرسم")
+      toast.success(editId ? t("updated") : t("created"))
       setEditModal(false)
       await load()
     }
@@ -112,7 +109,7 @@ export default function FeesPage() {
     if (error) {
       toast.error(error)
     } else {
-      toast.success("تم حذف الرسم")
+      toast.success(t("deleted"))
       await load()
     }
   }
@@ -125,7 +122,7 @@ export default function FeesPage() {
 
   async function doAssign() {
     if (!assignFeeId || !assignClassroomId) {
-      toast.error("اختر القسم")
+      toast.error(t("selectClassroom"))
       return
     }
 
@@ -138,7 +135,7 @@ export default function FeesPage() {
     if (error) {
       toast.error(error)
     } else {
-      toast.success(`تم تعيين الرسم لـ ${data?.created || 0} طالب`)
+      toast.success(t("assignedToStudents", { count: data?.created || 0 }))
       setAssignModal(false)
       await load()
     }
@@ -167,53 +164,53 @@ export default function FeesPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">تعريف الرسوم</h1>
+          <h1 className="text-2xl font-bold">{t("title")}</h1>
           <p className="mt-2 text-sm text-gray-500">
-            هنا تعرّف أنواع الرسوم فقط: شهرية، سنوية، أو لمرة واحدة. بعد ذلك يستخدم النظام هذه الرسوم لتوليد الفواتير الفعلية في صفحة الفواتير والتحصيل.
+            {t("subtitle")}
           </p>
         </div>
         <Button onClick={openAdd}>
-          <Plus className="h-5 w-5" /> إضافة رسم
+          <Plus className="h-5 w-5" /> {t("addFee")}
         </Button>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
         <Card padding="md">
-          <p className="text-sm text-gray-400">إجمالي الرسوم</p>
+          <p className="text-sm text-gray-400">{t("totalFees")}</p>
           <p className="text-2xl font-bold">{stats.total}</p>
         </Card>
         <Card padding="md">
-          <p className="text-sm text-gray-400">الرسوم النشطة</p>
+          <p className="text-sm text-gray-400">{t("activeFees")}</p>
           <p className="text-2xl font-bold text-green-600">{stats.active}</p>
         </Card>
         <Card padding="md">
-          <p className="text-sm text-gray-400">رسوم شهرية</p>
+          <p className="text-sm text-gray-400">{t("monthlyFees")}</p>
           <p className="text-2xl font-bold text-blue-700">{stats.monthly}</p>
         </Card>
         <Card padding="md">
-          <p className="text-sm text-gray-400">رسوم سنوية</p>
+          <p className="text-sm text-gray-400">{t("yearlyFees")}</p>
           <p className="text-2xl font-bold text-amber-600">{stats.yearly}</p>
         </Card>
         <Card padding="md">
-          <p className="text-sm text-gray-400">إجمالي التعيينات</p>
+          <p className="text-sm text-gray-400">{t("totalAssignments")}</p>
           <p className="text-2xl font-bold text-gray-900">{stats.assignedStudents}</p>
         </Card>
       </div>
 
       <Card padding="lg" className="border-blue-100 bg-blue-50">
-        <h2 className="text-lg font-semibold text-gray-900">كيف تعمل هذه الصفحة؟</h2>
+        <h2 className="text-lg font-semibold text-gray-900">{t("howItWorks")}</h2>
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           <div className="rounded-xl bg-white p-4 text-sm">
-            <p className="font-medium text-gray-900">1. تعريف الرسم</p>
-            <p className="mt-2 text-gray-600">أنشئ رسمًا مثل: رسوم شهرية، تسجيل، أنشطة، أو امتحان.</p>
+            <p className="font-medium text-gray-900">{t("step1Title")}</p>
+            <p className="mt-2 text-gray-600">{t("step1Text")}</p>
           </div>
           <div className="rounded-xl bg-white p-4 text-sm">
-            <p className="font-medium text-gray-900">2. تعيينه على طلاب أو أقسام</p>
-            <p className="mt-2 text-gray-600">اربط الرسم بقسم أو مستوى حتى يعرف النظام من الذي يجب أن تصدر له الفاتورة.</p>
+            <p className="font-medium text-gray-900">{t("step2Title")}</p>
+            <p className="mt-2 text-gray-600">{t("step2Text")}</p>
           </div>
           <div className="rounded-xl bg-white p-4 text-sm">
-            <p className="font-medium text-gray-900">3. توليد الفواتير لاحقًا</p>
-            <p className="mt-2 text-gray-600">بعد التعريف والتعيين، انتقل إلى صفحة الفواتير لتوليد فواتير الشهر ومتابعة التحصيل.</p>
+            <p className="font-medium text-gray-900">{t("step3Title")}</p>
+            <p className="mt-2 text-gray-600">{t("step3Text")}</p>
           </div>
         </div>
       </Card>
@@ -222,18 +219,19 @@ export default function FeesPage() {
         <Card>
           <div className="py-16 text-center">
             <Wallet className="mx-auto mb-4 h-16 w-16 text-gray-200" />
-            <p className="mb-1 text-lg text-gray-500">لا توجد رسوم بعد</p>
-            <p className="mb-4 text-sm text-gray-400">أضف أول رسم ثم عيّنه على الأقسام قبل الذهاب إلى الفواتير.</p>
+            <p className="mb-1 text-lg text-gray-500">{t("emptyTitle")}</p>
+            <p className="mb-4 text-sm text-gray-400">{t("emptyText")}</p>
             <Button onClick={openAdd}>
-              <Plus className="h-5 w-5" /> إضافة رسم
+              <Plus className="h-5 w-5" /> {t("addFee")}
             </Button>
           </div>
         </Card>
       ) : (
         <div className="grid gap-4">
           {fees.map((fee) => {
-            const levelLabel = levels.find((level) => level.id === fee.levelId)?.name || "جميع المستويات"
-            const classroomLabel = classrooms.find((classroom) => classroom.id === fee.classroomId)?.name || "جميع الأقسام"
+            const levelLabel = levels.find((level) => level.id === fee.levelId)?.name || t("allLevels")
+            const classroomLabel = classrooms.find((classroom) => classroom.id === fee.classroomId)?.name || t("allClassrooms")
+            const frequencyLabel = fee.frequency === "MONTHLY" ? t("frequencyMonthly") : fee.frequency === "YEARLY" ? t("frequencyYearly") : fee.frequency === "ONE_TIME" ? t("frequencyOneTime") : fee.frequency
 
             return (
               <Card key={fee.id} padding="lg">
@@ -242,24 +240,24 @@ export default function FeesPage() {
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="text-lg font-semibold">{fee.name}</h3>
                       <Badge variant={fee.isActive ? "success" : "danger"}>
-                        {fee.isActive ? "نشط" : "موقوف"}
+                        {fee.isActive ? t("active") : t("inactive")}
                       </Badge>
-                      <Badge>{frequencyLabels[fee.frequency] || fee.frequency}</Badge>
+                      <Badge>{frequencyLabel}</Badge>
                     </div>
 
                     <p className="text-2xl font-bold text-blue-600">{fee.amount} MRU</p>
 
                     <div className="grid gap-3 text-sm md:grid-cols-3">
                       <div className="rounded-xl bg-gray-50 p-3">
-                        <p className="text-gray-500">المستوى المستهدف</p>
+                        <p className="text-gray-500">{t("targetLevel")}</p>
                         <p className="mt-1 font-medium text-gray-900">{levelLabel}</p>
                       </div>
                       <div className="rounded-xl bg-gray-50 p-3">
-                        <p className="text-gray-500">القسم المستهدف</p>
+                        <p className="text-gray-500">{t("targetClassroom")}</p>
                         <p className="mt-1 font-medium text-gray-900">{classroomLabel}</p>
                       </div>
                       <div className="rounded-xl bg-gray-50 p-3">
-                        <p className="text-gray-500">عدد الطلاب المعينين</p>
+                        <p className="text-gray-500">{t("assignedStudentsCount")}</p>
                         <p className="mt-1 font-medium text-gray-900">{fee._count?.studentFees ?? 0}</p>
                       </div>
                     </div>
@@ -267,12 +265,12 @@ export default function FeesPage() {
 
                   <div className="flex flex-wrap gap-2">
                     <Button variant="secondary" size="sm" onClick={() => openAssign(fee.id)}>
-                      <Link2 className="h-4 w-4" /> تعيين لقسم
+                      <Link2 className="h-4 w-4" /> {t("assignToClassroom")}
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => openEdit(fee)} aria-label="تعديل الرسم">
+                    <Button variant="ghost" size="sm" onClick={() => openEdit(fee)} aria-label={t("editAria")}>
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => setFeeToDelete(fee.id)} aria-label="حذف الرسم">
+                    <Button variant="ghost" size="sm" onClick={() => setFeeToDelete(fee.id)} aria-label={t("deleteAria")}>
                       <Trash2 className="h-4 w-4 text-red-500" />
                     </Button>
                   </div>
@@ -283,53 +281,53 @@ export default function FeesPage() {
         </div>
       )}
 
-      <Modal open={editModal} onClose={() => setEditModal(false)} title={editId ? "تعديل رسم" : "إضافة رسم"}>
+      <Modal open={editModal} onClose={() => setEditModal(false)} title={editId ? t("editFee") : t("newFee")}>
         <div className="space-y-4">
-          <Input label="اسم الرسم" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          <Input label="المبلغ (MRU)" type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
+          <Input label={t("feeName")} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <Input label={t("amountMru")} type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
           <Select
-            label="الدورية"
+            label={t("frequency")}
             value={form.frequency}
             onChange={(value) => setForm({ ...form, frequency: value })}
             options={[
-              { value: "MONTHLY", label: "شهري" },
-              { value: "YEARLY", label: "سنوي" },
-              { value: "ONE_TIME", label: "لمرة واحدة" },
+              { value: "MONTHLY", label: t("frequencyMonthly") },
+              { value: "YEARLY", label: t("frequencyYearly") },
+              { value: "ONE_TIME", label: t("frequencyOneTime") },
             ]}
           />
           <Select
-            label="المستوى (اختياري)"
+            label={t("levelOptional")}
             value={form.levelId}
             onChange={(value) => setForm({ ...form, levelId: value })}
-            options={[{ value: "", label: "جميع المستويات" }, ...levels.map((level) => ({ value: level.id, label: level.name }))]}
+            options={[{ value: "", label: t("allLevels") }, ...levels.map((level) => ({ value: level.id, label: level.name }))]}
           />
           <Select
-            label="القسم (اختياري)"
+            label={t("classroomOptional")}
             value={form.classroomId}
             onChange={(value) => setForm({ ...form, classroomId: value })}
-            options={[{ value: "", label: "جميع الأقسام" }, ...classrooms.map((classroom) => ({ value: classroom.id, label: classroom.name }))]}
+            options={[{ value: "", label: t("allClassrooms") }, ...classrooms.map((classroom) => ({ value: classroom.id, label: classroom.name }))]}
           />
           <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
-            هذا التعريف لا يصدر فاتورة مباشرة، بل يجهز الرسم ليستخدم لاحقًا عند توليد الفواتير.
+            {t("definitionHint")}
           </div>
           <Button fullWidth loading={saving} onClick={save}>
-            {editId ? "حفظ التعديل" : "إضافة الرسم"}
+            {editId ? t("saveEdit") : t("createFee")}
           </Button>
         </div>
       </Modal>
 
-      <Modal open={assignModal} onClose={() => setAssignModal(false)} title="تعيين الرسم لقسم">
+      <Modal open={assignModal} onClose={() => setAssignModal(false)} title={t("assignFeeToClassroom")}>
         <div className="space-y-4">
           <Select
-            label="اختر القسم"
+            label={t("chooseClassroom")}
             value={assignClassroomId}
             onChange={setAssignClassroomId}
             options={classrooms.map((classroom) => ({ value: classroom.id, label: classroom.name }))}
           />
           <p className="text-sm text-gray-500">
-            سيُربط هذا الرسم بجميع الطلاب النشطين في القسم المختار، وبعد ذلك يمكن إدخاله ضمن التوليد الشهري أو السنوي حسب دوريته.
+            {t("assignHint")}
           </p>
-          <Button fullWidth loading={assigning} onClick={doAssign}>تأكيد التعيين</Button>
+          <Button fullWidth loading={assigning} onClick={doAssign}>{t("confirmAssignment")}</Button>
         </div>
       </Modal>
 
@@ -337,10 +335,10 @@ export default function FeesPage() {
         open={!!feeToDelete}
         onClose={() => setFeeToDelete(null)}
         onConfirm={() => void remove(feeToDelete!)}
-        title="حذف الرسم"
-        message="هل أنت متأكد من حذف هذا الرسم؟"
-        confirmText="حذف"
-        cancelText="إلغاء"
+        title={t("deleteTitle")}
+        message={t("deleteMessage")}
+        confirmText={tCommon("delete")}
+        cancelText={tCommon("cancel")}
         variant="danger"
       />
     </div>

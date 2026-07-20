@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useTranslations } from "next-intl"
 import { api } from "@/lib/api"
 import { Button, Card, Modal, Input, Select, Badge, ConfirmModal } from "@/components/ui"
 import { Plus, DoorOpen, Edit2, Trash2, Eye } from "lucide-react"
@@ -18,6 +19,8 @@ type Level = { id: string; name: string; stage: { name: string } }
 type Stream = { id: string; name: string; levelId: string }
 
 export default function ClassroomsPage() {
+  const t = useTranslations("classroomsPage")
+  const tCommon = useTranslations("common")
   const [classrooms, setClassrooms] = useState<Classroom[]>([])
   const [levels, setLevels] = useState<Level[]>([])
   const [streams, setStreams] = useState<Stream[]>([])
@@ -71,12 +74,12 @@ export default function ClassroomsPage() {
 
   async function save() {
     if (!name || !levelId) {
-      toast.error("يرجى اختيار المستوى واسم القسم")
+      toast.error(t("fillFields"))
       return
     }
 
     if (isSecondaryLevel && !streamId) {
-      toast.error("الأقسام الثانوية يجب أن ترتبط بشعبة")
+      toast.error(t("secondaryStreamRequired"))
       return
     }
 
@@ -96,7 +99,7 @@ export default function ClassroomsPage() {
       return
     }
 
-    toast.success(editing ? "تم تعديل القسم" : "تمت إضافة القسم")
+    toast.success(editing ? t("updateSuccess") : t("createSuccess"))
     setShowModal(false)
     fetchData()
   }
@@ -106,7 +109,7 @@ export default function ClassroomsPage() {
     setClassroomToDelete(null)
     if (error) toast.error(error)
     else {
-      toast.success("تم الحذف")
+      toast.success(t("deleteSuccess"))
       fetchData()
     }
   }
@@ -115,54 +118,54 @@ export default function ClassroomsPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">الأقسام</h1>
-          <p className="text-sm text-gray-500">القسم هو الفصل الفعلي داخل المستوى، وقد يرتبط بشعبة في المرحلة الثانوية</p>
+          <h1 className="text-2xl font-bold">{t("title")}</h1>
+          <p className="text-sm text-gray-500">{t("subtitle")}</p>
         </div>
         <Button onClick={openAdd}>
-          <Plus className="h-5 w-5" /> إضافة قسم
+          <Plus className="h-5 w-5" /> {t("addClassroom")}
         </Button>
       </div>
 
-      <Modal open={showModal} onClose={() => setShowModal(false)} title={editing ? "تعديل قسم" : "إضافة قسم"}>
+      <Modal open={showModal} onClose={() => setShowModal(false)} title={editing ? t("editClassroom") : t("addClassroom")}>
         <div className="space-y-4">
           <Select
-            label="المستوى"
+            label={t("level")}
             value={levelId}
             onChange={(value) => {
               setLevelId(value)
               setStreamId("")
             }}
             options={levels.map((level) => ({ value: level.id, label: `${level.stage.name} - ${level.name}` }))}
-            placeholder="اختر المستوى"
+            placeholder={t("levelPlaceholder")}
           />
 
           {filteredStreams.length > 0 && (
             <Select
-              label="الشعبة"
+              label={t("stream")}
               value={streamId}
               onChange={setStreamId}
-              options={[{ value: "", label: "بدون شعبة" }, ...filteredStreams.map((stream) => ({ value: stream.id, label: stream.name }))]}
-              placeholder="اختر الشعبة"
+              options={[{ value: "", label: t("withoutStream") }, ...filteredStreams.map((stream) => ({ value: stream.id, label: stream.name }))]}
+              placeholder={t("streamPlaceholder")}
             />
           )}
 
-          <Input label="اسم القسم" value={name} onChange={(e) => setName(e.target.value)} placeholder="مثال: 1AS2 أو 5D3 أو 7C1" />
-          <Input label="السعة القصوى" type="number" value={capacity} onChange={(e) => setCapacity(e.target.value)} />
-          <Button fullWidth onClick={save}>حفظ</Button>
+          <Input label={t("name")} value={name} onChange={(e) => setName(e.target.value)} placeholder={t("namePlaceholder")} />
+          <Input label={t("capacity")} type="number" value={capacity} onChange={(e) => setCapacity(e.target.value)} />
+          <Button fullWidth onClick={save}>{tCommon("save")}</Button>
         </div>
       </Modal>
 
       {loading ? (
         <Card>
-          <p className="text-center text-gray-400 py-8">جاري التحميل...</p>
+          <p className="text-center text-gray-400 py-8">{t("loading")}</p>
         </Card>
       ) : classrooms.length === 0 ? (
         <Card>
           <div className="text-center py-12">
             <DoorOpen className="h-12 w-12 mx-auto text-gray-300 mb-3" />
-            <p className="text-gray-500">لا توجد أقسام بعد</p>
+            <p className="text-gray-500">{t("empty")}</p>
             <Button className="mt-4" onClick={openAdd}>
-              <Plus className="h-5 w-5" /> إضافة قسم
+              <Plus className="h-5 w-5" /> {t("addClassroom")}
             </Button>
           </div>
         </Card>
@@ -176,16 +179,16 @@ export default function ClassroomsPage() {
                     <h3 className="font-semibold text-lg text-blue-700 group-hover:underline">{classroom.name}</h3>
                     <p className="text-sm text-gray-500">{classroom.level.stage.name} - {classroom.level.name}</p>
                     {classroom.stream && <Badge variant="info">{classroom.stream.name}</Badge>}
-                    <p className="text-xs text-gray-400 mt-1">السعة: {classroom.capacity} طالب</p>
+                    <p className="text-xs text-gray-400 mt-1">{t("capacityLabel", { count: classroom.capacity })}</p>
                   </div>
                   <Eye className="h-5 w-5 text-gray-300 group-hover:text-blue-500" />
                 </div>
               </Link>
               <div className="absolute left-3 bottom-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={(e) => { e.preventDefault(); openEdit(classroom) }} className="p-1.5 hover:bg-gray-100 rounded" aria-label="تعديل القسم">
+                <button onClick={(e) => { e.preventDefault(); openEdit(classroom) }} className="p-1.5 hover:bg-gray-100 rounded" aria-label={t("editAria")}>
                   <Edit2 className="h-4 w-4" />
                 </button>
-                <button onClick={(e) => { e.preventDefault(); setClassroomToDelete(classroom.id) }} className="p-1.5 hover:bg-red-50 rounded text-red-400" aria-label="حذف القسم">
+                <button onClick={(e) => { e.preventDefault(); setClassroomToDelete(classroom.id) }} className="p-1.5 hover:bg-red-50 rounded text-red-400" aria-label={t("deleteAria")}>
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
@@ -198,10 +201,10 @@ export default function ClassroomsPage() {
         open={!!classroomToDelete}
         onClose={() => setClassroomToDelete(null)}
         onConfirm={() => void deleteItem(classroomToDelete!)}
-        title="حذف القسم"
-        message="هل أنت متأكد؟"
-        confirmText="حذف"
-        cancelText="إلغاء"
+        title={t("deleteTitle")}
+        message={t("deleteMessage")}
+        confirmText={tCommon("delete")}
+        cancelText={tCommon("cancel")}
         variant="danger"
       />
     </div>

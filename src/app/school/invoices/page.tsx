@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
+import { useLocale, useTranslations } from "next-intl"
 import { api } from "@/lib/api"
 import { Button, Card, Input, Select, Badge, LoadingPage } from "@/components/ui"
 import { DollarSign, Search, BellRing, FilePlus2, ReceiptText } from "lucide-react"
 import toast from "react-hot-toast"
 import { generateRecentMonthOptions, getMonthLabel } from "@/lib/finance"
+import { getDateLocale } from "@/lib/locale"
 
 type Invoice = {
   id: string
@@ -36,19 +38,12 @@ type ReminderResponse = {
   invoices: number
 }
 
-const monthOptions = [
-  { value: "", label: "كل الأشهر" },
-  ...generateRecentMonthOptions(18),
-]
-
-const statusLabels: Record<string, { label: string; variant: "success" | "warning" | "default" | "danger" }> = {
-  PAID: { label: "مدفوع", variant: "success" },
-  PARTIAL: { label: "مدفوع جزئياً", variant: "warning" },
-  PENDING: { label: "غير مدفوع", variant: "danger" },
-  CANCELLED: { label: "ملغي", variant: "default" },
-}
+const recentMonthOptions = generateRecentMonthOptions(18)
 
 export default function InvoicesPage() {
+  const locale = useLocale()
+  const t = useTranslations("invoicesPage")
+  const tCommon = useTranslations("common")
   const searchParams = useSearchParams()
   const initialClassroomId = searchParams?.get("classroomId") || ""
   const initialMonth = searchParams?.get("month") || ""
@@ -58,7 +53,7 @@ export default function InvoicesPage() {
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [sendingReminders, setSendingReminders] = useState(false)
-  const [generateMonth, setGenerateMonth] = useState(monthOptions[1]?.value || "")
+  const [generateMonth, setGenerateMonth] = useState(recentMonthOptions[0]?.value || "")
   const [generateClassroomId, setGenerateClassroomId] = useState("")
   const [generateDueDate, setGenerateDueDate] = useState("")
   const [lastGeneration, setLastGeneration] = useState<GenerateInvoicesResponse | null>(null)
@@ -72,6 +67,16 @@ export default function InvoicesPage() {
   const [payAmount, setPayAmount] = useState("")
   const [payMethod, setPayMethod] = useState("CASH")
   const [paying, setPaying] = useState(false)
+  const monthOptions = [
+    { value: "", label: t("allMonths") },
+    ...recentMonthOptions,
+  ]
+  const statusLabels: Record<string, { label: string; variant: "success" | "warning" | "default" | "danger" }> = {
+    PAID: { label: t("statusPaid"), variant: "success" },
+    PARTIAL: { label: t("statusPartial"), variant: "warning" },
+    PENDING: { label: t("statusPending"), variant: "danger" },
+    CANCELLED: { label: t("statusCancelled"), variant: "default" },
+  }
 
   const loadClassrooms = useCallback(async () => {
     const { data } = await api.get<Classroom[]>("/api/school/classrooms")
@@ -105,7 +110,7 @@ export default function InvoicesPage() {
 
   async function recordPayment() {
     if (!payInvoiceId || !payAmount) {
-      toast.error("المبلغ مطلوب")
+      toast.error(t("amountRequired"))
       return
     }
 
@@ -124,7 +129,7 @@ export default function InvoicesPage() {
     if (error) {
       toast.error(error)
     } else {
-      toast.success(data?.receiptNumber ? `تم تسجيل الدفعة - ${data.receiptNumber}` : "تم تسجيل الدفعة")
+      toast.success(data?.receiptNumber ? t("paymentRecordedWithReceipt", { receipt: data.receiptNumber }) : t("paymentRecorded"))
       setPayInvoiceId(null)
       void loadInvoices()
     }
@@ -134,7 +139,7 @@ export default function InvoicesPage() {
 
   async function generateInvoices() {
     if (!generateMonth) {
-      toast.error("اختر الشهر")
+      toast.error(t("selectMonth"))
       return
     }
 
@@ -149,7 +154,7 @@ export default function InvoicesPage() {
       toast.error(error)
     } else {
       setLastGeneration(data || null)
-      toast.success(`تم توليد ${data?.created || 0} فاتورة لشهر ${getMonthLabel(generateMonth)}`)
+      toast.success(t("generatedInvoicesSuccess", { count: data?.created || 0, month: getMonthLabel(generateMonth) }))
       if (month === generateMonth || !month) {
         void loadInvoices()
       }
@@ -160,7 +165,7 @@ export default function InvoicesPage() {
 
   async function sendReminders() {
     if (!month) {
-      toast.error("اختر الشهر أولاً لإرسال التنبيهات")
+      toast.error(t("selectMonthForReminders"))
       return
     }
 
@@ -176,8 +181,8 @@ export default function InvoicesPage() {
       setLastReminder(data || null)
       toast.success(
         data?.createdCampaign
-          ? `تم إنشاء حملة اعتماد لعدد ${data?.recipients || 0} مستلمين`
-          : "لا توجد فواتير متأخرة لهذا الاختيار"
+          ? t("createdReminderCampaign", { count: data?.recipients || 0 })
+          : t("noOverdueInvoices")
       )
     }
 
@@ -188,46 +193,46 @@ export default function InvoicesPage() {
   const totalPaid = invoices.reduce((sum, invoice) => sum + invoice.payments.reduce((paid, payment) => paid + payment.amount, 0), 0)
   const unpaidCount = invoices.filter((invoice) => invoice.status === "PENDING").length
   const partialCount = invoices.filter((invoice) => invoice.status === "PARTIAL").length
-  const selectedMonthLabel = month ? getMonthLabel(month) : "كل الأشهر"
-  const selectedClassroomLabel = classrooms.find((item) => item.id === classroomId)?.name || "جميع الأقسام"
+  const selectedMonthLabel = month ? getMonthLabel(month) : t("allMonths")
+  const selectedClassroomLabel = classrooms.find((item) => item.id === classroomId)?.name || t("classroomOptional")
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">الفواتير والتحصيل</h1>
+        <h1 className="text-2xl font-bold">{t("title")}</h1>
         <p className="mt-2 text-sm text-gray-500">
-          توليد الفواتير يكون أولاً، ثم تظهر هنا للفحص والتحصيل، وبعدها يمكن إنشاء حملة تذكير للمتأخرات حسب نفس الفلاتر.
+          {t("subtitle")}
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
         <Card padding="md">
-          <p className="text-sm text-gray-400">الفواتير المعروضة</p>
+          <p className="text-sm text-gray-400">{t("shownInvoices")}</p>
           <p className="text-2xl font-bold">{invoices.length}</p>
         </Card>
         <Card padding="md">
-          <p className="text-sm text-gray-400">المحصّل</p>
+          <p className="text-sm text-gray-400">{t("collected")}</p>
           <p className="text-2xl font-bold text-green-600">{totalPaid} MRU</p>
         </Card>
         <Card padding="md">
-          <p className="text-sm text-gray-400">المتبقي على الطلاب</p>
+          <p className="text-sm text-gray-400">{t("remaining")}</p>
           <p className="text-2xl font-bold text-red-600">{totalDue} MRU</p>
         </Card>
         <Card padding="md">
-          <p className="text-sm text-gray-400">غير مدفوع بالكامل</p>
+          <p className="text-sm text-gray-400">{t("fullyUnpaid")}</p>
           <p className="text-2xl font-bold text-red-600">{unpaidCount}</p>
         </Card>
         <Card padding="md">
-          <p className="text-sm text-gray-400">مدفوع جزئياً</p>
+          <p className="text-sm text-gray-400">{t("partiallyPaid")}</p>
           <p className="text-2xl font-bold text-amber-600">{partialCount}</p>
         </Card>
       </div>
 
       {(initialClassroomId || initialMonth || initialStatus) && (
         <Card padding="md" className="border-blue-100 bg-blue-50">
-          <p className="text-sm font-medium text-blue-900">تم فتح الفواتير بفلاتر جاهزة</p>
+          <p className="text-sm font-medium text-blue-900">{t("openedWithFilters")}</p>
           <p className="mt-1 text-sm text-blue-700">
-            الصفحة دخلت مباشرة على القسم أو الشهر المحدد من السياق السابق. يمكنك متابعة نفس الاختيار أو تغييره من الفلاتر أدناه.
+            {t("openedWithFiltersText")}
           </p>
         </Card>
       )}
@@ -236,31 +241,31 @@ export default function InvoicesPage() {
         <Card padding="lg" className="border-blue-100 bg-blue-50">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">1. توليد فواتير شهر جديد</h2>
+              <h2 className="text-lg font-semibold text-gray-900">{t("generateTitle")}</h2>
               <p className="mt-2 text-sm text-blue-700">
-                هذا الإجراء ينشئ الفواتير الفعلية التي سيتابعها النظام لاحقاً. استخدمه مرة واحدة لكل شهر بعد التأكد من الرسوم المعينة على الطلاب.
+                {t("generateText")}
               </p>
             </div>
             <Button loading={generating} onClick={generateInvoices}>
-              <FilePlus2 className="h-4 w-4" /> توليد الفواتير
+              <FilePlus2 className="h-4 w-4" /> {t("generateButton")}
             </Button>
           </div>
 
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             <Select
-              label="شهر التوليد"
+              label={t("generateMonth")}
               value={generateMonth}
               onChange={setGenerateMonth}
               options={monthOptions.filter((option) => option.value)}
             />
             <Select
-              label="القسم (اختياري)"
+              label={t("classroomOptional")}
               value={generateClassroomId}
               onChange={setGenerateClassroomId}
-              options={[{ value: "", label: "جميع الأقسام" }, ...classrooms.map((item) => ({ value: item.id, label: item.name }))]}
+              options={[{ value: "", label: t("classroomOptional") }, ...classrooms.map((item) => ({ value: item.id, label: item.name }))]}
             />
             <Input
-              label="تاريخ الاستحقاق (اختياري)"
+              label={t("dueDateOptional")}
               type="date"
               value={generateDueDate}
               onChange={(e) => setGenerateDueDate(e.target.value)}
@@ -268,25 +273,25 @@ export default function InvoicesPage() {
           </div>
 
           <div className="mt-4 rounded-xl border border-blue-200 bg-white px-4 py-3 text-sm text-blue-700">
-            الرسوم الشهرية تتكرر كل شهر، والرسوم السنوية تتكرر مرة واحدة في السنة، ورسوم المرة الواحدة لا تتكرر بعد أول فاتورة.
+            {t("generationHint")}
           </div>
 
           {lastGeneration && (
             <div className="mt-4 grid gap-3 md:grid-cols-4">
               <div className="rounded-xl bg-white p-4 text-sm">
-                <p className="text-gray-500">إجمالي الرسوم المؤهلة</p>
+                <p className="text-gray-500">{t("eligibleFees")}</p>
                 <p className="mt-2 text-xl font-bold">{lastGeneration.total}</p>
               </div>
               <div className="rounded-xl bg-white p-4 text-sm">
-                <p className="text-gray-500">فواتير أنشئت</p>
+                <p className="text-gray-500">{t("createdInvoices")}</p>
                 <p className="mt-2 text-xl font-bold text-blue-700">{lastGeneration.created}</p>
               </div>
               <div className="rounded-xl bg-white p-4 text-sm">
-                <p className="text-gray-500">موجودة مسبقاً</p>
+                <p className="text-gray-500">{t("alreadyExisting")}</p>
                 <p className="mt-2 text-xl font-bold text-gray-900">{lastGeneration.skippedExisting}</p>
               </div>
               <div className="rounded-xl bg-white p-4 text-sm">
-                <p className="text-gray-500">تم تجاوزها حسب الدورية</p>
+                <p className="text-gray-500">{t("skippedByFrequency")}</p>
                 <p className="mt-2 text-xl font-bold text-amber-600">{lastGeneration.skippedByFrequency}</p>
               </div>
             </div>
@@ -296,27 +301,27 @@ export default function InvoicesPage() {
         <Card padding="lg">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">2. تنبيهات المتأخرات</h2>
+              <h2 className="text-lg font-semibold text-gray-900">{t("remindersTitle")}</h2>
               <p className="mt-2 text-sm text-gray-500">
-                التنبيه يعتمد على الشهر والقسم المحددين أسفل هذه الصفحة. بعد الضغط، ينشئ النظام حملة مراجعة واعتماد قبل الإرسال إلى أولياء الأمور.
+                {t("remindersText")}
               </p>
             </div>
             <Button variant="secondary" loading={sendingReminders} onClick={sendReminders}>
-              <BellRing className="h-4 w-4" /> إنشاء تنبيه
+              <BellRing className="h-4 w-4" /> {t("remindersButton")}
             </Button>
           </div>
 
           <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            إذا كان الشهر غير محدد فلن ينشئ النظام تنبيهاً، لأن تذكير المتأخرات يجب أن يكون مرتبطاً بشهر واضح.
+            {t("remindersHint")}
           </div>
 
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             <div className="rounded-xl bg-gray-50 p-4 text-sm">
-              <p className="text-gray-500">الشهر الحالي في الفلاتر</p>
+              <p className="text-gray-500">{t("currentMonthFilter")}</p>
               <p className="mt-2 font-semibold">{selectedMonthLabel}</p>
             </div>
             <div className="rounded-xl bg-gray-50 p-4 text-sm">
-              <p className="text-gray-500">القسم الحالي في الفلاتر</p>
+              <p className="text-gray-500">{t("currentClassroomFilter")}</p>
               <p className="mt-2 font-semibold">{selectedClassroomLabel}</p>
             </div>
           </div>
@@ -324,8 +329,8 @@ export default function InvoicesPage() {
           {lastReminder && (
             <div className="mt-5 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
               {lastReminder.createdCampaign
-                ? `تم إنشاء حملة اعتماد لعدد ${lastReminder.recipients} مستلمين تغطي ${lastReminder.invoices} فاتورة متأخرة.`
-                : "لا توجد فواتير متأخرة ضمن الاختيار الحالي، لذلك لم تُنشأ حملة جديدة."}
+                ? t("reminderCreatedText", { recipients: lastReminder.recipients, invoices: lastReminder.invoices })
+                : t("reminderSkippedText")}
             </div>
           )}
         </Card>
@@ -334,44 +339,44 @@ export default function InvoicesPage() {
       <Card padding="lg">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">3. متابعة الفواتير الحالية</h2>
+            <h2 className="text-lg font-semibold text-gray-900">{t("trackingTitle")}</h2>
             <p className="mt-2 text-sm text-gray-500">
-              الفلاتر هنا للعرض والمتابعة فقط. استخدمها للبحث في الفواتير المسجلة وتسجيل الدفعات الكاملة أو الجزئية.
+              {t("trackingText")}
             </p>
           </div>
           <Button variant="secondary" onClick={loadInvoices}>
-            <Search className="h-4 w-4" /> تحديث النتائج
+            <Search className="h-4 w-4" /> {t("refreshResults")}
           </Button>
         </div>
 
         <div className="mt-5 grid gap-4 md:grid-cols-4">
           <Select
-            label="القسم"
+            label={t("classroom")}
             value={classroomId}
             onChange={setClassroomId}
-            options={[{ value: "", label: "جميع الأقسام" }, ...classrooms.map((item) => ({ value: item.id, label: item.name }))]}
+            options={[{ value: "", label: t("classroomOptional") }, ...classrooms.map((item) => ({ value: item.id, label: item.name }))]}
           />
           <Select
-            label="الشهر"
+            label={t("month")}
             value={month}
             onChange={setMonth}
             options={monthOptions}
           />
           <Select
-            label="الحالة"
+            label={t("status")}
             value={status}
             onChange={setStatus}
             options={[
-              { value: "", label: "كل الحالات" },
-              { value: "PENDING", label: "غير مدفوع" },
-              { value: "PARTIAL", label: "مدفوع جزئياً" },
-              { value: "PAID", label: "مدفوع" },
-              { value: "CANCELLED", label: "ملغي" },
+              { value: "", label: t("allStatuses") },
+              { value: "PENDING", label: t("statusPending") },
+              { value: "PARTIAL", label: t("statusPartial") },
+              { value: "PAID", label: t("statusPaid") },
+              { value: "CANCELLED", label: t("statusCancelled") },
             ]}
           />
           <div className="flex items-end">
             <div className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
-              لا يؤدي تغيير هذه الفلاتر إلى توليد فواتير جديدة، بل يغير فقط الفواتير المعروضة أدناه.
+              {t("filtersHint")}
             </div>
           </div>
         </div>
@@ -381,9 +386,9 @@ export default function InvoicesPage() {
         <Card>
           <div className="py-16 text-center">
             <DollarSign className="mx-auto mb-4 h-16 w-16 text-gray-200" />
-            <p className="text-gray-500">لا توجد فواتير مطابقة لهذا العرض</p>
+            <p className="text-gray-500">{t("emptyTitle")}</p>
             <p className="mt-1 text-sm text-gray-400">
-              إذا كنت تبدأ شهراً جديداً فابدأ أولاً من قسم &quot;توليد فواتير شهر جديد&quot;، ثم عد إلى هذا الجدول للمتابعة والتحصيل.
+              {t("emptyText")}
             </p>
           </div>
         </Card>
@@ -392,14 +397,14 @@ export default function InvoicesPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b text-right">
-                <th className="pb-3 font-medium text-gray-500">الطالب</th>
-                <th className="pb-3 font-medium text-gray-500">القسم</th>
-                <th className="pb-3 font-medium text-gray-500">الرسم</th>
-                <th className="pb-3 font-medium text-gray-500">الشهر</th>
-                <th className="pb-3 font-medium text-gray-500">الاستحقاق</th>
-                <th className="pb-3 font-medium text-gray-500">المبلغ</th>
-                <th className="pb-3 font-medium text-gray-500">الحالة</th>
-                <th className="pb-3 font-medium text-gray-500">المدفوع</th>
+                <th className="pb-3 font-medium text-gray-500">{t("student")}</th>
+                <th className="pb-3 font-medium text-gray-500">{t("classroom")}</th>
+                <th className="pb-3 font-medium text-gray-500">{t("fee")}</th>
+                <th className="pb-3 font-medium text-gray-500">{t("month")}</th>
+                <th className="pb-3 font-medium text-gray-500">{t("dueDate")}</th>
+                <th className="pb-3 font-medium text-gray-500">{t("amount")}</th>
+                <th className="pb-3 font-medium text-gray-500">{t("status")}</th>
+                <th className="pb-3 font-medium text-gray-500">{t("paidAmount")}</th>
                 <th className="pb-3 font-medium text-gray-500"></th>
               </tr>
             </thead>
@@ -419,7 +424,7 @@ export default function InvoicesPage() {
                     <td className="py-3">{invoice.classroom.name}</td>
                     <td className="py-3">{invoice.fee.name}</td>
                     <td className="py-3">{getMonthLabel(invoice.month)}</td>
-                    <td className="py-3">{invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString("ar-MR") : "غير محدد"}</td>
+                    <td className="py-3">{invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString(getDateLocale(locale)) : t("unspecified")}</td>
                     <td className="py-3 font-medium">{invoice.amount} MRU</td>
                     <td className="py-3"><Badge variant={currentStatus.variant}>{currentStatus.label}</Badge></td>
                     <td className="py-3">{paid} MRU</td>
@@ -433,7 +438,7 @@ export default function InvoicesPage() {
                             setPayMethod("CASH")
                           }}
                         >
-                          <ReceiptText className="h-4 w-4" /> تسديد
+                          <ReceiptText className="h-4 w-4" /> {t("settle")}
                         </Button>
                       )}
                     </td>
@@ -454,29 +459,29 @@ export default function InvoicesPage() {
         return (
           <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40" onClick={() => setPayInvoiceId(null)}>
             <div className="w-[90vw] max-w-md rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
-              <h2 className="mb-4 text-lg font-semibold">تسديد فاتورة</h2>
+              <h2 className="mb-4 text-lg font-semibold">{t("settleInvoice")}</h2>
               <div className="mb-4 space-y-3 text-sm">
-                <p><span className="text-gray-400">الطالب:</span> {invoice.student.firstName} {invoice.student.lastName}</p>
-                <p><span className="text-gray-400">القسم:</span> {invoice.classroom.name}</p>
-                <p><span className="text-gray-400">الرسم:</span> {invoice.fee.name}</p>
-                <p><span className="text-gray-400">الشهر:</span> {getMonthLabel(invoice.month)}</p>
-                <p><span className="text-gray-400">المبلغ المتبقي:</span> {remainingAmount} MRU</p>
+                <p><span className="text-gray-400">{t("student")}:</span> {invoice.student.firstName} {invoice.student.lastName}</p>
+                <p><span className="text-gray-400">{t("classroom")}:</span> {invoice.classroom.name}</p>
+                <p><span className="text-gray-400">{t("fee")}:</span> {invoice.fee.name}</p>
+                <p><span className="text-gray-400">{t("month")}:</span> {getMonthLabel(invoice.month)}</p>
+                <p><span className="text-gray-400">{t("remainingAmount")}:</span> {remainingAmount} MRU</p>
               </div>
               <div className="space-y-4">
-                <Input label="المبلغ" type="number" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} />
+                <Input label={t("amount")} type="number" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} />
                 <Select
-                  label="طريقة الدفع"
+                  label={t("paymentMethod")}
                   value={payMethod}
                   onChange={setPayMethod}
                   options={[
-                    { value: "CASH", label: "نقداً" },
-                    { value: "BANK_TRANSFER", label: "تحويل بنكي" },
-                    { value: "CHEQUE", label: "شيك" },
+                    { value: "CASH", label: t("cash") },
+                    { value: "BANK_TRANSFER", label: t("bankTransfer") },
+                    { value: "CHEQUE", label: t("cheque") },
                   ]}
                 />
                 <div className="flex gap-2">
-                  <Button fullWidth loading={paying} onClick={recordPayment}>تأكيد الدفع</Button>
-                  <Button variant="secondary" fullWidth onClick={() => setPayInvoiceId(null)}>إلغاء</Button>
+                  <Button fullWidth loading={paying} onClick={recordPayment}>{t("confirmPayment")}</Button>
+                  <Button variant="secondary" fullWidth onClick={() => setPayInvoiceId(null)}>{tCommon("cancel")}</Button>
                 </div>
               </div>
             </div>
