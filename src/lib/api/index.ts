@@ -227,6 +227,21 @@ export type DashboardMonthMetric = {
   href: string
 }
 
+export type DashboardTodaySession = {
+  scheduleId: string
+  teacherName: string
+  subjectName: string
+  subjectNameFr: string | null
+  classroomName: string
+  levelName: string
+  streamName: string | null
+  startTime: string
+  endTime: string
+  status: string | null
+  confirmedBy: string | null
+  timeState: "upcoming" | "current" | "finished"
+}
+
 export type DashboardStats = {
   schoolName: string | null
   today: string
@@ -244,6 +259,20 @@ export type DashboardStats = {
   }
   attentionItems: DashboardActionItem[]
   dailyChecklist: DashboardChecklistItem[]
+  dailyOperations: {
+    summary: {
+      total: number
+      confirmed: number
+      pending: number
+      present: number
+      absent: number
+      late: number
+      excused: number
+    }
+    currentSessions: DashboardTodaySession[]
+    pendingSessions: DashboardTodaySession[]
+    issueSessions: DashboardTodaySession[]
+  }
   monthlySnapshot: DashboardMonthMetric[]
   healthChecks: DashboardHealthItem[]
 }

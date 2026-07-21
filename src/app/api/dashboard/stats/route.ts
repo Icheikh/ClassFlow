@@ -101,13 +101,25 @@ export async function GET() {
         by: ["classroomId"],
         where: { schoolId, date: { gte: today, lt: tomorrow } },
       }),
-      prisma.schedule.groupBy({
-        by: ["id", "teacherId", "classroomId"],
+      prisma.schedule.findMany({
         where: { schoolId, dayOfWeek: today.getDay(), teacherId: { not: null } },
+        include: {
+          teacher: { include: { user: { select: { name: true } } } },
+          subject: { select: { nameAr: true, nameFr: true } },
+          classroom: { include: { level: true, stream: true } },
+          attendances: {
+            where: { date: { gte: today, lt: tomorrow } },
+            include: { confirmedByUser: { select: { name: true } } },
+          },
+        },
+        orderBy: [
+          { startTime: "asc" },
+          { classroom: { name: "asc" } },
+        ],
       }),
-      prisma.scheduleAttendance.groupBy({
-        by: ["scheduleId"],
+      prisma.scheduleAttendance.findMany({
         where: { schoolId, date: { gte: today, lt: tomorrow } },
+        select: { scheduleId: true, status: true },
       }),
       prisma.teacherAssignment.count({
         where: {
@@ -195,6 +207,39 @@ export async function GET() {
     const teachersWithMissingSessionsCount = Math.max(0, scheduledTeacherIds.size - teachersWithConfirmedSessions.size)
     const classroomsWithScheduleTodayCount = new Set(todaySchedules.map((entry) => entry.classroomId)).size
     const classroomsMissingSessionConfirmation = Math.max(0, classroomsWithScheduleTodayCount - classroomsWithConfirmedSessions.size)
+    const now = new Date()
+    const currentMinutes = now.getHours() * 60 + now.getMinutes()
+    const toMinutes = (time: string) => {
+      const [hours, minutes] = time.split(":").map(Number)
+      return hours * 60 + (minutes || 0)
+    }
+    const dashboardSessions = todaySchedules.map((schedule) => {
+      const attendance = schedule.attendances[0] || null
+      const startMinutes = toMinutes(schedule.startTime)
+      const endMinutes = toMinutes(schedule.endTime)
+      const timeState = currentMinutes < startMinutes
+        ? "upcoming"
+        : currentMinutes > endMinutes
+          ? "finished"
+          : "current"
+
+      return {
+        scheduleId: schedule.id,
+        teacherName: schedule.teacher?.user.name || "",
+        subjectName: schedule.subject.nameAr,
+        subjectNameFr: schedule.subject.nameFr,
+        classroomName: schedule.classroom.name,
+        levelName: schedule.classroom.level.name,
+        streamName: schedule.classroom.stream?.name || null,
+        startTime: schedule.startTime,
+        endTime: schedule.endTime,
+        status: attendance?.status || null,
+        confirmedBy: attendance?.confirmedByUser.name || null,
+        timeState,
+      }
+    })
+    const pendingSessions = dashboardSessions.filter((session) => !session.status)
+    const issueSessions = dashboardSessions.filter((session) => session.status === "ABSENT" || session.status === "LATE")
 
     return NextResponse.json({
       schoolName: school?.name || null,
@@ -279,6 +324,20 @@ export async function GET() {
           href: "/school/teaching-hours",
         },
       ],
+      dailyOperations: {
+        summary: {
+          total: totalScheduledSessions,
+          confirmed: confirmedSessionsCount,
+          pending: Math.max(0, totalScheduledSessions - confirmedSessionsCount),
+          present: todayScheduleAttendances.filter((attendance) => attendance.status === "PRESENT").length,
+          absent: todayScheduleAttendances.filter((attendance) => attendance.status === "ABSENT").length,
+          late: todayScheduleAttendances.filter((attendance) => attendance.status === "LATE").length,
+          excused: todayScheduleAttendances.filter((attendance) => attendance.status === "EXCUSED").length,
+        },
+        currentSessions: dashboardSessions.filter((session) => session.timeState === "current").slice(0, 6),
+        pendingSessions: pendingSessions.slice(0, 8),
+        issueSessions: issueSessions.slice(0, 8),
+      },
       monthlySnapshot: [
         {
           key: "pendingInvoicesThisMonth",
