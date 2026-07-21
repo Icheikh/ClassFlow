@@ -13,6 +13,7 @@ import {
   RESULT_PUBLICATION_STATUSES,
 } from "@/lib/results"
 import { createResultAuditLog, ensurePublishedResultRule, serializeRule } from "@/lib/result-rules"
+import { notifySchoolManagers } from "@/lib/operational-notifications"
 
 function getAllowedAssessmentError(termName: string, termOrder: number) {
   return `في ${termName} يسمح فقط بالاختبارات و${termOrder === 1 ? "الامتحان الأول" : termOrder === 2 ? "الامتحان الثاني" : "الامتحان الأخير"}`
@@ -117,6 +118,55 @@ async function ensurePublicationIsEditable(options: {
     return { editable: false as const, error: "تم قفل نتائج هذا القسم لهذا الفصل" }
   }
   return { editable: true as const, publication, overrideLockedPublication: false }
+}
+
+async function notifyAssessmentChange(options: {
+  schoolId: string
+  assessmentId: string
+  classroomId: string
+  subjectId: string
+  teacherId: string
+  title: string
+  assessmentType: string
+  scoreCount: number
+  action: "CREATE" | "UPDATE"
+}) {
+  const [classroom, subject, teacher] = await Promise.all([
+    prisma.classroom.findUnique({
+      where: { id: options.classroomId },
+      select: { name: true },
+    }),
+    prisma.subject.findUnique({
+      where: { id: options.subjectId },
+      select: { nameAr: true, nameFr: true },
+    }),
+    prisma.teacher.findUnique({
+      where: { id: options.teacherId },
+      include: { user: { select: { name: true } } },
+    }),
+  ])
+
+  const actionLabel = options.action === "CREATE" ? "سجل" : "عدّل"
+  await notifySchoolManagers({
+    schoolId: options.schoolId,
+    type: options.action === "CREATE" ? "RESULTS_RECORDED" : "RESULTS_UPDATED",
+    entityType: "ASSESSMENT",
+    entityId: options.assessmentId,
+    actionUrl: `/school/classrooms/${options.classroomId}`,
+    title: `${actionLabel} الأستاذ نتائج ${classroom?.name || "قسم"}`,
+    message: `${actionLabel} ${teacher?.user.name || "الأستاذ"} نتائج "${options.title}" في ${subject?.nameAr || "المادة"}، عدد النقاط: ${options.scoreCount}.`,
+    metadata: {
+      assessmentId: options.assessmentId,
+      classroomId: options.classroomId,
+      classroomName: classroom?.name || null,
+      subjectId: options.subjectId,
+      subjectName: subject?.nameAr || null,
+      teacherId: options.teacherId,
+      teacherName: teacher?.user.name || null,
+      assessmentType: options.assessmentType,
+      scoreCount: options.scoreCount,
+    },
+  })
 }
 
 export async function POST(req: NextRequest) {
@@ -266,6 +316,20 @@ export async function POST(req: NextRequest) {
     },
   })
 
+  await notifyAssessmentChange({
+    schoolId: user.schoolId,
+    assessmentId: assessment.id,
+    classroomId,
+    subjectId,
+    teacherId,
+    title: assessment.title,
+    assessmentType: assessment.type,
+    scoreCount: assessment.scores.length,
+    action: "CREATE",
+  }).catch((error) => {
+    console.error("Assessment manager notification creation failed:", error)
+  })
+
   return NextResponse.json(assessment)
 }
 
@@ -406,6 +470,22 @@ export async function PUT(req: NextRequest) {
     },
     after: assessment,
   })
+
+  if (assessment) {
+    await notifyAssessmentChange({
+      schoolId: user.schoolId,
+      assessmentId: assessment.id,
+      classroomId: assessment.classroomId,
+      subjectId: assessment.subjectId,
+      teacherId: assessment.teacherId,
+      title: assessment.title,
+      assessmentType: assessment.type,
+      scoreCount: assessment.scores.length,
+      action: "UPDATE",
+    }).catch((error) => {
+      console.error("Assessment manager notification update failed:", error)
+    })
+  }
 
   return NextResponse.json(assessment)
 }

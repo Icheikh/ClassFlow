@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { hasAnyPermission, PERMISSIONS } from "@/lib/permissions"
-import { createNotificationCampaign } from "@/lib/notifications"
+import { notifySchoolManagers } from "@/lib/operational-notifications"
 
 const legacyRoles = ["TEACHER", "SCHOOL_ADMIN", "SUPERVISOR"]
 
@@ -56,36 +56,56 @@ export async function POST(req: NextRequest) {
     )
   )
 
-  const absentStudents = records.filter((r: { status: string }) => r.status === "absent" || r.status === "late")
+  const absentStudents = records.filter((r: { status: string }) => {
+    const status = String(r.status).toUpperCase()
+    return status === "ABSENT" || status === "LATE"
+  })
   if (absentStudents.length > 0) {
-    const classroom = await prisma.classroom.findUnique({
-      where: { id: classroomId },
-      select: { name: true },
-    })
+    const [classroom, subject, teacher] = await Promise.all([
+      prisma.classroom.findUnique({
+        where: { id: classroomId },
+        select: { name: true },
+      }),
+      prisma.subject.findUnique({
+        where: { id: subjectId },
+        select: { nameAr: true, nameFr: true },
+      }),
+      prisma.teacher.findUnique({
+        where: { id: teacherId },
+        include: { user: { select: { name: true } } },
+      }),
+    ])
 
-    const absentCount = absentStudents.filter((record: { status: string }) => record.status === "absent").length
-    const lateCount = absentStudents.filter((record: { status: string }) => record.status === "late").length
+    const absentCount = absentStudents.filter((record: { status: string }) => String(record.status).toUpperCase() === "ABSENT").length
+    const lateCount = absentStudents.filter((record: { status: string }) => String(record.status).toUpperCase() === "LATE").length
     const dateLabel = new Date(date).toLocaleDateString("ar-MR")
 
     try {
-      await createNotificationCampaign({
+      await notifySchoolManagers({
         schoolId: user.schoolId,
-        createdByUserId: user.id,
-        type: "ATTENDANCE",
-        channel: "WHATSAPP",
-        title: `تنبيه حضور ${classroom?.name || "القسم"}`,
-        message: `تم تسجيل الحضور بتاريخ ${dateLabel}. يوجد ${absentCount} غياب و${lateCount} تأخر في ${classroom?.name || "هذا القسم"}. الحملة بانتظار اعتماد الإدارة قبل إرسالها للأولياء.`,
-        audience: {
-          audienceType: "STUDENTS",
-          filters: {
-            studentIds: absentStudents.map((record: { studentId: string }) => record.studentId),
-          },
-          exclusions: {},
+        type: "ATTENDANCE_RECORDED",
+        entityType: "ATTENDANCE",
+        entityId: `${classroomId}:${subjectId}:${new Date(date).toISOString().split("T")[0]}`,
+        actionUrl: `/school/classrooms/${classroomId}`,
+        title: `غياب مسجل في ${classroom?.name || "القسم"}`,
+        message: `سجل ${teacher?.user.name || "الأستاذ"} حضور ${subject?.nameAr || "المادة"} بتاريخ ${dateLabel}. الغياب: ${absentCount}، التأخر: ${lateCount}.`,
+        metadata: {
+          classroomId,
+          classroomName: classroom?.name || null,
+          subjectId,
+          subjectName: subject?.nameAr || null,
+          teacherId,
+          teacherName: teacher?.user.name || null,
+          date: new Date(date).toISOString(),
+          absentCount,
+          lateCount,
+          studentIds: absentStudents.map((record: { studentId: string }) => record.studentId),
+          parentTitle: `غياب أو تأخر في ${classroom?.name || "القسم"}`,
+          parentMessage: `تم تسجيل غياب أو تأخر بتاريخ ${dateLabel} في مادة ${subject?.nameAr || "المادة"}. يرجى التواصل مع الإدارة عند الحاجة.`,
         },
-        status: "DRAFT",
       })
     } catch (error) {
-      console.error("Attendance campaign creation failed:", error)
+      console.error("Attendance manager notification creation failed:", error)
     }
   }
 

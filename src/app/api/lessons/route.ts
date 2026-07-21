@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { hasPermission, PERMISSIONS } from "@/lib/permissions"
+import { notifySchoolManagers } from "@/lib/operational-notifications"
 
 const legacyRoles = ["TEACHER", "SCHOOL_ADMIN", "SUPERVISOR"]
 
@@ -55,6 +56,43 @@ export async function POST(req: NextRequest) {
       termId: activeTerm?.id,
       status: "DRAFT",
     },
+  })
+
+  const [classroom, subject, teacher] = await Promise.all([
+    prisma.classroom.findUnique({
+      where: { id: classroomId },
+      select: { name: true },
+    }),
+    prisma.subject.findUnique({
+      where: { id: subjectId },
+      select: { nameAr: true, nameFr: true },
+    }),
+    prisma.teacher.findUnique({
+      where: { id: teacherId },
+      include: { user: { select: { name: true } } },
+    }),
+  ])
+
+  await notifySchoolManagers({
+    schoolId: user.schoolId,
+    type: "LESSON_RECORDED",
+    entityType: "LESSON",
+    entityId: lesson.id,
+    actionUrl: `/school/classrooms/${classroomId}`,
+    title: `درس جديد في ${classroom?.name || "القسم"}`,
+    message: `وثق ${teacher?.user.name || "الأستاذ"} درس "${lesson.title}" في ${subject?.nameAr || "المادة"}.`,
+    metadata: {
+      lessonId: lesson.id,
+      classroomId,
+      classroomName: classroom?.name || null,
+      subjectId,
+      subjectName: subject?.nameAr || null,
+      teacherId,
+      teacherName: teacher?.user.name || null,
+      duration: lesson.duration,
+    },
+  }).catch((error) => {
+    console.error("Lesson manager notification creation failed:", error)
   })
 
   return NextResponse.json(lesson)
