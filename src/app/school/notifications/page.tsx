@@ -14,10 +14,8 @@ import {
   Eye,
   GraduationCap,
   Inbox,
-  Megaphone,
   Send,
   Users,
-  XCircle,
 } from "lucide-react"
 
 type InternalNotification = {
@@ -36,21 +34,6 @@ type InternalNotificationsResponse = {
   notifications: InternalNotification[]
   unreadCount: number
   pendingCount: number
-}
-
-type Campaign = {
-  id: string
-  title: string
-  message: string
-  type: string
-  channel: string
-  status: string
-  audienceType: string
-  recipientsCount: number
-  createdAt: string
-  createdByUser?: { id: string; name: string }
-  approvedByUser?: { id: string; name: string } | null
-  statusSummary?: Record<string, number>
 }
 
 type NotificationFilter = "PENDING" | "ALL" | "HANDLED"
@@ -80,10 +63,8 @@ export default function SchoolNotificationsPage() {
   const locale = useLocale()
   const [loading, setLoading] = useState(true)
   const [savingNotification, setSavingNotification] = useState<string | null>(null)
-  const [savingCampaign, setSavingCampaign] = useState<string | null>(null)
   const [filter, setFilter] = useState<NotificationFilter>("PENDING")
   const [notifications, setNotifications] = useState<InternalNotification[]>([])
-  const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [pendingCount, setPendingCount] = useState(0)
 
@@ -92,13 +73,6 @@ export default function SchoolNotificationsPage() {
     RESOLVED: t("statusResolved"),
     DISMISSED: t("statusDismissed"),
     ACTIONED: t("statusActioned"),
-    DRAFT: t("statusDraft"),
-    PENDING_APPROVAL: t("statusPendingApproval"),
-    APPROVED: t("statusApproved"),
-    SCHEDULED: t("statusScheduled"),
-    REJECTED: t("statusRejected"),
-    SENT: t("statusSent"),
-    FAILED: t("statusFailed"),
   }
 
   const typeLabels: Record<string, string> = {
@@ -106,26 +80,17 @@ export default function SchoolNotificationsPage() {
     RESULTS_RECORDED: t("internalTypeResults"),
     RESULTS_UPDATED: t("internalTypeResultsUpdated"),
     LESSON_RECORDED: t("internalTypeLesson"),
-    ATTENDANCE: t("typeAttendance"),
-    RESULTS: t("typeResults"),
-    FEES: t("typeFees"),
-    GENERAL: t("typeGeneral"),
   }
 
   const loadData = useCallback(async () => {
     setLoading(true)
-    const [notificationsRes, campaignsRes] = await Promise.all([
-      api.get<InternalNotificationsResponse>("/api/school/notifications"),
-      api.get<Campaign[]>("/api/school/notifications/campaigns"),
-    ])
+    const notificationsRes = await api.get<InternalNotificationsResponse>("/api/school/notifications")
 
     if (notificationsRes.error) toast.error(notificationsRes.error)
-    if (campaignsRes.error) toast.error(campaignsRes.error)
 
     setNotifications(notificationsRes.data?.notifications || [])
     setUnreadCount(notificationsRes.data?.unreadCount || 0)
     setPendingCount(notificationsRes.data?.pendingCount || 0)
-    setCampaigns(campaignsRes.data || [])
     setLoading(false)
   }, [])
 
@@ -158,30 +123,12 @@ export default function SchoolNotificationsPage() {
     setSavingNotification(null)
   }
 
-  async function updateCampaignStatus(id: string, action: "submit" | "approve" | "reject") {
-    setSavingCampaign(`${id}:${action}`)
-    const endpoint = `/api/school/notifications/campaigns/${id}/${action}`
-    const payload = action === "reject" ? { reason: t("defaultRejectReason") } : undefined
-    const { error } = await api.post(endpoint, payload)
-    if (error) toast.error(error)
-    else {
-      toast.success(
-        action === "submit" ? t("campaignSubmitted")
-          : action === "approve" ? t("campaignApproved")
-            : t("campaignRejected")
-      )
-      await loadData()
-    }
-    setSavingCampaign(null)
-  }
-
   const visibleNotifications = notifications.filter((notification) => {
     if (filter === "PENDING") return notification.status === "PENDING"
     if (filter === "HANDLED") return notification.status !== "PENDING"
     return true
   })
   const handledCount = notifications.filter((notification) => notification.status !== "PENDING").length
-  const draftCampaigns = campaigns.filter((campaign) => ["DRAFT", "PENDING_APPROVAL", "APPROVED"].includes(campaign.status))
 
   if (loading) return <LoadingPage />
 
@@ -200,11 +147,10 @@ export default function SchoolNotificationsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <SummaryCard icon={Inbox} label={t("pendingInternal")} value={pendingCount} tone="amber" />
         <SummaryCard icon={BellRing} label={t("unreadInternal")} value={unreadCount} tone="blue" />
         <SummaryCard icon={CheckCircle2} label={t("handledInternal")} value={handledCount} tone="green" />
-        <SummaryCard icon={Megaphone} label={t("parentDrafts")} value={draftCampaigns.length} tone="rose" />
       </div>
 
       <Card padding="lg">
@@ -255,78 +201,6 @@ export default function SchoolNotificationsPage() {
         )}
       </Card>
 
-      <Card padding="lg">
-        <div className="mb-5 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h2 className="text-xl font-semibold text-slate-950">{t("parentCampaignsSection")}</h2>
-            <p className="mt-1 text-sm text-slate-500">{t("parentCampaignsSubtitle")}</p>
-          </div>
-          <Badge variant="default">{t("recordsCount", { count: campaigns.length })}</Badge>
-        </div>
-
-        {campaigns.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
-            {t("noParentCampaigns")}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {campaigns.slice(0, 12).map((campaign) => (
-              <div key={campaign.id} className="rounded-2xl border border-slate-200 p-4">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="font-semibold text-slate-950">{campaign.title}</h3>
-                      <Badge variant={getStatusVariant(campaign.status)}>{statusLabels[campaign.status] || campaign.status}</Badge>
-                    </div>
-                    <p className="mt-1 line-clamp-2 text-sm text-slate-600">{campaign.message}</p>
-                    <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
-                      <span>{typeLabels[campaign.type] || campaign.type}</span>
-                      <span>{t("recipientsLabel", { count: campaign.recipientsCount })}</span>
-                      <span>{formatDate(campaign.createdAt, locale)}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    <Link href={`/school/notifications/${campaign.id}`}>
-                      <Button variant="secondary" size="sm">
-                        <Eye className="h-4 w-4" /> {t("details")}
-                      </Button>
-                    </Link>
-                    {(campaign.status === "DRAFT" || campaign.status === "REJECTED") && (
-                      <Button
-                        size="sm"
-                        loading={savingCampaign === `${campaign.id}:submit`}
-                        onClick={() => void updateCampaignStatus(campaign.id, "submit")}
-                      >
-                        <Send className="h-4 w-4" /> {t("submitForApproval")}
-                      </Button>
-                    )}
-                    {campaign.status === "PENDING_APPROVAL" && (
-                      <>
-                        <Button
-                          size="sm"
-                          loading={savingCampaign === `${campaign.id}:approve`}
-                          onClick={() => void updateCampaignStatus(campaign.id, "approve")}
-                        >
-                          <CheckCircle2 className="h-4 w-4" /> {t("approve")}
-                        </Button>
-                        <Button
-                          variant="danger"
-                          size="sm"
-                          loading={savingCampaign === `${campaign.id}:reject`}
-                          onClick={() => void updateCampaignStatus(campaign.id, "reject")}
-                        >
-                          <XCircle className="h-4 w-4" /> {t("reject")}
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
     </div>
   )
 }
@@ -340,13 +214,12 @@ function SummaryCard({
   icon: typeof Inbox
   label: string
   value: number
-  tone: "amber" | "blue" | "green" | "rose"
+  tone: "amber" | "blue" | "green"
 }) {
   const toneClass = {
     amber: "bg-amber-50 text-amber-700",
     blue: "bg-blue-50 text-blue-700",
     green: "bg-emerald-50 text-emerald-700",
-    rose: "bg-rose-50 text-rose-700",
   }[tone]
 
   return (
