@@ -6,7 +6,7 @@ import { useSession } from "next-auth/react"
 import { useLocale, useTranslations } from "next-intl"
 import { dashboardApi, type DashboardStats } from "@/lib/api"
 import { getDateLocale } from "@/lib/locale"
-import { Card } from "@/components/ui"
+import { Card, ErrorDisplay, LoadingPage } from "@/components/ui"
 import {
   BellRing,
   BookOpen,
@@ -27,15 +27,55 @@ export default function SchoolDashboardPage() {
   const tSchool = useTranslations("school")
   const tDashboard = useTranslations("dashboard")
   const locale = useLocale()
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
   const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [retryKey, setRetryKey] = useState(0)
   const user = session?.user as any
 
   useEffect(() => {
-    dashboardApi.stats().then(({ data }) => {
-      if (data) setStats(data)
-    })
-  }, [])
+    if (status === "loading") return
+    if (status === "unauthenticated") {
+      setLoading(false)
+      setLoadError("Unauthorized")
+      return
+    }
+
+    let cancelled = false
+
+    async function loadDashboard() {
+      setLoading(true)
+      setLoadError(null)
+      const { data, error } = await dashboardApi.stats()
+      if (cancelled) return
+
+      if (error || !data) {
+        setStats(null)
+        setLoadError(error || "Failed to load dashboard")
+      } else {
+        setStats(data)
+      }
+
+      setLoading(false)
+    }
+
+    void loadDashboard()
+
+    return () => {
+      cancelled = true
+    }
+  }, [status, retryKey])
+
+  if (loading) return <LoadingPage />
+
+  if (loadError) {
+    return (
+      <div className="my-20">
+        <ErrorDisplay message={loadError} onRetry={() => setRetryKey((value) => value + 1)} />
+      </div>
+    )
+  }
 
   const cards = [
     { label: tSchool("students"), value: stats?.stats.students ?? 0, icon: Users, color: "bg-blue-50 text-blue-600" },
