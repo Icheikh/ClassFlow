@@ -1,49 +1,51 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useSession } from "next-auth/react"
+import { useLocale, useTranslations } from "next-intl"
 import { api } from "@/lib/api"
-import { Button, Card, Badge, LoadingPage, ErrorDisplay, ConfirmModal } from "@/components/ui"
+import { Badge, Button, Card, ConfirmModal, ErrorDisplay, LoadingPage } from "@/components/ui"
+import { getDateLocale, getLocalizedSubjectName } from "@/lib/locale"
 import {
+  AlertTriangle,
+  Calendar,
+  CheckCircle,
+  Clock,
+  RefreshCw,
   UserCheck,
   UserX,
-  Clock,
-  Calendar,
-  BookOpen,
-  CheckCircle,
   XCircle,
-  AlertTriangle,
-  RefreshCw,
 } from "lucide-react"
 import toast from "react-hot-toast"
 
-type TeacherRosterEntry = {
-  id: string
-  name: string
-  email: string
-  assignments: { subject: string; classroom: string; hourlyRate: number | null }[]
-  attendance: { status: string; checkIn: string | null; checkOut: string | null; markedBy: string } | null
-  lessonCount: number
-  assignmentCount: number
-  hasSchedule: boolean
+type SessionEntry = {
+  scheduleId: string
+  teacherId: string
+  teacherName: string
+  teacherEmail: string
+  subjectName: string
+  subjectNameFr?: string | null
+  classroomName: string
+  levelName: string
+  streamName: string | null
+  startTime: string
+  endTime: string
+  status: string | null
+  notes: string
+  confirmedBy: string | null
 }
 
-type RosterData = {
+type SessionData = {
   date: string
-  teachers: TeacherRosterEntry[]
+  sessions: SessionEntry[]
 }
-
-const STATUS_OPTIONS = [
-  { value: "PRESENT", label: "حاضر", icon: CheckCircle, color: "text-green-600 bg-green-50 border-green-200" },
-  { value: "ABSENT", label: "غائب", icon: XCircle, color: "text-red-600 bg-red-50 border-red-200" },
-  { value: "LATE", label: "متأخر", icon: AlertTriangle, color: "text-amber-600 bg-amber-50 border-amber-200" },
-  { value: "EXCUSED", label: "بعذر", icon: Clock, color: "text-blue-600 bg-blue-50 border-blue-200" },
-]
 
 export function TeacherRosterManager() {
   const { data: session } = useSession()
   const user = session?.user as any
-  const [data, setData] = useState<RosterData | null>(null)
+  const locale = useLocale()
+  const t = useTranslations("teacherAttendancePage")
+  const [data, setData] = useState<SessionData | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<string | null>(null)
   const [filter, setFilter] = useState("")
@@ -54,88 +56,138 @@ export function TeacherRosterManager() {
 
   const isSupervisor = user?.role === "SUPERVISOR" || user?.role === "SCHOOL_ADMIN"
 
+  const statusOptions = [
+    { value: "PRESENT", label: t("statusPresent"), icon: CheckCircle, color: "text-green-600 bg-green-50 border-green-200" },
+    { value: "ABSENT", label: t("statusAbsent"), icon: XCircle, color: "text-red-600 bg-red-50 border-red-200" },
+    { value: "LATE", label: t("statusLate"), icon: AlertTriangle, color: "text-amber-600 bg-amber-50 border-amber-200" },
+    { value: "EXCUSED", label: t("statusExcused"), icon: Clock, color: "text-blue-600 bg-blue-50 border-blue-200" },
+  ]
+
   const fetchData = useCallback(async () => {
     if (!isSupervisor) return
     void retryTrigger
     setLoading(true)
     setFetchError(false)
     try {
-      const { data: result, error } = await api.get<RosterData>(`/api/teacher-attendance?date=${dateStr}`)
-      if (error) { toast.error(error); setFetchError(true); return }
-      if (result) setData(result)
-    } catch { setFetchError(true); toast.error("حدث خطأ أثناء تحميل بيانات الحضور") }
+      const { data: result, error } = await api.get<SessionData>(`/api/teacher-attendance?date=${dateStr}`)
+      if (error) {
+        toast.error(error)
+        setFetchError(true)
+        setLoading(false)
+        return
+      }
+      setData(result || null)
+    } catch {
+      setFetchError(true)
+      toast.error(t("loadError"))
+    }
     setLoading(false)
-  }, [dateStr, isSupervisor, retryTrigger])
+  }, [dateStr, isSupervisor, retryTrigger, t])
 
   useEffect(() => {
     void fetchData()
   }, [fetchData])
 
-  async function markTeacher(teacherId: string, status: string) {
-    setSaving(teacherId)
+  async function markSession(scheduleId: string, status: string) {
+    setSaving(scheduleId)
     try {
       const { error } = await api.post("/api/teacher-attendance", {
-        action: "mark", teacherId, status, date: dateStr,
+        action: "mark",
+        scheduleId,
+        status,
+        date: dateStr,
       })
       if (error) toast.error(error)
       else {
-        toast.success("تم التحديث")
+        toast.success(t("updated"))
         void fetchData()
       }
-    } catch { toast.error("فشل تسجيل الحضور. حاول مرة أخرى.") }
+    } catch {
+      toast.error(t("markError"))
+    }
     setSaving(null)
   }
 
   async function handleBulkMark() {
     if (!bulkMarkStatus) return
     setLoading(true)
+    const visibleScheduleIds = filteredSessions.map((item) => item.scheduleId)
     setBulkMarkStatus(null)
     try {
       const { error } = await api.post("/api/teacher-attendance", {
-        action: "bulk-mark", status: bulkMarkStatus, date: dateStr,
+        action: "bulk-mark",
+        status: bulkMarkStatus,
+        date: dateStr,
+        scheduleIds: visibleScheduleIds,
       })
       if (error) toast.error(error)
       else {
-        toast.success("تم تسجيل الجميع")
+        toast.success(t("bulkMarked"))
         void fetchData()
       }
-    } catch { toast.error("فشل تسجيل الجميع. حاول مرة أخرى.") }
+    } catch {
+      toast.error(t("bulkMarkError"))
+    }
   }
+
+  const allSessions = data?.sessions || []
+  const filteredSessions = allSessions.filter((entry) => {
+    if (!filter) return true
+    if (filter === "unmarked") return !entry.status
+    if (filter === "marked") return !!entry.status
+    if (filter === "present") return entry.status === "PRESENT"
+    if (filter === "absent") return entry.status === "ABSENT"
+    if (filter === "late") return entry.status === "LATE"
+    if (filter === "excused") return entry.status === "EXCUSED"
+    return true
+  })
+
+  const groupedTeachers = useMemo(() => {
+    const teacherMap = new Map<string, { teacherId: string; teacherName: string; teacherEmail: string; sessions: SessionEntry[] }>()
+    for (const sessionEntry of filteredSessions) {
+      if (!teacherMap.has(sessionEntry.teacherId)) {
+        teacherMap.set(sessionEntry.teacherId, {
+          teacherId: sessionEntry.teacherId,
+          teacherName: sessionEntry.teacherName,
+          teacherEmail: sessionEntry.teacherEmail,
+          sessions: [],
+        })
+      }
+      teacherMap.get(sessionEntry.teacherId)!.sessions.push(sessionEntry)
+    }
+    return Array.from(teacherMap.values())
+  }, [filteredSessions])
+
+  const presentCount = allSessions.filter((item) => item.status === "PRESENT").length
+  const absentCount = allSessions.filter((item) => item.status === "ABSENT").length
+  const unmarkedCount = allSessions.filter((item) => !item.status).length
+  const totalSessions = allSessions.length
 
   if (!isSupervisor) {
     return (
       <Card>
-        <div className="text-center py-12">
-          <XCircle className="h-12 w-12 mx-auto text-gray-300 mb-3" />
-          <p className="text-gray-500">غير مصرح لك بعرض هذه الصفحة</p>
+        <div className="py-12 text-center">
+          <XCircle className="mx-auto mb-3 h-12 w-12 text-gray-300" />
+          <p className="text-gray-500">{t("unauthorized")}</p>
         </div>
       </Card>
     )
   }
 
-  const filtered = data?.teachers.filter((teacher) => {
-    if (!filter) return true
-    if (filter === "unmarked") return !teacher.attendance
-    if (filter === "marked") return !!teacher.attendance
-    if (filter === "absent") return teacher.attendance?.status === "ABSENT"
-    if (filter === "present") return teacher.attendance?.status === "PRESENT"
-    if (filter === "with-schedule") return teacher.hasSchedule
-    return true
-  }) || []
+  if (fetchError) {
+    return <ErrorDisplay message={t("loadError")} onRetry={() => setRetryTrigger((value) => value + 1)} />
+  }
 
-  const presentCount = data?.teachers.filter((teacher) => teacher.attendance?.status === "PRESENT").length || 0
-  const absentCount = data?.teachers.filter((teacher) => teacher.attendance?.status === "ABSENT").length || 0
-  const unmarkedCount = data?.teachers.filter((teacher) => !teacher.attendance).length || 0
-  const scheduledCount = data?.teachers.filter((teacher) => teacher.hasSchedule).length || 0
+  if (loading) return <LoadingPage />
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">حضور الأساتذة اليومي</h1>
+          <h1 className="text-2xl font-bold">{t("title")}</h1>
           <p className="text-sm text-gray-500">
-            <Calendar className="h-4 w-4 inline" />{" "}
-            {new Date(dateStr).toLocaleDateString("ar-MR", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+            <Calendar className="inline h-4 w-4" />{" "}
+            {new Date(dateStr).toLocaleDateString(getDateLocale(locale), { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -143,148 +195,132 @@ export function TeacherRosterManager() {
             type="date"
             value={dateStr}
             onChange={(e) => setDateStr(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-          <Button variant="ghost" size="sm" onClick={() => void fetchData()} aria-label="تحديث البيانات">
+          <Button variant="ghost" size="sm" onClick={() => void fetchData()} aria-label={t("refreshData")}>
             <RefreshCw className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
         <Card padding="md">
           <div className="flex items-center gap-2 text-green-600">
             <UserCheck className="h-5 w-5" />
-            <span className="text-sm font-medium">حاضر</span>
+            <span className="text-sm font-medium">{t("statusPresent")}</span>
           </div>
-          <p className="text-2xl font-bold mt-1">{presentCount}</p>
+          <p className="mt-1 text-2xl font-bold">{presentCount}</p>
         </Card>
         <Card padding="md">
           <div className="flex items-center gap-2 text-red-600">
             <UserX className="h-5 w-5" />
-            <span className="text-sm font-medium">غائب</span>
+            <span className="text-sm font-medium">{t("statusAbsent")}</span>
           </div>
-          <p className="text-2xl font-bold mt-1">{absentCount}</p>
+          <p className="mt-1 text-2xl font-bold">{absentCount}</p>
         </Card>
         <Card padding="md">
           <div className="flex items-center gap-2 text-amber-600">
             <AlertTriangle className="h-5 w-5" />
-            <span className="text-sm font-medium">غير مسجل</span>
+            <span className="text-sm font-medium">{t("statusUnmarked")}</span>
           </div>
-          <p className="text-2xl font-bold mt-1">{unmarkedCount}</p>
+          <p className="mt-1 text-2xl font-bold">{unmarkedCount}</p>
         </Card>
-        <Card padding="md" className={scheduledCount > 0 && unmarkedCount > 0 ? "border-blue-200 bg-blue-50" : ""}>
+        <Card padding="md" className={unmarkedCount > 0 ? "border-blue-200 bg-blue-50" : ""}>
           <div className="flex items-center gap-2 text-blue-600">
             <Calendar className="h-5 w-5" />
-            <span className="text-sm font-medium">بحصص اليوم</span>
+            <span className="text-sm font-medium">{t("todaySchedule")}</span>
           </div>
-          <p className="text-2xl font-bold mt-1">{scheduledCount}</p>
+          <p className="mt-1 text-2xl font-bold">{totalSessions}</p>
         </Card>
       </div>
 
-      <div className="flex items-center justify-between mb-4">
+      <div className="mb-4 flex items-center justify-between">
         <div className="flex gap-2">
-          {STATUS_OPTIONS.map((option) => (
+          {statusOptions.map((option) => (
             <Button key={option.value} variant="secondary" size="sm" onClick={() => setBulkMarkStatus(option.value)}>
-              <option.icon className="h-4 w-4" /> تسجيل الكل {option.label}
+              <option.icon className="h-4 w-4" /> {t("markAllStatus", { status: option.label })}
             </Button>
           ))}
         </div>
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm w-40"
-          >
-            <option value="">كل الأساتذة</option>
-            <option value="with-schedule">بجدول اليوم</option>
-            <option value="unmarked">غير المسجلين</option>
-            <option value="marked">المسجلين</option>
-            <option value="present">الحاضرين</option>
-            <option value="absent">الغائبين</option>
-          </select>
+        <select
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="w-52 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">{t("allSessions")}</option>
+          <option value="unmarked">{t("filterUnmarked")}</option>
+          <option value="marked">{t("filterMarked")}</option>
+          <option value="present">{t("filterPresent")}</option>
+          <option value="absent">{t("filterAbsent")}</option>
+          <option value="late">{t("filterLate")}</option>
+          <option value="excused">{t("filterExcused")}</option>
+        </select>
       </div>
 
-      {fetchError ? (
-        <ErrorDisplay message="تعذر تحميل بيانات الحضور" onRetry={() => setRetryTrigger(n => n + 1)} />
-      ) : loading ? (
-        <LoadingPage />
-      ) : filtered.length === 0 ? (
+      {groupedTeachers.length === 0 ? (
         <Card>
-          <div className="text-center py-12">
-            <UserCheck className="h-12 w-12 mx-auto text-gray-300 mb-3" />
-            <p className="text-gray-500">لا يوجد أساتذة</p>
+          <div className="py-12 text-center">
+            <UserCheck className="mx-auto mb-3 h-12 w-12 text-gray-300" />
+            <p className="text-gray-500">{t("noSessions")}</p>
           </div>
         </Card>
       ) : (
-        <div className="space-y-2">
-          {filtered.map((teacher) => {
-            const currentStatus = teacher.attendance?.status || ""
+        <div className="space-y-4">
+          {groupedTeachers.map((teacher) => (
+            <Card key={teacher.teacherId} padding="lg">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold">{teacher.teacherName}</h2>
+                  <p className="text-xs text-gray-500">{t("sessionsCount", { count: teacher.sessions.length })}</p>
+                </div>
+              </div>
 
-            return (
-              <Card key={teacher.id} padding="sm" className={`hover:shadow-sm transition-shadow ${teacher.hasSchedule && !teacher.attendance ? "border-blue-200 bg-blue-50/30" : ""}`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${
-                        currentStatus === "PRESENT"
-                          ? "bg-green-100 text-green-700"
-                          : currentStatus === "ABSENT"
-                            ? "bg-red-100 text-red-700"
-                            : currentStatus === "LATE"
-                              ? "bg-amber-100 text-amber-700"
-                              : "bg-gray-100 text-gray-500"
-                      }`}
-                    >
-                      {teacher.name.charAt(0)}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-medium text-sm truncate">{teacher.name}</p>
-                      <div className="flex items-center gap-2 text-xs text-gray-400">
-                        <span>{teacher.assignmentCount} تكليف</span>
-                        {teacher.lessonCount > 0 && (
-                          <Badge variant="info">{teacher.lessonCount} دروس اليوم</Badge>
-                        )}
-                        {teacher.hasSchedule && (
-                          <Badge variant="success">في الجدول</Badge>
-                        )}
+              <div className="space-y-3">
+                {teacher.sessions.map((entry) => {
+                  const currentStatus = entry.status || ""
+                  const localizedSubject = getLocalizedSubjectName({ nameAr: entry.subjectName, nameFr: entry.subjectNameFr }, locale)
+                  return (
+                    <div key={entry.scheduleId} className="rounded-xl border border-gray-200 p-4">
+                      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-medium">{localizedSubject}</p>
+                            <Badge variant="info">{entry.classroomName}</Badge>
+                            <Badge variant="default">{entry.startTime} - {entry.endTime}</Badge>
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-3 text-xs text-gray-500">
+                            <span>{entry.streamName || entry.levelName}</span>
+                            {entry.confirmedBy ? <span>{t("confirmedBy", { name: entry.confirmedBy })}</span> : null}
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-1.5">
+                          {statusOptions.map((option) => {
+                            const isActive = currentStatus === option.value
+                            return (
+                              <button
+                                key={option.value}
+                                onClick={() => void markSession(entry.scheduleId, option.value)}
+                                disabled={saving === entry.scheduleId}
+                                className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-all ${
+                                  isActive
+                                    ? `${option.color} ring-1 ring-offset-1`
+                                    : "border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600"
+                                }`}
+                              >
+                                <option.icon className="ml-1 inline h-3.5 w-3.5" />
+                                {option.label}
+                              </button>
+                            )
+                          })}
+                        </div>
                       </div>
                     </div>
-                    <div className="hidden md:flex gap-1 flex-wrap">
-                      {teacher.assignments.slice(0, 2).map((assignment, index) => (
-                        <span key={index} className="text-xs px-1.5 py-0.5 bg-gray-50 rounded text-gray-500">
-                          {assignment.subject}
-                        </span>
-                      ))}
-                      {teacher.assignments.length > 2 && (
-                        <span className="text-xs text-gray-400">+{teacher.assignments.length - 2}</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex gap-1.5 shrink-0">
-                    {STATUS_OPTIONS.map((option) => {
-                      const isActive = currentStatus === option.value
-                      return (
-                        <button
-                          key={option.value}
-                          onClick={() => markTeacher(teacher.id, option.value)}
-                          disabled={saving === teacher.id}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                            isActive
-                              ? option.color + " ring-1 ring-offset-1"
-                              : "text-gray-400 border-gray-200 hover:border-gray-300 hover:text-gray-600"
-                          }`}
-                        >
-                          <option.icon className="h-3.5 w-3.5 inline ml-1" />
-                          {option.label}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              </Card>
-            )
-          })}
+                  )
+                })}
+              </div>
+            </Card>
+          ))}
         </div>
       )}
 
@@ -292,10 +328,12 @@ export function TeacherRosterManager() {
         open={!!bulkMarkStatus}
         onClose={() => setBulkMarkStatus(null)}
         onConfirm={() => void handleBulkMark()}
-        title="تسجيل جميع الأساتذة"
-        message={`سيتم تسجيل جميع الأساتذة كـ "${bulkMarkStatus ? STATUS_OPTIONS.find((s) => s.value === bulkMarkStatus)?.label : ""}". هل أنت متأكد؟`}
-        confirmText="تأكيد"
-        cancelText="إلغاء"
+        title={t("bulkMarkTitle")}
+        message={t("bulkMarkMessage", {
+          status: bulkMarkStatus ? statusOptions.find((item) => item.value === bulkMarkStatus)?.label || "" : "",
+        })}
+        confirmText={t("confirm")}
+        cancelText={t("cancel")}
         variant={bulkMarkStatus === "ABSENT" ? "danger" : "primary"}
       />
     </div>

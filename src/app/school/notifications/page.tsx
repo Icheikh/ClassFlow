@@ -163,7 +163,7 @@ export default function SchoolNotificationsPage() {
 
     if (error) toast.error(error)
     else if (data) {
-      toast.success("تم حفظ القالب")
+      toast.success(t("templateSaved"))
       setTemplateForm({
         name: "",
         type: "GENERAL",
@@ -173,7 +173,6 @@ export default function SchoolNotificationsPage() {
       })
       await loadData()
     }
-    if (!error && data) toast.success(t("templateSaved"))
     setSavingTemplate(false)
   }
 
@@ -225,7 +224,7 @@ export default function SchoolNotificationsPage() {
 
   async function updateCampaignStatus(id: string, action: "submit" | "approve" | "reject") {
     const endpoint = `/api/school/notifications/campaigns/${id}/${action}`
-    const payload = action === "reject" ? { reason: "بحاجة إلى تعديل قبل الإرسال" } : undefined
+    const payload = action === "reject" ? { reason: t("defaultRejectReason") } : undefined
     const { error } = await api.post(endpoint, payload)
     if (error) toast.error(error)
     else {
@@ -257,7 +256,7 @@ export default function SchoolNotificationsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">مركز الإشعارات</h1>
+          <h1 className="text-2xl font-bold">{t("title")}</h1>
           <p className="text-sm text-gray-500 mt-1">
             {t("subtitle")}
           </p>

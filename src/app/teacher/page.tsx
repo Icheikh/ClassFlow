@@ -17,11 +17,14 @@ type Assignment = {
 }
 
 type AttendanceStatus = {
-  checkedIn: boolean
-  checkIn: string | null
-  checkOut: string | null
   status: string | null
   lessonCount: number
+  totalSessions: number
+  confirmedSessions: number
+  pendingSessions: number
+  absentSessions: number
+  lateSessions: number
+  excusedSessions: number
 }
 
 export default function TeacherPage() {
@@ -60,15 +63,17 @@ export default function TeacherPage() {
   }
 
   const uniqueClassrooms = [...new Map(assignments.map((a) => [a.classroom.id, a.classroom])).values()]
-  const attendanceBadge = attendance?.status === "PRESENT"
-    ? { label: t("attendanceConfirmed"), variant: "success" as const, icon: ShieldCheck }
-    : attendance?.status === "ABSENT"
+  const attendanceBadge = attendance?.pendingSessions
+    ? { label: t("attendancePending"), variant: "default" as const, icon: Clock }
+    : attendance?.absentSessions
       ? { label: t("attendanceAbsent"), variant: "danger" as const, icon: AlertTriangle }
-      : attendance?.status === "LATE"
+      : attendance?.lateSessions
         ? { label: t("attendanceLate"), variant: "warning" as const, icon: AlertTriangle }
-        : attendance?.status === "EXCUSED"
+        : attendance?.excusedSessions
           ? { label: t("attendanceExcused"), variant: "info" as const, icon: ShieldCheck }
-          : { label: t("attendancePending"), variant: "default" as const, icon: Clock }
+          : attendance?.confirmedSessions
+            ? { label: t("attendanceConfirmed"), variant: "success" as const, icon: ShieldCheck }
+            : { label: t("attendancePending"), variant: "default" as const, icon: Clock }
   const AttendanceIcon = attendanceBadge.icon
 
   return (

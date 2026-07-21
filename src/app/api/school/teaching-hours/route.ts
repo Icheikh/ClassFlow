@@ -64,10 +64,24 @@ export async function GET(req: NextRequest) {
   const teacherIds = Array.from(new Set(assignments.map((assignment) => assignment.teacherId)))
   const assignmentIds = assignments.map((assignment) => assignment.id)
 
-  const [attendanceRecords, existingEntries, scheduleEntries] = await Promise.all([
-    prisma.teacherAttendance.findMany({
-      where: { teacherId: { in: teacherIds }, date },
-      select: { teacherId: true, status: true },
+  const [scheduleAttendances, existingEntries, scheduleEntries] = await Promise.all([
+    prisma.scheduleAttendance.findMany({
+      where: {
+        schoolId: user.schoolId,
+        date,
+        schedule: {
+          teacherId: { in: teacherIds },
+          dayOfWeek,
+        },
+      },
+      select: {
+        status: true,
+        schedule: {
+          select: {
+            teacherId: true,
+          },
+        },
+      },
     }),
     prisma.teachingHourEntry.findMany({
       where: { teacherAssignmentId: { in: assignmentIds }, date },
@@ -79,12 +93,29 @@ export async function GET(req: NextRequest) {
     }),
   ])
 
-  const attendanceByTeacher = new Map(
-    attendanceRecords.map((record) => [record.teacherId, record.status])
-  )
   const entriesByAssignment = new Map(
     existingEntries.map((entry) => [entry.teacherAssignmentId, entry])
   )
+  const attendanceByTeacher = new Map<string, string>()
+  const teacherAttendanceSummary = new Map<string, { present: number; late: number; excused: number; absent: number }>()
+
+  for (const record of scheduleAttendances) {
+    const teacherId = record.schedule.teacherId
+    if (!teacherId) continue
+    const summary = teacherAttendanceSummary.get(teacherId) || { present: 0, late: 0, excused: 0, absent: 0 }
+    if (record.status === "PRESENT") summary.present += 1
+    if (record.status === "LATE") summary.late += 1
+    if (record.status === "EXCUSED") summary.excused += 1
+    if (record.status === "ABSENT") summary.absent += 1
+    teacherAttendanceSummary.set(teacherId, summary)
+  }
+
+  for (const [teacherId, summary] of teacherAttendanceSummary.entries()) {
+    if (summary.absent > 0) attendanceByTeacher.set(teacherId, "ABSENT")
+    else if (summary.late > 0) attendanceByTeacher.set(teacherId, "LATE")
+    else if (summary.excused > 0 && summary.present === 0 && summary.late === 0) attendanceByTeacher.set(teacherId, "EXCUSED")
+    else if (summary.present > 0 || summary.late > 0) attendanceByTeacher.set(teacherId, "PRESENT")
+  }
 
   const expectedHoursByKey = new Map<string, number>()
   for (const s of scheduleEntries) {
@@ -171,40 +202,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "بعض التكليفات غير صالحة" }, { status: 400 })
   }
 
-  const teacherIds = Array.from(new Set(assignments.map((assignment) => assignment.teacherId)))
-  const attendanceRecords = await prisma.teacherAttendance.findMany({
-    where: { teacherId: { in: teacherIds }, date },
-    select: { teacherId: true, status: true },
-  })
-  const attendanceByTeacher = new Map(
-    attendanceRecords.map((record) => [record.teacherId, record.status])
-  )
-
   const invalidEntry = entries.find((entry: { teacherAssignmentId: string; hoursTaught?: number | string }) => {
     const assignment = assignmentMap.get(entry.teacherAssignmentId)
     const hours = Number(entry.hoursTaught ?? 0)
-    if (!assignment || Number.isNaN(hours) || hours < 0 || hours > 24) {
-      return true
-    }
-
-    return hours > 0 && attendanceByTeacher.get(assignment.teacherId) === "ABSENT"
+    return !assignment || Number.isNaN(hours) || hours < 0 || hours > 24
   })
 
   if (invalidEntry) {
-    const assignment = assignmentMap.get(invalidEntry.teacherAssignmentId)
-    if (!assignment) {
-      return NextResponse.json({ error: "بيانات غير صالحة" }, { status: 400 })
-    }
-
     const hours = Number(invalidEntry.hoursTaught ?? 0)
     if (Number.isNaN(hours) || hours < 0 || hours > 24) {
       return NextResponse.json({ error: "عدد الساعات يجب أن يكون بين 0 و24" }, { status: 400 })
     }
-
-    return NextResponse.json(
-      { error: `لا يمكن تسجيل ساعات للأستاذ ${assignment.teacher.user.name} وهو مسجل غائباً في هذا اليوم` },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: "بيانات غير صالحة" }, { status: 400 })
   }
 
   const operations = entries.map((entry: { teacherAssignmentId: string; hoursTaught?: number | string; notes?: string }) => {

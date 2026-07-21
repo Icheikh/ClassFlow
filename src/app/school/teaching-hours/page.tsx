@@ -139,7 +139,7 @@ export default function TeachingHoursPage() {
     if (error) {
       toast.error(error)
     } else {
-      toast.success("تم حفظ الساعات اليومية")
+      toast.success("تم حفظ الساعات التعويضية")
       const { data: refreshed } = await api.get<TeachingHoursData>(`/api/school/teaching-hours?date=${dateStr}`)
       if (refreshed) {
         setData(refreshed)
@@ -162,7 +162,7 @@ export default function TeachingHoursPage() {
   if (!data) {
     return (
       <Card>
-        <p className="py-8 text-center text-gray-500" role="alert">تعذر تحميل الساعات اليومية</p>
+        <p className="py-8 text-center text-gray-500" role="alert">تعذر تحميل الساعات التعويضية</p>
       </Card>
     )
   }
@@ -171,8 +171,8 @@ export default function TeachingHoursPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">الساعات اليومية للأساتذة</h1>
-          <p className="text-sm text-gray-500">مدير المدرسة أو مدير الدروس يسجل عدد الساعات المنجزة لكل تكليف في هذا اليوم</p>
+          <h1 className="text-2xl font-bold">الساعات التعويضية والإضافية</h1>
+          <p className="text-sm text-gray-500">أضف هنا الحصص الخارجة عن الجدول العادي مثل التعويض والدعم والمراجعة</p>
         </div>
         <div className="flex items-center gap-2">
           <input
@@ -194,7 +194,7 @@ export default function TeachingHoursPage() {
             <div className="p-2 bg-blue-50 rounded-lg"><Clock className="h-5 w-5 text-blue-600" /></div>
             <div>
               <p className="text-2xl font-bold">{totalHours}</p>
-              <p className="text-xs text-gray-500">إجمالي الساعات المدخلة</p>
+              <p className="text-xs text-gray-500">إجمالي الساعات الإضافية</p>
             </div>
           </div>
         </Card>
@@ -203,7 +203,7 @@ export default function TeachingHoursPage() {
             <div className="p-2 bg-green-50 rounded-lg"><BookOpen className="h-5 w-5 text-green-600" /></div>
             <div>
               <p className="text-2xl font-bold">{recordedAssignments}</p>
-              <p className="text-xs text-gray-500">تكليفات مسجلة</p>
+              <p className="text-xs text-gray-500">تكليفات بها إضافة</p>
             </div>
           </div>
         </Card>
@@ -231,18 +231,18 @@ export default function TeachingHoursPage() {
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-sm text-blue-700">
-              إذا كان الأستاذ مسجلاً غائباً فلن يسمح النظام بحفظ ساعات موجبة له في هذا اليوم.
+              الرواتب الأسبوعية تُحسب أساسًا من الحصص المجدولة التي تم تأكيدها من صفحة حضور الأساتذة.
             </p>
             <p className="mt-2 text-xs text-blue-700">
-              هذه الصفحة هي المصدر الذي تعتمد عليه الرواتب الأسبوعية، لذلك لا يكفي تسجيل الحضور فقط من دون تسجيل الساعات المنجزة لكل تكليف.
+              استخدم هذه الصفحة فقط إذا كانت هناك حصة تعويضية أو ساعة دعم أو تعديل يدوي يجب إضافته فوق الحصص العادية.
             </p>
             <p className="mt-2 text-xs text-blue-700">
-              <strong>الساعات المتوقعة</strong> مستخرجة من جدول الحصص المدرسي. اللون <span className="text-amber-600">البرتقالي</span> يعني اختلاف بين المسجل والمتوقع.
+              <strong>المتوقع</strong> هنا مرجع من جدول اليوم فقط، أما <strong>المسجل</strong> فهو إضافة استثنائية وليس بديلاً عن تأكيد الحصة في سجل الحضور.
             </p>
           </div>
           <div className="flex flex-col items-end gap-1">
             <Link href="/school/teacher-attendance" className="text-sm font-medium text-blue-700 hover:underline">
-              فتح سجل حضور الأساتذة
+              فتح تأكيد حصص الأساتذة
             </Link>
             <Link href={`/school/payroll?weekStart=${dateStr}`} className="text-sm font-medium text-blue-700 hover:underline">
               فتح كشف الرواتب الأسبوعي
@@ -255,7 +255,7 @@ export default function TeachingHoursPage() {
         <Card padding="md">
           <p className="text-sm font-medium text-gray-900">ماذا تسجل هنا؟</p>
           <p className="mt-2 text-sm text-gray-600">
-            سجّل عدد الساعات المنجزة فعلاً لكل أستاذ في كل مادة وقسم خلال هذا اليوم، وليس عدد ساعات الحضور العامة.
+            سجّل فقط الساعات الاستثنائية لكل تكليف في هذا اليوم، مثل تعويض حصة ضائعة أو مراجعة إضافية أو دعم خاص.
           </p>
         </Card>
         <Card padding="md" className={assignmentsWithoutRate > 0 ? "border-amber-200 bg-amber-50" : ""}>
@@ -266,12 +266,12 @@ export default function TeachingHoursPage() {
               : "كل التكاليف المعروضة تملك أجر ساعة، لذا يمكن للنظام تقدير المستحقات مباشرة."}
           </p>
         </Card>
-        <Card padding="md" className={absentAssignments > 0 ? "border-red-200 bg-red-50" : ""}>
-          <p className="text-sm font-medium text-gray-900">تكليفات مرتبطة بغياب</p>
+        <Card padding="md" className={absentAssignments > 0 ? "border-blue-200 bg-blue-50" : ""}>
+          <p className="text-sm font-medium text-gray-900">حالة تأكيد الحصص</p>
           <p className="mt-2 text-sm text-gray-600">
             {absentAssignments > 0
-              ? `يوجد ${absentAssignments} تكليفات لأستاذ مسجل غائبًا اليوم، لذلك لن يقبل النظام حفظ ساعات موجبة لها.`
-              : "لا توجد اليوم تكليفات مرتبطة بغياب يمنع التسجيل."}
+              ? `يوجد ${absentAssignments} تكليفات مرتبطة بأساتذة لديهم حصص مؤكدة كغياب اليوم. يمكن رغم ذلك تسجيل تعويض مستقل إذا تم لاحقًا إنجاز حصة إضافية.`
+              : "لا توجد اليوم تكليفات مرتبطة بغياب مؤكد ضمن هذه القائمة."}
           </p>
         </Card>
       </div>
@@ -282,7 +282,7 @@ export default function TeachingHoursPage() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="font-semibold text-lg">{teacher.teacherName}</h2>
-                <p className="text-xs text-gray-500">{teacher.rows.length} تكليفات في هذا اليوم</p>
+                <p className="text-xs text-gray-500">{teacher.rows.length} تكليفات متاحة لإضافات اليوم</p>
               </div>
               <Link href={`/school/teachers/${teacher.teacherId}`} className="text-sm text-blue-700 hover:underline">
                 فتح ملف الأستاذ
@@ -327,14 +327,14 @@ export default function TeachingHoursPage() {
                       </div>
 
                       <div className="space-y-1">
-                        <label className="block text-sm font-medium text-gray-700">المتوقع</label>
+                        <label className="block text-sm font-medium text-gray-700">مرجع الجدول</label>
                         <div className={`h-[42px] px-4 rounded-lg border flex items-center text-sm ${row.expectedHours > 0 ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-gray-50 border-gray-200 text-gray-400"}`}>
                           {row.expectedHours > 0 ? `${row.expectedHours} س` : "—"}
                         </div>
                       </div>
 
                       <Input
-                        label="المسجل"
+                        label="الإضافة"
                         type="number"
                         step="0.25"
                         min="0"
@@ -345,7 +345,7 @@ export default function TeachingHoursPage() {
                       />
 
                       <div className="space-y-1">
-                        <label className="block text-sm font-medium text-gray-700">قيمة اليوم</label>
+                        <label className="block text-sm font-medium text-gray-700">قيمة الإضافة</label>
                         <div className="h-[42px] px-4 rounded-lg border border-gray-200 bg-gray-50 flex items-center text-sm text-gray-700">
                           {row.hourlyRate != null && Number(entry.hoursTaught || 0) > 0
                             ? `${(Number(entry.hoursTaught || 0) * row.hourlyRate).toLocaleString()} MRU`
@@ -353,12 +353,12 @@ export default function TeachingHoursPage() {
                         </div>
                       </div>
 
-                      <Input
-                        label="ملاحظات"
-                        value={entry.notes}
-                        onChange={(e) => updateDraft(row.teacherAssignmentId, { notes: e.target.value })}
-                        placeholder="اختياري"
-                      />
+                        <Input
+                          label="ملاحظات"
+                          value={entry.notes}
+                          onChange={(e) => updateDraft(row.teacherAssignmentId, { notes: e.target.value })}
+                          placeholder="مثال: حصة تعويضية"
+                        />
                     </div>
                   </div>
                 )

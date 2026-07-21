@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useCallback, useEffect, useState } from "react"
 import { useParams } from "next/navigation"
+import { useLocale, useTranslations } from "next-intl"
 import toast from "react-hot-toast"
 import { Badge, Button, Card, LoadingPage } from "@/components/ui"
 import { api } from "@/lib/api"
@@ -42,45 +43,6 @@ type CampaignDetail = {
   recipients: Recipient[]
 }
 
-const statusLabels: Record<string, { label: string; variant: "success" | "warning" | "danger" | "default" }> = {
-  DRAFT: { label: "مسودة", variant: "default" },
-  PENDING_APPROVAL: { label: "بانتظار الاعتماد", variant: "warning" },
-  APPROVED: { label: "معتمد", variant: "success" },
-  SCHEDULED: { label: "مجدول", variant: "warning" },
-  REJECTED: { label: "مرفوض", variant: "danger" },
-  SENT: { label: "مرسل", variant: "success" },
-  FAILED: { label: "فشل", variant: "danger" },
-}
-
-const audienceTypeLabels: Record<string, string> = {
-  ALL_PARENTS: "كل الأولياء",
-  CLASSROOM: "أولياء قسم",
-  LEVEL: "أولياء مستوى",
-  STREAM: "أولياء شعبة",
-  STUDENTS: "أولياء طلاب محددين",
-  UNPAID_FEES: "أولياء المتأخرين في الرسوم",
-}
-
-const channelLabels: Record<string, string> = {
-  WHATSAPP: "واتساب",
-  IN_APP: "داخل النظام",
-}
-
-const campaignTypeLabels: Record<string, string> = {
-  FEES: "رسوم",
-  RESULTS: "نتائج",
-  ATTENDANCE: "غياب",
-  EVENTS: "فعاليات",
-  CUSTOM: "إشعار مخصص",
-}
-
-const recipientStatusLabels: Record<string, { label: string; variant: "success" | "warning" | "danger" | "default" }> = {
-  PENDING: { label: "بانتظار الإرسال", variant: "default" },
-  SENT: { label: "تم الإرسال", variant: "success" },
-  FAILED: { label: "فشل الإرسال", variant: "danger" },
-  SKIPPED: { label: "تم الاستبعاد", variant: "warning" },
-}
-
 function parseJson(value: string | null) {
   if (!value) return null
   try {
@@ -90,26 +52,53 @@ function parseJson(value: string | null) {
   }
 }
 
-function formatPhone(phone?: string | null) {
-  if (!phone) return "غير متوفر"
+function formatPhone(phone?: string | null, unavailableLabel = "—") {
+  if (!phone) return unavailableLabel
   if (phone.startsWith("+")) return phone
   return `+${phone}`
-}
-
-function getDeliveryMeta(status: string) {
-  if (status === "APPROVED") return { label: "جاهزة للإرسال", variant: "warning" as const }
-  if (status === "SCHEDULED") return { label: "مجدولة للإرسال", variant: "warning" as const }
-  if (status === "SENT") return { label: "تم الإرسال", variant: "success" as const }
-  if (status === "FAILED") return { label: "فشل الإرسال", variant: "danger" as const }
-  if (status === "PENDING_APPROVAL") return { label: "بانتظار الاعتماد أولاً", variant: "default" as const }
-  return { label: "لم تبدأ بعد", variant: "default" as const }
 }
 
 export default function NotificationCampaignDetailPage() {
   const params = useParams<{ id: string }>()
   const id = params?.id
+  const locale = useLocale()
+  const t = useTranslations("notificationsPage")
   const [loading, setLoading] = useState(true)
   const [campaign, setCampaign] = useState<CampaignDetail | null>(null)
+  const statusLabels: Record<string, { label: string; variant: "success" | "warning" | "danger" | "default" }> = {
+    DRAFT: { label: t("statusDraft"), variant: "default" },
+    PENDING_APPROVAL: { label: t("statusPendingApproval"), variant: "warning" },
+    APPROVED: { label: t("statusApproved"), variant: "success" },
+    SCHEDULED: { label: t("statusScheduled"), variant: "warning" },
+    REJECTED: { label: t("statusRejected"), variant: "danger" },
+    SENT: { label: t("statusSent"), variant: "success" },
+    FAILED: { label: t("statusFailed"), variant: "danger" },
+  }
+  const audienceTypeLabels: Record<string, string> = {
+    ALL_PARENTS: t("audienceAllParents"),
+    CLASSROOM: t("audienceClassroom"),
+    LEVEL: t("audienceLevel"),
+    STREAM: t("audienceStream"),
+    STUDENTS: t("audienceStudents"),
+    UNPAID_FEES: t("audienceUnpaidFees"),
+  }
+  const channelLabels: Record<string, string> = {
+    WHATSAPP: t("whatsapp"),
+    IN_APP: t("inApp"),
+  }
+  const campaignTypeLabels: Record<string, string> = {
+    FEES: t("typeFees"),
+    RESULTS: t("typeResults"),
+    ATTENDANCE: t("typeAttendance"),
+    EVENTS: t("typeEvent"),
+    CUSTOM: t("typeCustom"),
+  }
+  const recipientStatusLabels: Record<string, { label: string; variant: "success" | "warning" | "danger" | "default" }> = {
+    PENDING: { label: t("recipientStatusPending"), variant: "default" },
+    SENT: { label: t("recipientStatusSent"), variant: "success" },
+    FAILED: { label: t("recipientStatusFailed"), variant: "danger" },
+    SKIPPED: { label: t("recipientStatusSkipped"), variant: "warning" },
+  }
 
   const loadCampaign = useCallback(async () => {
     if (!id) return
@@ -126,24 +115,33 @@ export default function NotificationCampaignDetailPage() {
 
   async function updateCampaignStatus(action: "submit" | "approve" | "reject") {
     if (!campaign) return
-    const payload = action === "reject" ? { reason: "بحاجة إلى تعديل قبل الإرسال" } : undefined
+    const payload = action === "reject" ? { reason: t("defaultRejectReason") } : undefined
     const { error } = await api.post(`/api/school/notifications/campaigns/${campaign.id}/${action}`, payload)
     if (error) toast.error(error)
     else {
       toast.success(
-        action === "submit" ? "تم إرسال الحملة للاعتماد"
-          : action === "approve" ? "تم اعتماد الحملة"
-            : "تم رفض الحملة"
+        action === "submit" ? t("campaignSubmitted")
+          : action === "approve" ? t("campaignApproved")
+            : t("campaignRejected")
       )
       await loadCampaign()
     }
+  }
+
+  function getDeliveryMeta(status: string) {
+    if (status === "APPROVED") return { label: t("deliveryApproved"), variant: "warning" as const }
+    if (status === "SCHEDULED") return { label: t("deliveryScheduled"), variant: "warning" as const }
+    if (status === "SENT") return { label: t("deliverySent"), variant: "success" as const }
+    if (status === "FAILED") return { label: t("deliveryFailed"), variant: "danger" as const }
+    if (status === "PENDING_APPROVAL") return { label: t("deliveryPendingApproval"), variant: "default" as const }
+    return { label: t("deliveryNotStarted"), variant: "default" as const }
   }
 
   if (loading) return <LoadingPage />
   if (!campaign) {
     return (
       <Card padding="lg">
-        <p className="text-center text-gray-500">الحملة غير موجودة</p>
+        <p className="text-center text-gray-500">{t("campaignNotFound")}</p>
       </Card>
     )
   }
@@ -159,20 +157,20 @@ export default function NotificationCampaignDetailPage() {
     (recipient) => !recipient.phone && !recipient.parent?.phone && !recipient.user?.phone
   ).length
   const audienceDetails = [
-    parsedAudience?.classroomId ? { label: "القسم", value: "قسم محدد" } : null,
-    parsedAudience?.levelId ? { label: "المستوى", value: "مستوى محدد" } : null,
-    parsedAudience?.streamId ? { label: "الشعبة", value: "شعبة محددة" } : null,
-    parsedAudience?.month ? { label: "الشهر", value: getMonthLabel(parsedAudience.month) } : null,
+    parsedAudience?.classroomId ? { label: t("classroom"), value: t("specificClassroom") } : null,
+    parsedAudience?.levelId ? { label: t("level"), value: t("specificLevel") } : null,
+    parsedAudience?.streamId ? { label: t("stream"), value: t("specificStream") } : null,
+    parsedAudience?.month ? { label: t("month"), value: getMonthLabel(parsedAudience.month, locale) } : null,
     Array.isArray(parsedAudience?.studentIds) && parsedAudience.studentIds.length > 0
-      ? { label: "طلاب محددون", value: String(parsedAudience.studentIds.length) }
+      ? { label: t("specificStudents"), value: String(parsedAudience.studentIds.length) }
       : null,
   ].filter(Boolean) as { label: string; value: string }[]
   const exclusionDetails = [
     Array.isArray(parsedExclusions?.studentIds) && parsedExclusions.studentIds.length > 0
-      ? { label: "استبعاد طلاب", value: String(parsedExclusions.studentIds.length) }
+      ? { label: t("excludedStudents"), value: String(parsedExclusions.studentIds.length) }
       : null,
     Array.isArray(parsedExclusions?.parentUserIds) && parsedExclusions.parentUserIds.length > 0
-      ? { label: "استبعاد أولياء", value: String(parsedExclusions.parentUserIds.length) }
+      ? { label: t("excludedParents"), value: String(parsedExclusions.parentUserIds.length) }
       : null,
   ].filter(Boolean) as { label: string; value: string }[]
 
@@ -181,7 +179,7 @@ export default function NotificationCampaignDetailPage() {
       <div className="flex items-center justify-between">
         <div>
           <Link href="/school/notifications" className="mb-3 inline-flex items-center gap-2 text-sm text-blue-700 hover:underline">
-            <ArrowRight className="h-4 w-4" /> العودة إلى مركز الإشعارات
+            <ArrowRight className="h-4 w-4" /> {t("backToNotifications")}
           </Link>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold">{campaign.title}</h1>
@@ -193,16 +191,16 @@ export default function NotificationCampaignDetailPage() {
         <div className="flex flex-wrap gap-2">
           {(campaign.status === "DRAFT" || campaign.status === "REJECTED") && (
             <Button onClick={() => void updateCampaignStatus("submit")}>
-              <Send className="h-4 w-4" /> إرسال للاعتماد
+              <Send className="h-4 w-4" /> {t("submitForApproval")}
             </Button>
           )}
           {campaign.status === "PENDING_APPROVAL" && (
             <>
               <Button onClick={() => void updateCampaignStatus("approve")}>
-                <CheckCircle2 className="h-4 w-4" /> اعتماد
+                <CheckCircle2 className="h-4 w-4" /> {t("approve")}
               </Button>
               <Button variant="danger" onClick={() => void updateCampaignStatus("reject")}>
-                <XCircle className="h-4 w-4" /> رفض
+                <XCircle className="h-4 w-4" /> {t("reject")}
               </Button>
             </>
           )}
@@ -213,7 +211,7 @@ export default function NotificationCampaignDetailPage() {
         <Card padding="md">
           <div className="flex items-center gap-2 text-gray-500">
             <CheckCircle2 className="h-4 w-4" />
-            <span className="text-sm">حالة الاعتماد</span>
+            <span className="text-sm">{t("approvalStatus")}</span>
           </div>
           <div className="mt-3">
             <Badge variant={status.variant}>{status.label}</Badge>
@@ -222,7 +220,7 @@ export default function NotificationCampaignDetailPage() {
         <Card padding="md">
           <div className="flex items-center gap-2 text-gray-500">
             <Send className="h-4 w-4" />
-            <span className="text-sm">حالة الإرسال</span>
+            <span className="text-sm">{t("deliveryStatus")}</span>
           </div>
           <div className="mt-3">
             <Badge variant={deliveryStatus.variant}>{deliveryStatus.label}</Badge>
@@ -231,14 +229,14 @@ export default function NotificationCampaignDetailPage() {
         <Card padding="md">
           <div className="flex items-center gap-2 text-gray-500">
             <Users className="h-4 w-4" />
-            <span className="text-sm">المستلمون</span>
+            <span className="text-sm">{t("recipients")}</span>
           </div>
           <p className="mt-3 text-2xl font-bold">{campaign.recipientsCount}</p>
         </Card>
         <Card padding="md">
           <div className="flex items-center gap-2 text-gray-500">
             <Clock3 className="h-4 w-4" />
-            <span className="text-sm">المتبقي للإرسال</span>
+            <span className="text-sm">{t("remainingToSend")}</span>
           </div>
           <p className="mt-3 text-2xl font-bold">{pendingRecipients}</p>
         </Card>
@@ -246,66 +244,66 @@ export default function NotificationCampaignDetailPage() {
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card padding="md">
-          <p className="text-sm text-gray-500">تم الإرسال بنجاح</p>
+          <p className="text-sm text-gray-500">{t("sentSuccessfully")}</p>
           <p className="mt-2 text-2xl font-bold text-green-600">{sentRecipients}</p>
         </Card>
         <Card padding="md">
-          <p className="text-sm text-gray-500">فشل الإرسال</p>
+          <p className="text-sm text-gray-500">{t("sendFailed")}</p>
           <p className="mt-2 text-2xl font-bold text-red-600">{failedRecipients}</p>
         </Card>
         <Card padding="md">
-          <p className="text-sm text-gray-500">بدون رقم متاح</p>
+          <p className="text-sm text-gray-500">{t("withoutAvailablePhone")}</p>
           <p className="mt-2 text-2xl font-bold text-amber-600">{missingPhoneRecipients}</p>
         </Card>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card padding="lg" className="lg:col-span-2">
-          <h2 className="mb-4 text-lg font-semibold">معلومات الحملة</h2>
+          <h2 className="mb-4 text-lg font-semibold">{t("campaignInfo")}</h2>
           <div className="grid gap-4 text-sm md:grid-cols-2">
             <div className="rounded-xl bg-gray-50 p-4">
-              <p className="text-gray-500">النوع</p>
+              <p className="text-gray-500">{t("type")}</p>
               <p className="mt-1 font-medium">{campaignTypeLabels[campaign.type] || campaign.type}</p>
             </div>
             <div className="rounded-xl bg-gray-50 p-4">
-              <p className="text-gray-500">القناة</p>
+              <p className="text-gray-500">{t("channel")}</p>
               <p className="mt-1 font-medium">{channelLabels[campaign.channel] || campaign.channel}</p>
             </div>
             <div className="rounded-xl bg-gray-50 p-4">
-              <p className="text-gray-500">الجمهور</p>
+              <p className="text-gray-500">{t("audience")}</p>
               <p className="mt-1 font-medium">{audienceTypeLabels[campaign.audienceType] || campaign.audienceType}</p>
             </div>
             <div className="rounded-xl bg-gray-50 p-4">
-              <p className="text-gray-500">عدد المستلمين</p>
+              <p className="text-gray-500">{t("recipientCount")}</p>
               <p className="mt-1 font-medium">{campaign.recipientsCount}</p>
             </div>
             <div className="rounded-xl bg-gray-50 p-4">
-              <p className="text-gray-500">المنشئ</p>
-              <p className="mt-1 font-medium">{campaign.createdByUser?.name || "غير معروف"}</p>
+              <p className="text-gray-500">{t("creator")}</p>
+              <p className="mt-1 font-medium">{campaign.createdByUser?.name || t("unknownUser")}</p>
             </div>
             <div className="rounded-xl bg-gray-50 p-4">
-              <p className="text-gray-500">المعتمد</p>
-              <p className="mt-1 font-medium">{campaign.approvedByUser?.name || "لم يعتمد بعد"}</p>
+              <p className="text-gray-500">{t("approver")}</p>
+              <p className="mt-1 font-medium">{campaign.approvedByUser?.name || t("notApprovedYet")}</p>
             </div>
             <div className="rounded-xl bg-gray-50 p-4">
-              <p className="text-gray-500">تم الإرسال</p>
+              <p className="text-gray-500">{t("sentCount")}</p>
               <p className="mt-1 font-medium">{sentRecipients}</p>
             </div>
             <div className="rounded-xl bg-gray-50 p-4">
-              <p className="text-gray-500">فشل الإرسال</p>
+              <p className="text-gray-500">{t("failedCount")}</p>
               <p className="mt-1 font-medium">{failedRecipients}</p>
             </div>
           </div>
         </Card>
 
         <Card padding="lg">
-          <h2 className="mb-4 text-lg font-semibold">نطاق الحملة</h2>
+          <h2 className="mb-4 text-lg font-semibold">{t("campaignScope")}</h2>
           <div className="space-y-4 text-sm">
             <div>
-              <p className="text-gray-500">مرشح الجمهور</p>
+              <p className="text-gray-500">{t("audienceFilter")}</p>
               <div className="mt-2 space-y-2 rounded-xl bg-gray-50 p-3">
                 {audienceDetails.length === 0 ? (
-                  <p className="text-gray-700">لا توجد تصفية إضافية. الحملة تشمل كل الجمهور المختار.</p>
+                  <p className="text-gray-700">{t("noExtraAudienceFilter")}</p>
                 ) : (
                   audienceDetails.map((item) => (
                     <div key={item.label} className="flex items-center justify-between gap-4">
@@ -317,10 +315,10 @@ export default function NotificationCampaignDetailPage() {
               </div>
             </div>
             <div>
-              <p className="text-gray-500">الاستثناءات</p>
+              <p className="text-gray-500">{t("exclusions")}</p>
               <div className="mt-2 space-y-2 rounded-xl bg-gray-50 p-3">
                 {exclusionDetails.length === 0 ? (
-                  <p className="text-gray-700">لا توجد استثناءات في هذه الحملة.</p>
+                  <p className="text-gray-700">{t("noExclusions")}</p>
                 ) : (
                   exclusionDetails.map((item) => (
                     <div key={item.label} className="flex items-center justify-between gap-4">
@@ -333,7 +331,7 @@ export default function NotificationCampaignDetailPage() {
             </div>
             {campaign.rejectedReason && (
               <div>
-                <p className="text-gray-500">سبب الرفض</p>
+                <p className="text-gray-500">{t("rejectionReason")}</p>
                 <div className="mt-2 rounded-xl bg-red-50 p-3 text-red-700">{campaign.rejectedReason}</div>
               </div>
             )}
@@ -343,40 +341,40 @@ export default function NotificationCampaignDetailPage() {
 
       <Card padding="lg">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">المستلمون</h2>
-          <span className="text-sm text-gray-500">{campaign.recipients.length} سجل</span>
+          <h2 className="text-lg font-semibold">{t("recipients")}</h2>
+          <span className="text-sm text-gray-500">{t("recordsCount", { count: campaign.recipients.length })}</span>
         </div>
 
         {campaign.recipients.length === 0 ? (
           <div className="rounded-xl border border-dashed border-gray-200 p-8 text-center text-gray-500">
-            لا يوجد مستلمون لهذه الحملة
+            {t("noRecipientsForCampaign")}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-right">
-                  <th className="pb-3 font-medium text-gray-500">الولي</th>
-                  <th className="pb-3 font-medium text-gray-500">الطالب</th>
-                  <th className="pb-3 font-medium text-gray-500">الرقم</th>
-                  <th className="pb-3 font-medium text-gray-500">القناة</th>
-                  <th className="pb-3 font-medium text-gray-500">الحالة</th>
-                  <th className="pb-3 font-medium text-gray-500">ملاحظة</th>
+                  <th className="pb-3 font-medium text-gray-500">{t("parent")}</th>
+                  <th className="pb-3 font-medium text-gray-500">{t("student")}</th>
+                  <th className="pb-3 font-medium text-gray-500">{t("phoneNumber")}</th>
+                  <th className="pb-3 font-medium text-gray-500">{t("channel")}</th>
+                  <th className="pb-3 font-medium text-gray-500">{t("status")}</th>
+                  <th className="pb-3 font-medium text-gray-500">{t("note")}</th>
                 </tr>
               </thead>
               <tbody>
-	                {campaign.recipients.map((recipient) => {
-	                  const recipientStatus = recipientStatusLabels[recipient.status] || { label: recipient.status, variant: "default" as const }
-	                  return (
+                {campaign.recipients.map((recipient) => {
+                  const recipientStatus = recipientStatusLabels[recipient.status] || { label: recipient.status, variant: "default" as const }
+                  return (
                     <tr key={recipient.id} className="border-b last:border-0">
-                      <td className="py-3 text-gray-700">{recipient.user?.name || "غير معروف"}</td>
+                      <td className="py-3 text-gray-700">{recipient.user?.name || t("unknownUser")}</td>
                       <td className="py-3 text-gray-700">
-                        {recipient.student ? `${recipient.student.firstName} ${recipient.student.lastName}` : "غير محدد"}
+                        {recipient.student ? `${recipient.student.firstName} ${recipient.student.lastName}` : t("unspecified")}
                       </td>
-                      <td className="py-3 text-gray-700 dir-ltr text-left">{formatPhone(recipient.phone || recipient.parent?.phone || recipient.user?.phone)}</td>
+                      <td className="py-3 text-gray-700 dir-ltr text-left">{formatPhone(recipient.phone || recipient.parent?.phone || recipient.user?.phone, t("unavailable"))}</td>
                       <td className="py-3 text-gray-700">{channelLabels[recipient.channel] || recipient.channel}</td>
                       <td className="py-3"><Badge variant={recipientStatus.variant}>{recipientStatus.label}</Badge></td>
-                      <td className="py-3 text-gray-500">{recipient.errorMessage || "-"}</td>
+                      <td className="py-3 text-gray-500">{recipient.errorMessage || t("emptyNote")}</td>
                     </tr>
                   )
                 })}

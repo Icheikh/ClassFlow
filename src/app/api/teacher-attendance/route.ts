@@ -4,6 +4,33 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { parseDateOnly } from "@/lib/date"
 
+const MANAGER_ROLES = ["SUPERVISOR", "SCHOOL_ADMIN"]
+const CONFIRMED_STATUSES = new Set(["PRESENT", "LATE", "EXCUSED", "ABSENT"])
+
+function buildDayWindow(date: Date) {
+  const start = new Date(date)
+  start.setUTCHours(0, 0, 0, 0)
+  const end = new Date(start)
+  end.setUTCDate(end.getUTCDate() + 1)
+  return { start, end }
+}
+
+function deriveTeacherDayStatus(summary: {
+  total: number
+  present: number
+  late: number
+  excused: number
+  absent: number
+  pending: number
+}) {
+  if (summary.total === 0) return null
+  if (summary.pending > 0) return null
+  if (summary.absent > 0) return "ABSENT"
+  if (summary.late > 0) return "LATE"
+  if (summary.excused > 0 && summary.present === 0 && summary.late === 0) return "EXCUSED"
+  return "PRESENT"
+}
+
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
   const user = session?.user as any
@@ -11,93 +38,109 @@ export async function GET(req: NextRequest) {
 
   const url = new URL(req.url)
   const teacherId = url.searchParams.get("teacherId")
-  const dateParam = url.searchParams.get("date")
-  const today = dateParam ? new Date(dateParam) : new Date()
-  today.setHours(0, 0, 0, 0)
+  const date = parseDateOnly(url.searchParams.get("date"))
+  const { start, end } = buildDayWindow(date)
+  const dayOfWeek = start.getUTCDay()
 
-  // Supervisor/SchoolAdmin: return all teachers' attendance for the day
-  if (!teacherId && (user.role === "SUPERVISOR" || user.role === "SCHOOL_ADMIN")) {
-    const teachers = await prisma.teacher.findMany({
-      where: { schoolId: user.schoolId },
-      include: {
-        user: { select: { id: true, name: true, email: true } },
-        teacherAssignments: {
-          include: { subject: true, classroom: { include: { level: true } } },
-          where: { academicYear: { isActive: true }, isActive: true },
-        },
+  if (!teacherId && MANAGER_ROLES.includes(user.role)) {
+    const schedules = await prisma.schedule.findMany({
+      where: {
+        schoolId: user.schoolId,
+        dayOfWeek,
+        teacherId: { not: null },
       },
-      orderBy: { user: { name: "asc" } },
+      include: {
+        teacher: { include: { user: { select: { id: true, name: true, email: true } } } },
+        subject: { select: { id: true, nameAr: true, nameFr: true, code: true } },
+        classroom: { include: { level: true, stream: true } },
+      },
+      orderBy: [
+        { startTime: "asc" },
+        { teacher: { user: { name: "asc" } } },
+        { classroom: { name: "asc" } },
+      ],
     })
 
-    // Get today's attendance records for all teachers
-    const attendanceRecords = await prisma.teacherAttendance.findMany({
-      where: { date: today, teacher: { schoolId: user.schoolId } },
-    })
-    const attendanceMap = new Map(attendanceRecords.map((r) => [r.teacherId, r]))
-
-    // Get lesson counts for today
-    const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1)
-    const lessonCounts = await prisma.lesson.groupBy({
-      by: ["teacherId"],
-      where: { schoolId: user.schoolId, date: { gte: today, lt: tomorrow } },
-      _count: true,
-    })
-    const lessonCountMap = new Map(lessonCounts.map((l) => [l.teacherId, l._count]))
-
-    const dayOfWeek = today.getDay()
-    const scheduleEntries = await prisma.schedule.findMany({
-      where: { schoolId: user.schoolId, dayOfWeek, teacherId: { not: null } },
-      select: { teacherId: true },
-    })
-    const teachersWithSchedule = new Set(scheduleEntries.map((s) => s.teacherId!))
-
-    const result = teachers.map((t) => {
-      const att = attendanceMap.get(t.id)
-      return {
-        id: t.id,
-        name: t.user.name,
-        email: t.user.email,
-        assignments: t.teacherAssignments.map((a) => ({
-          subject: a.subject.nameAr,
-          classroom: `${a.classroom.name} - ${a.classroom.level.name}`,
-          hourlyRate: a.hourlyRate,
-        })),
-        attendance: att ? {
-          status: att.status,
-          checkIn: att.checkIn,
-          checkOut: att.checkOut,
-          markedBy: att.userId,
-        } : null,
-        lessonCount: lessonCountMap.get(t.id) || 0,
-        assignmentCount: t.teacherAssignments.length,
-        hasSchedule: teachersWithSchedule.has(t.id),
-      }
+    const attendances = await prisma.scheduleAttendance.findMany({
+      where: {
+        schoolId: user.schoolId,
+        date: { gte: start, lt: end },
+        scheduleId: { in: schedules.map((schedule) => schedule.id) },
+      },
+      include: {
+        confirmedByUser: { select: { id: true, name: true } },
+      },
     })
 
-    return NextResponse.json({ date: today.toISOString(), teachers: result })
+    const attendanceMap = new Map(attendances.map((item) => [item.scheduleId, item]))
+
+    return NextResponse.json({
+      date: start.toISOString(),
+      sessions: schedules.map((schedule) => {
+        const attendance = attendanceMap.get(schedule.id)
+        return {
+          scheduleId: schedule.id,
+          teacherId: schedule.teacherId,
+          teacherName: schedule.teacher?.user.name || "",
+          teacherEmail: schedule.teacher?.user.email || "",
+          subjectName: schedule.subject.nameAr,
+          subjectNameFr: schedule.subject.nameFr,
+          classroomName: schedule.classroom.name,
+          levelName: schedule.classroom.level.name,
+          streamName: schedule.classroom.stream?.name || null,
+          startTime: schedule.startTime,
+          endTime: schedule.endTime,
+          status: attendance?.status || null,
+          notes: attendance?.notes || "",
+          confirmedBy: attendance?.confirmedByUser?.name || null,
+        }
+      }),
+    })
   }
 
-  // Specific teacher or self: return single teacher's attendance
   const targetTeacherId = teacherId || null
   if (!targetTeacherId && user.role === "TEACHER") {
     const teacher = await prisma.teacher.findUnique({ where: { userId: user.id } })
     if (!teacher) return NextResponse.json({ error: "غير موجود" }, { status: 404 })
 
-    const record = await prisma.teacherAttendance.findUnique({
-      where: { teacherId_date: { teacherId: teacher.id, date: today } },
-    })
-    const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1)
-    const todayLessons = await prisma.lesson.count({
-      where: { teacherId: teacher.id, date: { gte: today, lt: tomorrow } },
+    const schedules = await prisma.schedule.findMany({
+      where: {
+        schoolId: user.schoolId,
+        teacherId: teacher.id,
+        dayOfWeek,
+      },
+      select: { id: true },
     })
 
+    const attendances = schedules.length
+      ? await prisma.scheduleAttendance.findMany({
+          where: {
+            schoolId: user.schoolId,
+            scheduleId: { in: schedules.map((schedule) => schedule.id) },
+            date: { gte: start, lt: end },
+          },
+          select: { status: true },
+        })
+      : []
+
+    const summary = {
+      total: schedules.length,
+      present: attendances.filter((item) => item.status === "PRESENT").length,
+      late: attendances.filter((item) => item.status === "LATE").length,
+      excused: attendances.filter((item) => item.status === "EXCUSED").length,
+      absent: attendances.filter((item) => item.status === "ABSENT").length,
+      pending: Math.max(0, schedules.length - attendances.length),
+    }
+
     return NextResponse.json({
-      id: teacher.id,
-      checkedIn: !!record,
-      checkIn: record?.checkIn,
-      checkOut: record?.checkOut,
-      status: record?.status || null,
-      lessonCount: todayLessons,
+      status: deriveTeacherDayStatus(summary),
+      lessonCount: summary.total,
+      totalSessions: summary.total,
+      confirmedSessions: attendances.length,
+      pendingSessions: summary.pending,
+      absentSessions: summary.absent,
+      lateSessions: summary.late,
+      excusedSessions: summary.excused,
     })
   }
 
@@ -108,72 +151,89 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   const user = session?.user as any
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!MANAGER_ROLES.includes(user.role)) {
+    return NextResponse.json({ error: "غير مصرح" }, { status: 403 })
+  }
 
   const body = await req.json()
-  const { action, teacherId, status: attStatus } = body
-  const today = parseDateOnly(body.date)
+  const action = body.action
+  const date = parseDateOnly(body.date)
+  const { start, end } = buildDayWindow(date)
+  const status = typeof body.status === "string" ? body.status : "PRESENT"
+  const notes = typeof body.notes === "string" ? body.notes.trim() : ""
 
-  // Supervisor marks a teacher's attendance
-  if (action === "mark" && teacherId) {
-    if (!["SUPERVISOR", "SCHOOL_ADMIN"].includes(user.role)) {
-      return NextResponse.json({ error: "غير مصرح" }, { status: 403 })
+  if (!CONFIRMED_STATUSES.has(status)) {
+    return NextResponse.json({ error: "حالة غير صالحة" }, { status: 400 })
+  }
+
+  if (action === "mark" && typeof body.scheduleId === "string") {
+    const schedule = await prisma.schedule.findFirst({
+      where: { id: body.scheduleId, schoolId: user.schoolId, teacherId: { not: null } },
+    })
+    if (!schedule) {
+      return NextResponse.json({ error: "الحصة غير موجودة" }, { status: 404 })
     }
 
-    const teacher = await prisma.teacher.findFirst({
-      where: { id: teacherId, schoolId: user.schoolId },
-    })
-    if (!teacher) return NextResponse.json({ error: "الأستاذ غير موجود" }, { status: 404 })
-
-    const record = await prisma.teacherAttendance.upsert({
-      where: { teacherId_date: { teacherId, date: today } },
-      update: { status: attStatus || "PRESENT", userId: user.id },
+    const record = await prisma.scheduleAttendance.upsert({
+      where: { scheduleId_date: { scheduleId: schedule.id, date } },
+      update: {
+        status,
+        notes: notes || null,
+        confirmedByUserId: user.id,
+      },
       create: {
         schoolId: user.schoolId,
-        teacherId,
-        userId: user.id,
-        date: today,
-        status: attStatus || "PRESENT",
-        checkIn: attStatus === "PRESENT" ? new Date() : undefined,
+        scheduleId: schedule.id,
+        date,
+        status,
+        notes: notes || null,
+        confirmedByUserId: user.id,
       },
     })
 
     return NextResponse.json(record)
   }
 
-  // Supervisor bulk mark all teachers
   if (action === "bulk-mark") {
-    if (!["SUPERVISOR", "SCHOOL_ADMIN"].includes(user.role)) {
-      return NextResponse.json({ error: "غير مصرح" }, { status: 403 })
-    }
+    const scheduleIds = Array.isArray(body.scheduleIds)
+      ? body.scheduleIds.filter((value: unknown): value is string => typeof value === "string" && value.length > 0)
+      : null
 
-    const { status: bulkStatus, teacherIds } = body
-    const where = teacherIds?.length
-      ? { id: { in: teacherIds }, schoolId: user.schoolId }
-      : { schoolId: user.schoolId }
+    const schedules = await prisma.schedule.findMany({
+      where: {
+        schoolId: user.schoolId,
+        teacherId: { not: null },
+        dayOfWeek: start.getUTCDay(),
+        ...(scheduleIds?.length ? { id: { in: scheduleIds } } : {}),
+      },
+      select: { id: true },
+    })
 
-    const teachers = await prisma.teacher.findMany({ where, select: { id: true } })
-
-    for (const t of teachers) {
-      await prisma.teacherAttendance.upsert({
-        where: { teacherId_date: { teacherId: t.id, date: today } },
-        update: { status: bulkStatus || "PRESENT", userId: user.id },
+    for (const schedule of schedules) {
+      await prisma.scheduleAttendance.upsert({
+        where: { scheduleId_date: { scheduleId: schedule.id, date } },
+        update: {
+          status,
+          notes: notes || null,
+          confirmedByUserId: user.id,
+        },
         create: {
           schoolId: user.schoolId,
-          teacherId: t.id,
-          userId: user.id,
-          date: today,
-          status: bulkStatus || "PRESENT",
-          checkIn: bulkStatus === "PRESENT" ? new Date() : undefined,
+          scheduleId: schedule.id,
+          date,
+          status,
+          notes: notes || null,
+          confirmedByUserId: user.id,
         },
       })
     }
 
-    return NextResponse.json({ success: true, count: teachers.length })
+    return NextResponse.json({ success: true, count: schedules.length })
   }
 
   if (action === "checkin" || action === "checkout") {
     return NextResponse.json(
-      { error: "يتم تسجيل حضور الأساتذة من قبل الإدارة أو مدير الدروس" },
+      { error: "يتم تأكيد الحضور على مستوى الحصص المجدولة من قبل الإدارة أو مدير الدروس" },
       { status: 403 }
     )
   }

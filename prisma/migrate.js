@@ -20,6 +20,7 @@ async function main() {
   await prisma.studentParent.deleteMany({ where: { schoolId } })
   await prisma.enrollment.deleteMany({ where: { schoolId } })
   await prisma.lesson.deleteMany({ where: { schoolId } })
+  await prisma.scheduleAttendance.deleteMany({ where: { schoolId } })
   await prisma.teacherAttendance.deleteMany({ where: { schoolId } })
   await prisma.notification.deleteMany({ where: { schoolId } })
   await prisma.payment.deleteMany({ where: { schoolId } })

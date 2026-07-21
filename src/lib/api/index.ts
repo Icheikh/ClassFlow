@@ -193,12 +193,59 @@ export const gradesApi = {
 // Dashboard
 // ============================================================
 
+export type DashboardActionItem = {
+  key: string
+  title: string
+  description: string
+  count: number
+  href: string
+  tone: "danger" | "warning" | "info" | "success"
+}
+
+export type DashboardChecklistItem = {
+  key: string
+  title: string
+  description: string
+  done: number
+  total: number
+  href: string
+}
+
+export type DashboardHealthItem = {
+  key: string
+  title: string
+  description: string
+  count: number
+  href: string
+  status: "good" | "warning" | "danger"
+}
+
+export type DashboardMonthMetric = {
+  key: string
+  label: string
+  value: number
+  href: string
+}
+
 export type DashboardStats = {
-  students: number
-  teachers: number
-  classrooms: number
-  todayAbsences: number
-  activeEnrollments: number
+  schoolName: string | null
+  today: string
+  activeYearName: string | null
+  activeTermName: string | null
+  stats: {
+    students: number
+    teachers: number
+    classrooms: number
+    todayAbsences: number
+    activeEnrollments: number
+    pendingApprovals: number
+    overdueInvoices: number
+    todayLessons: number
+  }
+  attentionItems: DashboardActionItem[]
+  dailyChecklist: DashboardChecklistItem[]
+  monthlySnapshot: DashboardMonthMetric[]
+  healthChecks: DashboardHealthItem[]
 }
 
 export const dashboardApi = {

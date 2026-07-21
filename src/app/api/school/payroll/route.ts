@@ -14,6 +14,8 @@ function computeDuration(start: string, end: string): number {
   return (parseTimeToMinutes(end) - parseTimeToMinutes(start)) / 60
 }
 
+const PAYABLE_STATUSES = new Set(["PRESENT", "LATE"])
+
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
   const user = session?.user as any
@@ -63,28 +65,51 @@ export async function GET(req: NextRequest) {
 
   const scheduleEntries = await prisma.schedule.findMany({
     where: { schoolId: user.schoolId, teacherId: { not: null } },
-    select: { teacherId: true, classroomId: true, subjectId: true, startTime: true, endTime: true, dayOfWeek: true },
+    select: { id: true, teacherId: true, classroomId: true, subjectId: true, startTime: true, endTime: true, dayOfWeek: true },
+  })
+
+  const scheduleAttendances = await prisma.scheduleAttendance.findMany({
+    where: {
+      schoolId: user.schoolId,
+      date: { gte: weekStart, lt: weekEnd },
+      status: { in: Array.from(PAYABLE_STATUSES) },
+    },
+    select: {
+      scheduleId: true,
+      status: true,
+    },
   })
 
   const expectedHoursByKey = new Map<string, number>()
+  const scheduleMetaById = new Map<string, { key: string; duration: number }>()
   for (const s of scheduleEntries) {
     if (!s.teacherId) continue
     const key = `${s.teacherId}|${s.classroomId}|${s.subjectId}`
+    const duration = computeDuration(s.startTime, s.endTime)
     const current = expectedHoursByKey.get(key) || 0
-    expectedHoursByKey.set(key, current + computeDuration(s.startTime, s.endTime))
+    expectedHoursByKey.set(key, current + duration)
+    scheduleMetaById.set(s.id, { key, duration })
+  }
+
+  const confirmedHoursByKey = new Map<string, number>()
+  for (const attendance of scheduleAttendances) {
+    const meta = scheduleMetaById.get(attendance.scheduleId)
+    if (!meta) continue
+    confirmedHoursByKey.set(meta.key, (confirmedHoursByKey.get(meta.key) || 0) + meta.duration)
   }
 
   const rows = assignments.map((assignment) => {
-    const totalHours = Math.round(
+    const expectedKey = `${assignment.teacherId}|${assignment.classroomId}|${assignment.subjectId}`
+    const expectedHours = Math.round((expectedHoursByKey.get(expectedKey) || 0) * 100) / 100
+    const confirmedHours = Math.round((confirmedHoursByKey.get(expectedKey) || 0) * 100) / 100
+    const compensationHours = Math.round(
       assignment.teachingHourEntries.reduce((sum, entry) => sum + entry.hoursTaught, 0) * 100
     ) / 100
+    const totalHours = Math.round((confirmedHours + compensationHours) * 100) / 100
 
     const earnings = assignment.hourlyRate != null
       ? Math.round(totalHours * assignment.hourlyRate * 100) / 100
       : null
-
-    const expectedKey = `${assignment.teacherId}|${assignment.classroomId}|${assignment.subjectId}`
-    const expectedHours = expectedHoursByKey.get(expectedKey) || 0
 
     return {
       id: assignment.id,
@@ -96,6 +121,8 @@ export async function GET(req: NextRequest) {
       stream: assignment.classroom.stream?.name ?? null,
       hourlyRate: assignment.hourlyRate,
       weeklyHours: assignment.weeklyHours,
+      confirmedHours,
+      compensationHours,
       totalHours,
       expectedHours,
       entryCount: assignment.teachingHourEntries.length,
