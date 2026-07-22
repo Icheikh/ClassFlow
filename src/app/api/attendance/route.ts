@@ -185,26 +185,31 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions)
-  const user = session?.user as any
-  if (!session || !user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  try {
+    const session = await getServerSession(authOptions)
+    const user = session?.user as any
+    if (!session || !user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const url = new URL(req.url)
-  const classroomId = url.searchParams.get("classroomId")
-  const subjectId = url.searchParams.get("subjectId")
-  const scheduleId = url.searchParams.get("scheduleId")
-  const date = url.searchParams.get("date") || new Date().toISOString()
+    const url = new URL(req.url)
+    const classroomId = url.searchParams.get("classroomId")
+    const subjectId = url.searchParams.get("subjectId")
+    const scheduleId = url.searchParams.get("scheduleId")
+    const date = url.searchParams.get("date") || new Date().toISOString()
 
-  const records = await prisma.attendance.findMany({
-    where: {
-      schoolId: user.schoolId,
-      ...(scheduleId && { scheduleId }),
-      ...(classroomId && { classroomId }),
-      ...(subjectId && { subjectId }),
-      date: new Date(date),
-    },
-    include: { student: true },
-  })
+    const records = await prisma.attendance.findMany({
+      where: {
+        schoolId: user.schoolId,
+        ...(scheduleId && { scheduleId }),
+        ...(classroomId && { classroomId }),
+        ...(subjectId && { subjectId }),
+        date: new Date(date),
+      },
+      include: { student: true },
+    })
 
-  return NextResponse.json(records)
+    return NextResponse.json(records)
+  } catch (error) {
+    console.error("Attendance records load failed:", error)
+    return NextResponse.json({ error: "تعذر تحميل سجل الغياب" }, { status: 500 })
+  }
 }
