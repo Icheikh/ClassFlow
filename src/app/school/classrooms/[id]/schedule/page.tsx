@@ -35,6 +35,7 @@ export default function ClassroomSchedulePage() {
   const router = useRouter()
 
   const [entries, setEntries] = useState<ScheduleEntry[]>([])
+  const [allEntries, setAllEntries] = useState<ScheduleEntry[]>([])
   const [classroom, setClassroom] = useState<{ name: string; level: { name: string } } | null>(null)
   const [subjects, setSubjects] = useState<Subject[]>([])
   const [teachers, setTeachers] = useState<Teacher[]>([])
@@ -48,13 +49,15 @@ export default function ClassroomSchedulePage() {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
 
   async function loadData() {
-    const [schedRes, subjectsRes, teachersRes, classroomRes] = await Promise.all([
+    const [schedRes, allSchedRes, subjectsRes, teachersRes, classroomRes] = await Promise.all([
       api.get<ScheduleEntry[]>(`/api/school/schedules?classroomId=${id}`),
+      api.get<ScheduleEntry[]>("/api/school/schedules"),
       api.get<Subject[]>("/api/school/subjects"),
       api.get<Teacher[]>("/api/school/teachers"),
       api.get<any>(`/api/school/classrooms/${id}`),
     ])
     if (schedRes.data) setEntries(schedRes.data)
+    if (allSchedRes.data) setAllEntries(allSchedRes.data)
     if (subjectsRes.data) setSubjects(subjectsRes.data)
     if (teachersRes.data) setTeachers(teachersRes.data)
     if (classroomRes.data) setClassroom(classroomRes.data.classroom || classroomRes.data)
@@ -77,6 +80,7 @@ export default function ClassroomSchedulePage() {
 
   async function handleSave() {
     if (!form.subjectId) { toast.error("اختر المادة"); return }
+    if (form.startTime >= form.endTime) { toast.error("وقت نهاية الحصة يجب أن يكون بعد وقت البداية"); return }
     setSaving(true)
     const payload = { ...form, dayOfWeek: parseInt(form.dayOfWeek), classroomId: id }
     const { error } = editId
@@ -114,7 +118,7 @@ export default function ClassroomSchedulePage() {
         (a) => a.subjectId === subjectId && a.classroomId === id
       )
       if (!teachesSubject) return false
-      const hasConflict = entries.some(
+      const hasConflict = allEntries.some(
         (e) =>
           e.id !== editId &&
           e.teacherId === t.id &&
