@@ -1,6 +1,12 @@
 import { prisma } from "@/lib/prisma"
 
 const MANAGER_ROLES = ["SCHOOL_ADMIN", "SUPERVISOR"]
+const OPERATIONAL_NOTIFICATION_PERMISSIONS = [
+  "SEND_NOTIFICATIONS",
+  "MANAGE_STUDENTS",
+  "REVIEW_LESSONS",
+  "APPROVE_GRADES",
+]
 
 type ManagerNotificationInput = {
   schoolId: string
@@ -32,7 +38,18 @@ export async function notifySchoolManagers(input: ManagerNotificationInput) {
     where: {
       schoolId: input.schoolId,
       isActive: true,
-      role: { in: MANAGER_ROLES },
+      OR: [
+        { role: { in: MANAGER_ROLES } },
+        {
+          userPermissions: {
+            some: {
+              permission: {
+                code: { in: OPERATIONAL_NOTIFICATION_PERMISSIONS },
+              },
+            },
+          },
+        },
+      ],
     },
     select: { id: true },
   })
