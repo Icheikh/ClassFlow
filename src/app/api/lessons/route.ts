@@ -22,7 +22,8 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { title, description, homework, notes, duration, classroomId, subjectId } = body
+  const { title, description, homework, notes, duration, scheduleId, date } = body
+  let { classroomId, subjectId } = body
 
   const activeYear = await prisma.academicYear.findFirst({
     where: { schoolId: user.schoolId, isActive: true },
@@ -46,15 +47,51 @@ export async function POST(req: NextRequest) {
     if (!teacherId) return NextResponse.json({ error: "لا يوجد أستاذ مكلف" }, { status: 404 })
   }
 
+  let schedule: {
+    id: string
+    classroomId: string
+    subjectId: string
+    teacherId: string | null
+    startTime: string
+    endTime: string
+  } | null = null
+
+  if (scheduleId) {
+    schedule = await prisma.schedule.findFirst({
+      where: {
+        id: scheduleId,
+        schoolId: user.schoolId,
+        teacherId,
+      },
+      select: {
+        id: true,
+        classroomId: true,
+        subjectId: true,
+        teacherId: true,
+        startTime: true,
+        endTime: true,
+      },
+    })
+    if (!schedule) return NextResponse.json({ error: "الحصة غير موجودة في جدول الأستاذ" }, { status: 404 })
+    classroomId = schedule.classroomId
+    subjectId = schedule.subjectId
+  }
+
+  if (!title?.trim() || !classroomId || !subjectId) {
+    return NextResponse.json({ error: "بيانات الدرس غير مكتملة" }, { status: 400 })
+  }
+
   const lesson = await prisma.lesson.create({
     data: {
       title, description, homework, notes,
       duration: duration ? parseInt(duration) : null,
       classroomId, subjectId, teacherId,
+      scheduleId: scheduleId || null,
       schoolId: user.schoolId,
       academicYearId: activeYear.id,
       termId: activeTerm?.id,
       status: "DRAFT",
+      date: date ? new Date(date) : new Date(),
     },
   })
 
@@ -83,12 +120,17 @@ export async function POST(req: NextRequest) {
     message: `وثق ${teacher?.user.name || "الأستاذ"} درس "${lesson.title}" في ${subject?.nameAr || "المادة"}.`,
     metadata: {
       lessonId: lesson.id,
+      lessonTitle: lesson.title,
+      scheduleId: scheduleId || null,
       classroomId,
       classroomName: classroom?.name || null,
       subjectId,
       subjectName: subject?.nameAr || null,
       teacherId,
       teacherName: teacher?.user.name || null,
+      date: lesson.date.toISOString(),
+      startTime: schedule?.startTime || null,
+      endTime: schedule?.endTime || null,
       duration: lesson.duration,
     },
   }).catch((error) => {
@@ -107,15 +149,29 @@ export async function GET(req: NextRequest) {
   const classroomId = url.searchParams.get("classroomId")
   const subjectId = url.searchParams.get("subjectId")
   const teacherId = url.searchParams.get("teacherId")
+  const scheduleId = url.searchParams.get("scheduleId")
+  const date = url.searchParams.get("date")
 
   const where: any = { schoolId: user.schoolId }
   if (classroomId) where.classroomId = classroomId
   if (subjectId) where.subjectId = subjectId
   if (teacherId) where.teacherId = teacherId
+  if (scheduleId) where.scheduleId = scheduleId
+  if (date) {
+    const dayStart = new Date(date)
+    dayStart.setHours(0, 0, 0, 0)
+    const dayEnd = new Date(dayStart)
+    dayEnd.setDate(dayEnd.getDate() + 1)
+    where.date = { gte: dayStart, lt: dayEnd }
+  }
 
   const lessons = await prisma.lesson.findMany({
     where,
-    include: { classroom: { select: { id: true, name: true } }, subject: { select: { id: true, nameAr: true, nameFr: true } } },
+    include: {
+      classroom: { select: { id: true, name: true } },
+      subject: { select: { id: true, nameAr: true, nameFr: true } },
+      schedule: { select: { id: true, startTime: true, endTime: true } },
+    },
     orderBy: { createdAt: "desc" },
     take: 50,
   })

@@ -270,6 +270,8 @@ function NotificationCard({
   const notificationDate = getMetadataText(notification.metadata, "date")
   const startTime = getMetadataText(notification.metadata, "startTime")
   const endTime = getMetadataText(notification.metadata, "endTime")
+  const lessonTitle = getMetadataText(notification.metadata, "lessonTitle")
+  const lessonDuration = getMetadataNumber(notification.metadata, "duration")
   const absentCount = getMetadataNumber(notification.metadata, "absentCount")
   const [expanded, setExpanded] = useState(false)
   const Icon = notification.type === "ATTENDANCE_RECORDED"
@@ -343,10 +345,20 @@ function NotificationCard({
               label={t("sessionTime")}
               value={startTime && endTime ? `${startTime} - ${endTime}` : t("unspecified")}
             />
-            <DetailItem
-              label={t("absentStudents")}
-              value={absentCount == null ? t("unspecified") : t("absentCountValue", { count: absentCount })}
-            />
+            {notification.type === "LESSON_RECORDED" ? (
+              <>
+                <DetailItem label={t("lessonTitle")} value={lessonTitle || notification.title} />
+                <DetailItem
+                  label={t("lessonDuration")}
+                  value={lessonDuration == null ? t("unspecified") : t("lessonDurationValue", { count: lessonDuration })}
+                />
+              </>
+            ) : (
+              <DetailItem
+                label={t("absentStudents")}
+                value={absentCount == null ? t("unspecified") : t("absentCountValue", { count: absentCount })}
+              />
+            )}
           </div>
         </div>
       )}

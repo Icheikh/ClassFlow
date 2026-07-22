@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     where,
     include: {
       classroom: { select: { id: true, name: true, level: { select: { name: true } } } },
-      subject: { select: { id: true, nameAr: true } },
+      subject: { select: { id: true, nameAr: true, nameFr: true } },
       teacher: { select: { id: true, user: { select: { name: true } } } },
     },
     orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],

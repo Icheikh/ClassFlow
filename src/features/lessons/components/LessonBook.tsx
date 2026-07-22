@@ -1,12 +1,11 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
-import { useClasses } from "@/hooks/useClasses"
 import { api } from "@/lib/api"
-import { Button, Card, LoadingSpinner, ConfirmModal, ErrorDisplay, TeacherSubNav } from "@/components/ui"
-import { BookOpen, Plus, Save, Clock, Edit3, Trash2 } from "lucide-react"
+import { Badge, Button, Card, ConfirmModal, ErrorDisplay, LoadingSpinner, TeacherSubNav } from "@/components/ui"
+import { BookOpen, Calendar, Clock, Edit3, Plus, Save, Trash2 } from "lucide-react"
 import toast from "react-hot-toast"
 import { getDateLocale, getLocalizedSubjectName } from "@/lib/locale"
 
@@ -21,6 +20,25 @@ type Lesson = {
   date: string
   classroom: { id: string; name: string }
   subject: { id: string; nameAr: string; nameFr: string | null }
+  schedule?: { id: string; startTime: string; endTime: string } | null
+}
+
+type ScheduleEntry = {
+  id: string
+  dayOfWeek: number
+  startTime: string
+  endTime: string
+  classroomId: string
+  subjectId: string
+  teacherId: string | null
+  classroom: { id: string; name: string; level: { name: string }; stream?: { name: string } | null }
+  subject: { id: string; nameAr: string; nameFr?: string | null }
+}
+
+type TeacherInfo = { id: string }
+
+function getDateDayOfWeek(date: string) {
+  return new Date(`${date}T12:00:00`).getDay()
 }
 
 export function LessonBook() {
@@ -28,14 +46,16 @@ export function LessonBook() {
   const t = useTranslations("lessonBook")
   const tCommon = useTranslations("common")
   const searchParams = useSearchParams()
-  const { assignments, loading } = useClasses()
 
   const initialClassroom = searchParams?.get("classroomId") || ""
   const initialSubject = searchParams?.get("subjectId") || ""
 
-  const [classroomId, setClassroomId] = useState(initialClassroom)
-  const [subjectId, setSubjectId] = useState(initialSubject)
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0])
+  const [scheduleEntries, setScheduleEntries] = useState<ScheduleEntry[]>([])
+  const [selectedScheduleId, setSelectedScheduleId] = useState("")
   const [lessons, setLessons] = useState<Lesson[]>([])
+  const [loadingSchedule, setLoadingSchedule] = useState(true)
+  const [loadingLessons, setLoadingLessons] = useState(false)
   const [showForm, setShowForm] = useState(false)
 
   const [title, setTitle] = useState("")
@@ -50,16 +70,95 @@ export function LessonBook() {
   const [fetchError, setFetchError] = useState(false)
   const [retryTrigger, setRetryTrigger] = useState(0)
 
+  const selectedSchedule = scheduleEntries.find((entry) => entry.id === selectedScheduleId) || null
+  const daySchedule = useMemo(() => {
+    const dayOfWeek = getDateDayOfWeek(selectedDate)
+    return scheduleEntries
+      .filter((entry) => entry.dayOfWeek === dayOfWeek)
+      .sort((first, second) => first.startTime.localeCompare(second.startTime))
+  }, [scheduleEntries, selectedDate])
+
   useEffect(() => {
-    if (!classroomId || !subjectId) return
+    let cancelled = false
+
+    async function loadSchedule() {
+      setLoadingSchedule(true)
+      const teacherRes = await api.get<TeacherInfo>("/api/teacher/me")
+      if (!teacherRes.data) {
+        if (!cancelled) {
+          toast.error(teacherRes.error || t("loadTeacherError"))
+          setLoadingSchedule(false)
+        }
+        return
+      }
+
+      const scheduleRes = await api.get<ScheduleEntry[]>(`/api/school/schedules?teacherId=${teacherRes.data.id}`)
+      if (cancelled) return
+
+      if (scheduleRes.error) {
+        toast.error(scheduleRes.error || t("loadScheduleError"))
+        setFetchError(true)
+      } else {
+        setScheduleEntries(scheduleRes.data || [])
+      }
+      setLoadingSchedule(false)
+    }
+
+    void loadSchedule()
+    return () => { cancelled = true }
+  }, [t])
+
+  useEffect(() => {
+    if (daySchedule.length === 0) {
+      setSelectedScheduleId("")
+      return
+    }
+
+    const currentSelectionStillVisible = daySchedule.some((entry) => entry.id === selectedScheduleId)
+    if (currentSelectionStillVisible) return
+
+    const initialMatch = daySchedule.find(
+      (entry) => entry.classroomId === initialClassroom && entry.subjectId === initialSubject
+    )
+    setSelectedScheduleId((initialMatch || daySchedule[0]).id)
+  }, [daySchedule, initialClassroom, initialSubject, selectedScheduleId])
+
+  useEffect(() => {
+    if (!selectedSchedule) {
+      setLessons([])
+      return
+    }
+
+    let cancelled = false
+    setLoadingLessons(true)
     setFetchError(false)
-    api.get<Lesson[]>(`/api/lessons?classroomId=${classroomId}&subjectId=${subjectId}`)
+    api.get<Lesson[]>(`/api/lessons?scheduleId=${selectedSchedule.id}&date=${selectedDate}`)
       .then(({ data, error }) => {
-        if (error) { toast.error(error); setFetchError(true); return }
-        if (data) setLessons(data)
+        if (cancelled) return
+        if (error) {
+          toast.error(error)
+          setFetchError(true)
+          return
+        }
+        setLessons(data || [])
       })
-      .catch(() => { toast.error(t("loadError")); setFetchError(true) })
-  }, [classroomId, subjectId, retryTrigger, t])
+      .catch(() => {
+        if (!cancelled) {
+          toast.error(t("loadError"))
+          setFetchError(true)
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingLessons(false)
+      })
+
+    return () => { cancelled = true }
+  }, [selectedSchedule, selectedDate, retryTrigger, t])
+
+  function startCreate() {
+    resetForm()
+    setShowForm(true)
+  }
 
   function startEdit(lesson: Lesson) {
     setEditId(lesson.id)
@@ -72,16 +171,43 @@ export function LessonBook() {
   }
 
   function resetForm() {
-    setTitle(""); setDescription(""); setHomework(""); setNotes(""); setDuration("45")
-    setEditId(null); setShowForm(false)
+    setTitle("")
+    setDescription("")
+    setHomework("")
+    setNotes("")
+    setDuration("45")
+    setEditId(null)
+    setShowForm(false)
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!title.trim()) { toast.error(t("missingTitle")); return }
+  async function reloadLessons() {
+    setRetryTrigger((current) => current + 1)
+  }
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault()
+    if (!selectedSchedule) {
+      toast.error(t("missingSession"))
+      return
+    }
+    if (!title.trim()) {
+      toast.error(t("missingTitle"))
+      return
+    }
+
     setSaving(true)
     try {
-      const payload = { title, description, homework, notes, duration: parseInt(duration) || 45, classroomId, subjectId }
+      const payload = {
+        title,
+        description,
+        homework,
+        notes,
+        duration: parseInt(duration) || 45,
+        date: selectedDate,
+        scheduleId: selectedSchedule.id,
+        classroomId: selectedSchedule.classroomId,
+        subjectId: selectedSchedule.subjectId,
+      }
       const result = editId
         ? await api.put("/api/lessons", { id: editId, ...payload })
         : await api.post("/api/lessons", payload)
@@ -90,9 +216,11 @@ export function LessonBook() {
       else {
         toast.success(editId ? t("editSuccess") : t("createSuccess"))
         resetForm()
-        api.get<Lesson[]>(`/api/lessons?classroomId=${classroomId}&subjectId=${subjectId}`).then(({ data }) => { if (data) setLessons(data) })
+        await reloadLessons()
       }
-    } catch { toast.error(t("saveError")) }
+    } catch {
+      toast.error(t("saveError"))
+    }
     setSaving(false)
   }
 
@@ -104,128 +232,198 @@ export function LessonBook() {
       if (error) toast.error(error)
       else {
         toast.success(t("deleteSuccess"))
-        api.get<Lesson[]>(`/api/lessons?classroomId=${classroomId}&subjectId=${subjectId}`).then(({ data }) => { if (data) setLessons(data) })
+        await reloadLessons()
       }
-    } catch { toast.error(t("deleteError")); setLessonToDelete(null) }
+    } catch {
+      toast.error(t("deleteError"))
+      setLessonToDelete(null)
+    }
   }
 
-  if (loading) return <LoadingSpinner />
-
-  const subjects = assignments
-    .filter((assignment) => assignment.classroomId === classroomId)
-    .map((assignment) => ({
-      id: assignment.subjectId,
-      name: getLocalizedSubjectName(assignment.subject, locale),
-    }))
+  if (loadingSchedule) return <LoadingSpinner message={tCommon("loading")} />
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">{t("title")}</h1>
-        {classroomId && subjectId && (
-          <Button variant="primary" onClick={() => { resetForm(); setShowForm(!showForm) }}>
-            <Plus className="h-5 w-5" /> {showForm ? tCommon("cancel") : t("newToggle")}
-          </Button>
-        )}
+    <div className="mx-auto max-w-3xl pb-24">
+      <div className="mb-5 space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold">{t("title")}</h1>
+            <p className="mt-1 text-sm text-gray-500">{t("scheduleBasedSubtitle")}</p>
+          </div>
+          {selectedSchedule && (
+            <Button onClick={startCreate}>
+              <Plus className="h-5 w-5" /> {showForm ? tCommon("cancel") : t("newToggle")}
+            </Button>
+          )}
+        </div>
+
+        <TeacherSubNav
+          current="lessons"
+          classroomId={selectedSchedule?.classroomId || initialClassroom}
+          subjectId={selectedSchedule?.subjectId || initialSubject}
+        />
+
+        <div className="rounded-2xl border border-gray-200 bg-white p-3">
+          <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
+            <Calendar className="h-4 w-4 text-blue-600" />
+            {t("lessonDate")}
+          </label>
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(event) => setSelectedDate(event.target.value)}
+            className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
       </div>
 
-      <TeacherSubNav current="lessons" classroomId={classroomId} subjectId={subjectId} />
+      <Card padding="md" className="mb-5">
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <h2 className="font-semibold text-gray-900">{t("todaySessions")}</h2>
+            <p className="mt-1 text-xs text-gray-500">{new Date(`${selectedDate}T12:00:00`).toLocaleDateString(getDateLocale(locale))}</p>
+          </div>
+          <Badge variant={daySchedule.length ? "info" : "default"}>{daySchedule.length}</Badge>
+        </div>
 
-      <div className="flex gap-4 mb-6">
-        <select value={classroomId} onChange={(e) => { setClassroomId(e.target.value); setSubjectId(""); setShowForm(false) }}
-          className={`w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${locale === "ar" ? "text-right" : "text-left"}`}>
-          <option value="">{t("selectClassroom")}</option>
-          {[...new Map(assignments.map((a) => [a.classroom.id, a.classroom])).entries()].map(([id, c]) => (
-            <option key={id} value={id}>{c.name} - {(c as any).level?.name}</option>
-          ))}
-        </select>
-        {classroomId && (
-          <select value={subjectId} onChange={(e) => setSubjectId(e.target.value)}
-            className={`w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${locale === "ar" ? "text-right" : "text-left"}`}>
-            <option value="">{t("selectSubject")}</option>
-            {subjects.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
+        {daySchedule.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-gray-200 px-4 py-8 text-center">
+            <Clock className="mx-auto h-10 w-10 text-gray-300" />
+            <p className="mt-3 text-sm text-gray-500">{t("noSessionsForDate")}</p>
+          </div>
+        ) : (
+          <div className="grid gap-3">
+            {daySchedule.map((entry) => {
+              const selected = entry.id === selectedScheduleId
+              return (
+                <button
+                  key={entry.id}
+                  type="button"
+                  onClick={() => {
+                    resetForm()
+                    setSelectedScheduleId(entry.id)
+                  }}
+                  className={`rounded-2xl border p-4 text-start transition-colors ${
+                    selected ? "border-blue-600 bg-blue-50 ring-2 ring-blue-100" : "border-gray-200 bg-white hover:bg-gray-50"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-gray-950">{getLocalizedSubjectName(entry.subject, locale)}</p>
+                      <p className="mt-1 text-sm text-gray-600">{entry.classroom.name}</p>
+                      <p className="mt-2 flex items-center gap-1 text-sm text-gray-500">
+                        <Clock className="h-4 w-4" />
+                        {entry.startTime} - {entry.endTime}
+                      </p>
+                    </div>
+                    {selected && <Badge variant="info">{t("selectedSession")}</Badge>}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
         )}
-      </div>
+      </Card>
 
-      {showForm && (
-        <form onSubmit={handleSubmit} className="mb-6">
-          <Card>
+      {selectedSchedule && showForm && (
+        <form onSubmit={handleSubmit} className="mb-5">
+          <Card padding="md">
             <div className="space-y-4">
-              <p className="text-sm font-medium text-gray-700">{editId ? t("editLesson") : t("newLesson")}</p>
-              <input className={`w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${locale === "ar" ? "text-right" : "text-left"}`} placeholder={t("lessonTitlePlaceholder")} value={title} onChange={(e) => setTitle(e.target.value)} />
-              <textarea className={`w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${locale === "ar" ? "text-right" : "text-left"}`} placeholder={t("descriptionPlaceholder")} rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
-              <textarea className={`w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${locale === "ar" ? "text-right" : "text-left"}`} placeholder={t("homeworkPlaceholder")} rows={2} value={homework} onChange={(e) => setHomework(e.target.value)} />
-              <textarea className={`w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${locale === "ar" ? "text-right" : "text-left"}`} placeholder={t("notesPlaceholder")} rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
+              <div>
+                <p className="font-semibold text-gray-900">{editId ? t("editLesson") : t("newLesson")}</p>
+                <p className="mt-1 text-sm text-gray-500">
+                  {t("sessionSummary", {
+                    classroom: selectedSchedule.classroom.name,
+                    subject: getLocalizedSubjectName(selectedSchedule.subject, locale),
+                    start: selectedSchedule.startTime,
+                    end: selectedSchedule.endTime,
+                  })}
+                </p>
+              </div>
+
+              <input className={`w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 ${locale === "ar" ? "text-right" : "text-left"}`} placeholder={t("lessonTitlePlaceholder")} value={title} onChange={(event) => setTitle(event.target.value)} />
+              <textarea className={`w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${locale === "ar" ? "text-right" : "text-left"}`} placeholder={t("descriptionPlaceholder")} rows={4} value={description} onChange={(event) => setDescription(event.target.value)} />
+              <textarea className={`w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${locale === "ar" ? "text-right" : "text-left"}`} placeholder={t("homeworkPlaceholder")} rows={2} value={homework} onChange={(event) => setHomework(event.target.value)} />
+              <textarea className={`w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${locale === "ar" ? "text-right" : "text-left"}`} placeholder={t("notesPlaceholder")} rows={2} value={notes} onChange={(event) => setNotes(event.target.value)} />
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-gray-400" />
-                <input type="number" className={`w-24 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${locale === "ar" ? "text-right" : "text-left"}`} placeholder={t("durationPlaceholder")} value={duration} onChange={(e) => setDuration(e.target.value)} min="1" max="180" />
+                <input type="number" className={`w-24 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${locale === "ar" ? "text-right" : "text-left"}`} placeholder={t("durationPlaceholder")} value={duration} onChange={(event) => setDuration(event.target.value)} min="1" max="180" />
                 <span className="text-sm text-gray-500">{t("minutes")}</span>
               </div>
               <div className="flex gap-2">
                 <Button fullWidth loading={saving}><Save className="h-5 w-5" /> {editId ? t("saveChanges") : t("saveLesson")}</Button>
-                <Button variant="secondary" onClick={resetForm}>{tCommon("cancel")}</Button>
+                <Button variant="secondary" type="button" onClick={resetForm}>{tCommon("cancel")}</Button>
               </div>
             </div>
           </Card>
         </form>
       )}
 
-      <div className="space-y-3">
-        {!classroomId && !subjectId && (
-          <Card><p className="py-6 text-center text-gray-400">{t("chooseContext")}</p></Card>
-        )}
-        {fetchError && (
-          <Card>
-            <ErrorDisplay message={t("recordLoadError")} onRetry={() => setRetryTrigger(n => n + 1)} />
-          </Card>
-        )}
-        {lessons.length === 0 && classroomId && subjectId && !showForm && !fetchError && (
-          <Card><p className="py-6 text-center text-gray-400">{t("emptyState")}</p></Card>
-        )}
-        {lessons.map((lesson) => (
-          <Card key={lesson.id}>
-            <div className="flex items-start justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <BookOpen className="h-5 w-5 text-green-600" />
-                <h3 className="font-semibold">{lesson.title}</h3>
-                {lesson.duration && (
-                  <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
-                    {lesson.duration} {locale === "ar" ? "د" : "min"}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-2 text-xs text-gray-400">
-                <span>{new Date(lesson.date).toLocaleDateString(getDateLocale(locale))}</span>
-                <span className={`px-2 py-0.5 rounded-full ${lesson.status === "DRAFT" ? "bg-yellow-50 text-yellow-600" : "bg-green-50 text-green-600"}`}>
-                  {lesson.status === "DRAFT" ? t("draft") : t("submitted")}
-                </span>
-              </div>
+      {selectedSchedule && (
+        <Card padding="md">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="font-semibold text-gray-900">{t("sessionLessons")}</h2>
+              <p className="mt-1 text-sm text-gray-500">
+                {t("sessionSummary", {
+                  classroom: selectedSchedule.classroom.name,
+                  subject: getLocalizedSubjectName(selectedSchedule.subject, locale),
+                  start: selectedSchedule.startTime,
+                  end: selectedSchedule.endTime,
+                })}
+              </p>
             </div>
-            {lesson.description && <p className="text-sm text-gray-600 mb-2">{lesson.description}</p>}
-            {lesson.homework && (
-              <div className="bg-yellow-50 p-2 rounded text-sm mb-1">
-                <span className="font-medium">{t("homeworkLabel")} </span>{lesson.homework}
-              </div>
-            )}
-            <div className="flex items-center justify-between mt-2">
-              <div className="flex gap-2 text-xs text-gray-400">
-                <span>{lesson.classroom.name}</span><span>·</span><span>{getLocalizedSubjectName(lesson.subject, locale)}</span>
-              </div>
-              <div className="flex gap-1">
-                <button onClick={() => startEdit(lesson)} className="p-1 hover:bg-gray-100 rounded text-blue-500" aria-label={t("editAria")}>
-                  <Edit3 className="h-4 w-4" />
-                </button>
-                <button onClick={() => setLessonToDelete(lesson.id)} className="p-1 hover:bg-gray-100 rounded text-red-500" aria-label={t("deleteAria")}>
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
+            <Badge variant={lessons.length ? "info" : "default"}>{lessons.length}</Badge>
+          </div>
+
+          {loadingLessons ? (
+            <LoadingSpinner />
+          ) : fetchError ? (
+            <ErrorDisplay message={t("recordLoadError")} onRetry={() => setRetryTrigger((current) => current + 1)} />
+          ) : lessons.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-gray-200 px-4 py-8 text-center">
+              <BookOpen className="mx-auto h-10 w-10 text-gray-300" />
+              <p className="mt-3 text-sm text-gray-500">{t("emptyState")}</p>
             </div>
-          </Card>
-        ))}
-      </div>
+          ) : (
+            <div className="space-y-3">
+              {lessons.map((lesson) => (
+                <div key={lesson.id} className="rounded-2xl border border-gray-200 bg-white p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <BookOpen className="h-5 w-5 text-green-600" />
+                        <h3 className="font-semibold text-gray-950">{lesson.title}</h3>
+                        {lesson.duration && (
+                          <Badge variant="default">{lesson.duration} {locale === "ar" ? "د" : "min"}</Badge>
+                        )}
+                      </div>
+                      <p className="mt-2 text-xs text-gray-400">{new Date(lesson.date).toLocaleDateString(getDateLocale(locale))}</p>
+                    </div>
+                    <div className="flex gap-1">
+                      <button onClick={() => startEdit(lesson)} className="rounded-lg p-2 text-blue-500 hover:bg-blue-50" aria-label={t("editAria")}>
+                        <Edit3 className="h-4 w-4" />
+                      </button>
+                      <button onClick={() => setLessonToDelete(lesson.id)} className="rounded-lg p-2 text-red-500 hover:bg-red-50" aria-label={t("deleteAria")}>
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                  {lesson.description && <p className="mt-3 text-sm leading-6 text-gray-600">{lesson.description}</p>}
+                  {lesson.homework && (
+                    <div className="mt-3 rounded-xl bg-yellow-50 p-3 text-sm text-yellow-900">
+                      <span className="font-medium">{t("homeworkLabel")} </span>{lesson.homework}
+                    </div>
+                  )}
+                  {lesson.notes && (
+                    <div className="mt-2 rounded-xl bg-slate-50 p-3 text-sm text-slate-600">{lesson.notes}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
 
       <ConfirmModal
         open={!!lessonToDelete}
