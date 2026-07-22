@@ -22,7 +22,8 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { classroomId, subjectId, date, records } = body
+  const { scheduleId, date, records } = body
+  let { classroomId, subjectId } = body
 
   const activeYear = await prisma.academicYear.findFirst({
     where: { schoolId: user.schoolId, isActive: true },
@@ -42,24 +43,79 @@ export async function POST(req: NextRequest) {
     if (!teacherId) return NextResponse.json({ error: "No teacher assigned" }, { status: 404 })
   }
 
+  let schedule: {
+    id: string
+    classroomId: string
+    subjectId: string
+    teacherId: string | null
+    startTime: string
+    endTime: string
+  } | null = null
+
+  if (scheduleId) {
+    schedule = await prisma.schedule.findFirst({
+      where: {
+        id: scheduleId,
+        schoolId: user.schoolId,
+        teacherId,
+      },
+      select: {
+        id: true,
+        classroomId: true,
+        subjectId: true,
+        teacherId: true,
+        startTime: true,
+        endTime: true,
+      },
+    })
+    if (!schedule) return NextResponse.json({ error: "الحصة غير موجودة في جدول الأستاذ" }, { status: 404 })
+    classroomId = schedule.classroomId
+    subjectId = schedule.subjectId
+  }
+
+  if (!classroomId || !subjectId || !Array.isArray(records)) {
+    return NextResponse.json({ error: "بيانات الغياب غير مكتملة" }, { status: 400 })
+  }
+
+  const normalizedRecords = records.map((record: { studentId: string; status: string }) => ({
+    studentId: record.studentId,
+    status: String(record.status).toUpperCase() === "ABSENT" ? "ABSENT" : "PRESENT",
+  }))
+
+  const attendanceDate = new Date(date)
+
   await Promise.all(
-    records.map((record: { studentId: string; status: string }) =>
-      prisma.attendance.upsert({
-        where: { studentId_date_subjectId: { studentId: record.studentId, date: new Date(date), subjectId } },
-        update: { status: record.status, teacherId },
-        create: {
+    normalizedRecords.map(async (record: { studentId: string; status: string }) => {
+      const existing = await prisma.attendance.findFirst({
+        where: scheduleId
+          ? { studentId: record.studentId, date: attendanceDate, scheduleId }
+          : { studentId: record.studentId, date: attendanceDate, subjectId },
+        select: { id: true },
+      })
+
+      if (existing) {
+        return prisma.attendance.update({
+          where: { id: existing.id },
+          data: { status: record.status, teacherId, scheduleId: scheduleId || null },
+        })
+      }
+
+      return prisma.attendance.create({
+        data: {
           schoolId: user.schoolId, academicYearId: activeYear.id,
           studentId: record.studentId, classroomId, subjectId, teacherId,
-          status: record.status, date: new Date(date),
+          scheduleId: scheduleId || null,
+          status: record.status, date: attendanceDate,
         },
       })
-    )
+    })
   )
 
-  const absentStudents = records.filter((r: { status: string }) => {
+  const absentStudents = normalizedRecords.filter((r: { status: string }) => {
     const status = String(r.status).toUpperCase()
-    return status === "ABSENT" || status === "LATE"
+    return status === "ABSENT"
   })
+  const notificationEntityId = scheduleId || `${classroomId}:${subjectId}:${new Date(date).toISOString().split("T")[0]}`
   if (absentStudents.length > 0) {
     const [classroom, subject, teacher] = await Promise.all([
       prisma.classroom.findUnique({
@@ -76,20 +132,21 @@ export async function POST(req: NextRequest) {
       }),
     ])
 
-    const absentCount = absentStudents.filter((record: { status: string }) => String(record.status).toUpperCase() === "ABSENT").length
-    const lateCount = absentStudents.filter((record: { status: string }) => String(record.status).toUpperCase() === "LATE").length
+    const absentCount = absentStudents.length
     const dateLabel = new Date(date).toLocaleDateString("ar-MR")
+    const timeLabel = schedule ? ` من ${schedule.startTime} إلى ${schedule.endTime}` : ""
 
     try {
       await notifySchoolManagers({
         schoolId: user.schoolId,
         type: "ATTENDANCE_RECORDED",
         entityType: "ATTENDANCE",
-        entityId: `${classroomId}:${subjectId}:${new Date(date).toISOString().split("T")[0]}`,
+        entityId: notificationEntityId,
         actionUrl: `/school/classrooms/${classroomId}`,
         title: `غياب مسجل في ${classroom?.name || "القسم"}`,
-        message: `سجل ${teacher?.user.name || "الأستاذ"} حضور ${subject?.nameAr || "المادة"} بتاريخ ${dateLabel}. الغياب: ${absentCount}، التأخر: ${lateCount}.`,
+        message: `سجل ${teacher?.user.name || "الأستاذ"} غياب ${subject?.nameAr || "المادة"} بتاريخ ${dateLabel}${timeLabel}. الغياب: ${absentCount}.`,
         metadata: {
+          scheduleId: scheduleId || null,
           classroomId,
           classroomName: classroom?.name || null,
           subjectId,
@@ -97,19 +154,34 @@ export async function POST(req: NextRequest) {
           teacherId,
           teacherName: teacher?.user.name || null,
           date: new Date(date).toISOString(),
+          startTime: schedule?.startTime || null,
+          endTime: schedule?.endTime || null,
           absentCount,
-          lateCount,
+          lateCount: 0,
           studentIds: absentStudents.map((record: { studentId: string }) => record.studentId),
           parentTitle: `غياب أو تأخر في ${classroom?.name || "القسم"}`,
-          parentMessage: `تم تسجيل غياب أو تأخر بتاريخ ${dateLabel} في مادة ${subject?.nameAr || "المادة"}. يرجى التواصل مع الإدارة عند الحاجة.`,
+          parentMessage: `تم تسجيل غياب بتاريخ ${dateLabel}${timeLabel} في مادة ${subject?.nameAr || "المادة"}. يرجى التواصل مع الإدارة عند الحاجة.`,
         },
       })
     } catch (error) {
       console.error("Attendance manager notification creation failed:", error)
     }
+  } else {
+    await prisma.notification.updateMany({
+      where: {
+        schoolId: user.schoolId,
+        entityType: "ATTENDANCE",
+        entityId: notificationEntityId,
+        status: "PENDING",
+      },
+      data: {
+        status: "RESOLVED",
+        read: true,
+      },
+    })
   }
 
-  return NextResponse.json({ success: true, count: records.length })
+  return NextResponse.json({ success: true, count: normalizedRecords.length })
 }
 
 export async function GET(req: NextRequest) {
@@ -120,11 +192,13 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url)
   const classroomId = url.searchParams.get("classroomId")
   const subjectId = url.searchParams.get("subjectId")
+  const scheduleId = url.searchParams.get("scheduleId")
   const date = url.searchParams.get("date") || new Date().toISOString()
 
   const records = await prisma.attendance.findMany({
     where: {
       schoolId: user.schoolId,
+      ...(scheduleId && { scheduleId }),
       ...(classroomId && { classroomId }),
       ...(subjectId && { subjectId }),
       date: new Date(date),

@@ -1,19 +1,34 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
-import { useClasses } from "@/hooks/useClasses"
 import { useStudents } from "@/hooks/useStudents"
 import { api } from "@/lib/api"
-import { Button, Card, Badge, LoadingSpinner, ErrorDisplay, TeacherSubNav } from "@/components/ui"
-import { Check, X, Clock, AlertCircle, Save, Calendar, RefreshCw } from "lucide-react"
+import { Badge, Button, Card, ErrorDisplay, LoadingSpinner, TeacherSubNav } from "@/components/ui"
+import { Calendar, Check, Clock, Save, Users, X } from "lucide-react"
 import toast from "react-hot-toast"
 import { getDateLocale, getLocalizedSubjectName } from "@/lib/locale"
 
-type AttendanceStatus = "present" | "absent" | "late" | "excused"
+type AttendanceStatus = "present" | "absent"
 
-const STATUS_CYCLE: AttendanceStatus[] = ["present", "absent", "late", "excused"]
+type ScheduleEntry = {
+  id: string
+  dayOfWeek: number
+  startTime: string
+  endTime: string
+  classroomId: string
+  subjectId: string
+  teacherId: string | null
+  classroom: { id: string; name: string; level: { name: string }; stream?: { name: string } | null }
+  subject: { id: string; nameAr: string; nameFr?: string | null }
+}
+
+type TeacherInfo = { id: string }
+
+function getDateDayOfWeek(date: string) {
+  return new Date(`${date}T12:00:00`).getDay()
+}
 
 export function AttendanceSheet() {
   const locale = useLocale()
@@ -21,89 +36,152 @@ export function AttendanceSheet() {
   const tCommon = useTranslations("common")
   const tStatus = useTranslations("status")
   const searchParams = useSearchParams()
-  const { assignments, loading: loadingClasses } = useClasses()
-
   const initialClassroom = searchParams?.get("classroomId") || ""
   const initialSubject = searchParams?.get("subjectId") || ""
 
-  const [classroomId, setClassroomId] = useState(initialClassroom)
-  const [subjectId, setSubjectId] = useState(initialSubject)
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0])
-  const { students, loading: loadingStudents } = useStudents(classroomId)
+  const [scheduleEntries, setScheduleEntries] = useState<ScheduleEntry[]>([])
+  const [selectedScheduleId, setSelectedScheduleId] = useState("")
+  const [loadingSchedule, setLoadingSchedule] = useState(true)
   const [records, setRecords] = useState<Record<string, AttendanceStatus>>({})
   const [saving, setSaving] = useState(false)
   const [existingAttendance, setExistingAttendance] = useState<any[]>([])
   const [loadingExisting, setLoadingExisting] = useState(false)
-
   const [fetchError, setFetchError] = useState(false)
   const [retryTrigger, setRetryTrigger] = useState(0)
 
-  const statusConfig: Record<AttendanceStatus, { icon: any; variant: "success" | "danger" | "warning" | "info"; label: string }> = {
-    present: { icon: Check, variant: "success", label: tStatus("present") },
-    absent: { icon: X, variant: "danger", label: tStatus("absent") },
-    late: { icon: Clock, variant: "warning", label: tStatus("late") },
-    excused: { icon: AlertCircle, variant: "info", label: tStatus("excused") },
-  }
+  const selectedSchedule = scheduleEntries.find((entry) => entry.id === selectedScheduleId) || null
+  const { students, loading: loadingStudents } = useStudents(selectedSchedule?.classroomId || "")
+
+  const daySchedule = useMemo(() => {
+    const dayOfWeek = getDateDayOfWeek(selectedDate)
+    return scheduleEntries
+      .filter((entry) => entry.dayOfWeek === dayOfWeek)
+      .sort((first, second) => first.startTime.localeCompare(second.startTime))
+  }, [scheduleEntries, selectedDate])
 
   useEffect(() => {
-    if (!classroomId || !subjectId) return
+    let cancelled = false
+
+    async function loadSchedule() {
+      setLoadingSchedule(true)
+      const teacherRes = await api.get<TeacherInfo>("/api/teacher/me")
+      if (!teacherRes.data) {
+        if (!cancelled) {
+          toast.error(teacherRes.error || t("loadTeacherError"))
+          setLoadingSchedule(false)
+        }
+        return
+      }
+
+      const scheduleRes = await api.get<ScheduleEntry[]>(`/api/school/schedules?teacherId=${teacherRes.data.id}`)
+      if (cancelled) return
+
+      if (scheduleRes.error) {
+        toast.error(scheduleRes.error || t("loadScheduleError"))
+        setFetchError(true)
+      } else {
+        setScheduleEntries(scheduleRes.data || [])
+      }
+      setLoadingSchedule(false)
+    }
+
+    void loadSchedule()
+    return () => { cancelled = true }
+  }, [t])
+
+  useEffect(() => {
+    if (daySchedule.length === 0) {
+      setSelectedScheduleId("")
+      return
+    }
+
+    const currentSelectionStillVisible = daySchedule.some((entry) => entry.id === selectedScheduleId)
+    if (currentSelectionStillVisible) return
+
+    const initialMatch = daySchedule.find(
+      (entry) => entry.classroomId === initialClassroom && entry.subjectId === initialSubject
+    )
+    setSelectedScheduleId((initialMatch || daySchedule[0]).id)
+  }, [daySchedule, initialClassroom, initialSubject, selectedScheduleId])
+
+  useEffect(() => {
+    if (!selectedSchedule) {
+      setExistingAttendance([])
+      setRecords({})
+      return
+    }
+
     let cancelled = false
     setLoadingExisting(true)
     setFetchError(false)
-    api.get<any[]>(`/api/attendance?classroomId=${classroomId}&subjectId=${subjectId}&date=${selectedDate}`)
+    api.get<any[]>(`/api/attendance?scheduleId=${selectedSchedule.id}&date=${selectedDate}`)
       .then(({ data, error }) => {
         if (cancelled) return
-        if (error) { toast.error(error); setFetchError(true); return }
+        if (error) {
+          toast.error(error)
+          setFetchError(true)
+          return
+        }
         if (data && data.length > 0) {
           setExistingAttendance(data)
           const map: Record<string, AttendanceStatus> = {}
-          for (const r of data) { map[r.studentId] = r.status.toLowerCase() as AttendanceStatus }
+          for (const item of data) {
+            map[item.studentId] = String(item.status).toUpperCase() === "ABSENT" ? "absent" : "present"
+          }
           setRecords(map)
         } else {
           setExistingAttendance([])
           setRecords({})
         }
       })
-      .catch(() => { if (!cancelled) { toast.error(t("loadError")); setFetchError(true) } })
-      .finally(() => { if (!cancelled) setLoadingExisting(false) })
+      .catch(() => {
+        if (!cancelled) {
+          toast.error(t("loadError"))
+          setFetchError(true)
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingExisting(false)
+      })
+
     return () => { cancelled = true }
-  }, [classroomId, subjectId, selectedDate, retryTrigger, t])
+  }, [selectedSchedule, selectedDate, retryTrigger, t])
 
   function getStatus(studentId: string): AttendanceStatus {
     return records[studentId] || "present"
   }
 
   function toggle(studentId: string) {
-    const current = getStatus(studentId)
-    const idx = STATUS_CYCLE.indexOf(current)
-    setRecords({ ...records, [studentId]: STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length] })
-  }
-
-  function markAllPresent() {
-    const newRecords = { ...records }
-    for (const s of students) {
-      newRecords[s.id] = "present"
-    }
-    setRecords(newRecords)
-    toast.success(t("markAllPresentSuccess"))
+    setRecords((current) => ({
+      ...current,
+      [studentId]: getStatus(studentId) === "absent" ? "present" : "absent",
+    }))
   }
 
   async function save() {
-    if (!classroomId || !subjectId) { toast.error(t("missingSelection")); return }
+    if (!selectedSchedule) {
+      toast.error(t("missingSession"))
+      return
+    }
+
     setSaving(true)
     try {
       const { error } = await api.post("/api/attendance", {
-        classroomId,
-        subjectId,
+        scheduleId: selectedSchedule.id,
+        classroomId: selectedSchedule.classroomId,
+        subjectId: selectedSchedule.subjectId,
         date: selectedDate,
-        records: students.map((s) => ({ studentId: s.id, status: getStatus(s.id).toUpperCase() })),
+        records: students.map((student) => ({
+          studentId: student.id,
+          status: getStatus(student.id).toUpperCase(),
+        })),
       })
+
       if (error) toast.error(error)
       else {
         toast.success(t("saveSuccess"))
-        if (students.filter((s) => getStatus(s.id) !== "present").length > 0) {
-          toast.success(t("notificationSuccess"))
-        }
+        setRetryTrigger((current) => current + 1)
       }
     } catch {
       toast.error(t("saveError"))
@@ -111,117 +189,154 @@ export function AttendanceSheet() {
     setSaving(false)
   }
 
-  if (loadingClasses) return <LoadingSpinner message={tCommon("loading")} />
+  if (loadingSchedule) return <LoadingSpinner message={tCommon("loading")} />
 
-  const absentCount = students.filter((s) => getStatus(s.id) !== "present").length
-  const subjects = assignments
-    .filter((assignment) => assignment.classroomId === classroomId)
-    .map((assignment) => ({
-      id: assignment.subjectId,
-      name: getLocalizedSubjectName(assignment.subject, locale),
-    }))
+  const absentCount = students.filter((student) => getStatus(student.id) === "absent").length
+  const presentCount = selectedSchedule ? students.length - absentCount : 0
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">{t("title")}</h1>
-        <div className="flex items-center gap-2">
-          {absentCount > 0 && <Badge variant="danger">{t("absentLateCount", { count: absentCount })}</Badge>}
+    <div className="mx-auto max-w-3xl pb-24">
+      <div className="mb-5 space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold">{t("title")}</h1>
+            <p className="mt-1 text-sm text-gray-500">{t("scheduleBasedSubtitle")}</p>
+          </div>
           {existingAttendance.length > 0 && <Badge variant="info">{t("existingRecord")}</Badge>}
         </div>
-      </div>
 
-      <TeacherSubNav current="attendance" classroomId={classroomId} subjectId={subjectId} />
+        <TeacherSubNav
+          current="attendance"
+          classroomId={selectedSchedule?.classroomId || initialClassroom}
+          subjectId={selectedSchedule?.subjectId || initialSubject}
+        />
 
-      <div className="mb-6 flex gap-4">
-        <select value={classroomId} onChange={(e) => { setClassroomId(e.target.value); setSubjectId(""); setRecords({}); setExistingAttendance([]) }}
-          className={`w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${locale === "ar" ? "text-right" : "text-left"}`}>
-          <option value="">{t("selectClassroom")}</option>
-          {[...new Map(assignments.map((a) => [a.classroom.id, a.classroom])).entries()].map(([id, c]) => (
-            <option key={id} value={id}>{c.name} - {(c as any).level?.name}</option>
-          ))}
-        </select>
-        {classroomId && (
-          <select value={subjectId} onChange={(e) => setSubjectId(e.target.value)}
-            className={`w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${locale === "ar" ? "text-right" : "text-left"}`}>
-            <option value="">{t("selectSubject")}</option>
-            {subjects.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
-        )}
-        <div className="flex items-center gap-2 shrink-0">
-          <Calendar className="h-4 w-4 text-gray-400" />
-          <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        <div className="rounded-2xl border border-gray-200 bg-white p-3">
+          <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
+            <Calendar className="h-4 w-4 text-blue-600" />
+            {t("attendanceDate")}
+          </label>
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(event) => setSelectedDate(event.target.value)}
+            className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
         </div>
       </div>
 
-      {subjectId && (
-        <>
-          <Card padding="sm" className="mb-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-500">
-                {existingAttendance.length > 0
-                  ? t("dateSummaryEdited", {
-                      date: new Date(selectedDate).toLocaleDateString(getDateLocale(locale)),
-                      count: students.length,
-                    })
-                  : t("dateSummary", {
-                      date: new Date(selectedDate).toLocaleDateString(getDateLocale(locale)),
-                      count: students.length,
-                    })}
-              </p>
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" onClick={markAllPresent} disabled={students.length === 0}>
-                  <Check className="h-4 w-4" /> {t("markAllPresent")}
-                </Button>
-                <button onClick={() => { setRecords({}); setExistingAttendance([]) }} className="text-xs text-blue-600 hover:underline flex items-center gap-1">
-                  <RefreshCw className="h-3 w-3" /> {t("reset")}
+      <Card padding="md" className="mb-5">
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <h2 className="font-semibold text-gray-900">{t("todaySessions")}</h2>
+            <p className="mt-1 text-xs text-gray-500">{new Date(`${selectedDate}T12:00:00`).toLocaleDateString(getDateLocale(locale))}</p>
+          </div>
+          <Badge variant={daySchedule.length ? "info" : "default"}>{daySchedule.length}</Badge>
+        </div>
+
+        {daySchedule.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-gray-200 px-4 py-8 text-center">
+            <Clock className="mx-auto h-10 w-10 text-gray-300" />
+            <p className="mt-3 text-sm text-gray-500">{t("noSessionsForDate")}</p>
+          </div>
+        ) : (
+          <div className="grid gap-3">
+            {daySchedule.map((entry) => {
+              const selected = entry.id === selectedScheduleId
+              return (
+                <button
+                  key={entry.id}
+                  type="button"
+                  onClick={() => setSelectedScheduleId(entry.id)}
+                  className={`rounded-2xl border p-4 text-start transition-colors ${
+                    selected ? "border-blue-600 bg-blue-50 ring-2 ring-blue-100" : "border-gray-200 bg-white hover:bg-gray-50"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-gray-950">{getLocalizedSubjectName(entry.subject, locale)}</p>
+                      <p className="mt-1 text-sm text-gray-600">{entry.classroom.name}</p>
+                      <p className="mt-2 flex items-center gap-1 text-sm text-gray-500">
+                        <Clock className="h-4 w-4" />
+                        {entry.startTime} - {entry.endTime}
+                      </p>
+                    </div>
+                    {selected && <Badge variant="info">{t("selectedSession")}</Badge>}
+                  </div>
                 </button>
+              )
+            })}
+          </div>
+        )}
+      </Card>
+
+      {selectedSchedule && (
+        <>
+          <Card padding="md" className="mb-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="font-semibold text-gray-900">{t("studentNumbers")}</h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  {t("sessionSummary", {
+                    classroom: selectedSchedule.classroom.name,
+                    subject: getLocalizedSubjectName(selectedSchedule.subject, locale),
+                    start: selectedSchedule.startTime,
+                    end: selectedSchedule.endTime,
+                  })}
+                </p>
+              </div>
+              <div className="flex shrink-0 gap-2">
+                <Badge variant="success"><Check className="h-3 w-3" /> {presentCount}</Badge>
+                {absentCount > 0 && <Badge variant="danger"><X className="h-3 w-3" /> {absentCount}</Badge>}
               </div>
             </div>
           </Card>
 
-          <Card padding="sm">
+          <Card padding="md">
             {loadingStudents || loadingExisting ? (
               <LoadingSpinner />
             ) : fetchError ? (
-              <ErrorDisplay message={t("recordLoadError")} onRetry={() => setRetryTrigger(n => n + 1)} />
+              <ErrorDisplay message={t("recordLoadError")} onRetry={() => setRetryTrigger((current) => current + 1)} />
             ) : students.length === 0 ? (
-              <p className="text-center text-gray-400 py-8">{t("emptyClassroom")}</p>
+              <p className="py-8 text-center text-gray-400">{t("emptyClassroom")}</p>
             ) : (
-              <div className="divide-y">
-                {students.map((s, i) => {
-                  const status = getStatus(s.id)
-                  const { icon: Icon, variant, label } = statusConfig[status]
+              <div className="grid grid-cols-4 gap-3 sm:grid-cols-5 md:grid-cols-6">
+                {students.map((student, index) => {
+                  const status = getStatus(student.id)
+                  const absent = status === "absent"
                   return (
-                    <div
-                      key={s.id}
-                      className="flex items-center justify-between py-3 px-2 hover:bg-gray-50 cursor-pointer rounded-lg transition-colors"
-                      onClick={() => toggle(s.id)}
+                    <button
+                      key={student.id}
+                      type="button"
+                      onClick={() => toggle(student.id)}
+                      className={`aspect-square rounded-2xl border text-2xl font-black transition-all active:scale-95 ${
+                        absent
+                          ? "border-red-500 bg-red-600 text-white shadow-lg shadow-red-100"
+                          : "border-emerald-200 bg-emerald-50 text-emerald-800"
+                      }`}
+                      aria-label={`${index + 1} - ${student.firstName} ${student.lastName} - ${absent ? tStatus("absent") : tStatus("present")}`}
+                      title={`${index + 1} - ${student.firstName} ${student.lastName}`}
                     >
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm text-gray-400 w-6">{i + 1}</span>
-                        <span className="font-medium">{s.firstName} {s.lastName}</span>
-                      </div>
-                      <Badge variant={variant}>
-                        <Icon className="h-3 w-3" /> {label}
-                      </Badge>
-                    </div>
+                      {index + 1}
+                    </button>
                   )
                 })}
               </div>
             )}
           </Card>
 
-          <Button
-            fullWidth size="lg" loading={saving} onClick={save} className="mt-6"
-            disabled={!classroomId || !subjectId || students.length === 0}
-          >
-            <Save className="h-5 w-5" />
-            {t("saveAndNotify")}
-          </Button>
+          <div className="fixed inset-x-0 bottom-0 z-20 border-t border-gray-200 bg-white/95 p-4 backdrop-blur md:static md:mt-6 md:border-0 md:bg-transparent md:p-0">
+            <Button
+              fullWidth
+              size="lg"
+              loading={saving}
+              onClick={save}
+              disabled={!selectedSchedule || students.length === 0}
+            >
+              <Save className="h-5 w-5" />
+              {t("saveAttendance")}
+            </Button>
+          </div>
         </>
       )}
     </div>

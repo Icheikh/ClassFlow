@@ -452,12 +452,16 @@ model Attendance {
   classroom      Classroom    @relation(fields: [classroomId], references: [id])
   subjectId      String?
   subject        Subject?     @relation(fields: [subjectId], references: [id])
+  scheduleId     String?
+  schedule       Schedule?     @relation(fields: [scheduleId], references: [id])
   teacherId      String
   teacher        Teacher      @relation(fields: [teacherId], references: [id])
   createdAt      DateTime     @default(now())
 
-  @@unique([studentId, date, subjectId])
+  @@unique([studentId, date, scheduleId])
+  @@index([studentId, date, subjectId])
   @@index([schoolId, date])
+  @@index([schoolId, scheduleId, date])
 }
 
 model Lesson {
@@ -895,6 +899,7 @@ model Schedule {
   teacherId   String?
   teacher     Teacher?  @relation(fields: [teacherId], references: [id])
   createdAt   DateTime  @default(now())
+  studentAttendances Attendance[]
   attendances ScheduleAttendance[]
 
   @@index([schoolId, classroomId])
