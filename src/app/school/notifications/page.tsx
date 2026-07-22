@@ -1,6 +1,5 @@
 "use client"
 
-import Link from "next/link"
 import { useCallback, useEffect, useState } from "react"
 import { useLocale, useTranslations } from "next-intl"
 import toast from "react-hot-toast"
@@ -49,6 +48,11 @@ function getStatusVariant(status: string) {
 function getMetadataText(metadata: Record<string, unknown> | null, key: string) {
   const value = metadata?.[key]
   return typeof value === "string" && value.length > 0 ? value : null
+}
+
+function getMetadataNumber(metadata: Record<string, unknown> | null, key: string) {
+  const value = metadata?.[key]
+  return typeof value === "number" && Number.isFinite(value) ? value : null
 }
 
 function formatDate(value: string, locale: string) {
@@ -263,6 +267,11 @@ function NotificationCard({
   const classroomName = getMetadataText(notification.metadata, "classroomName")
   const subjectName = getMetadataText(notification.metadata, "subjectName")
   const teacherName = getMetadataText(notification.metadata, "teacherName")
+  const notificationDate = getMetadataText(notification.metadata, "date")
+  const startTime = getMetadataText(notification.metadata, "startTime")
+  const endTime = getMetadataText(notification.metadata, "endTime")
+  const absentCount = getMetadataNumber(notification.metadata, "absentCount")
+  const [expanded, setExpanded] = useState(false)
   const Icon = notification.type === "ATTENDANCE_RECORDED"
     ? Users
     : notification.type === "LESSON_RECORDED"
@@ -294,13 +303,9 @@ function NotificationCard({
         </div>
 
         <div className="flex flex-wrap gap-2 lg:justify-end">
-          {notification.actionUrl && (
-            <Link href={notification.actionUrl}>
-              <Button variant="secondary" size="sm">
-                <Eye className="h-4 w-4" /> {t("review")}
-              </Button>
-            </Link>
-          )}
+          <Button variant="secondary" size="sm" onClick={() => setExpanded((current) => !current)}>
+            <Eye className="h-4 w-4" /> {expanded ? t("hidePreview") : t("review")}
+          </Button>
           {canSendToParents && (
             <Button size="sm" loading={saving} onClick={onSend}>
               <Send className="h-4 w-4" /> {t("sendToParents")}
@@ -322,6 +327,38 @@ function NotificationCard({
           )}
         </div>
       </div>
+
+      {expanded && (
+        <div className="mt-4 rounded-2xl border border-blue-100 bg-white p-4">
+          <h4 className="mb-3 font-semibold text-slate-900">{t("previewDetails")}</h4>
+          <div className="grid gap-3 text-sm md:grid-cols-2">
+            <DetailItem label={t("classroom")} value={classroomName || t("unspecified")} />
+            <DetailItem label={t("subject")} value={subjectName || t("unspecified")} />
+            <DetailItem label={t("teacher")} value={teacherName || t("unspecified")} />
+            <DetailItem
+              label={t("notificationDate")}
+              value={notificationDate ? formatDate(notificationDate, locale) : formatDate(notification.createdAt, locale)}
+            />
+            <DetailItem
+              label={t("sessionTime")}
+              value={startTime && endTime ? `${startTime} - ${endTime}` : t("unspecified")}
+            />
+            <DetailItem
+              label={t("absentStudents")}
+              value={absentCount == null ? t("unspecified") : t("absentCountValue", { count: absentCount })}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function DetailItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl bg-slate-50 px-4 py-3">
+      <p className="text-xs text-slate-500">{label}</p>
+      <p className="mt-1 font-medium text-slate-900">{value}</p>
     </div>
   )
 }
