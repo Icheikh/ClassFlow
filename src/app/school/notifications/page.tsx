@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { useLocale, useTranslations } from "next-intl"
 import toast from "react-hot-toast"
-import { Badge, Button, Card, LoadingPage } from "@/components/ui"
+import { Badge, Button, Card, LoadingPage, Pagination } from "@/components/ui"
 import { api } from "@/lib/api"
 import {
   Archive,
@@ -68,6 +68,8 @@ export default function SchoolNotificationsPage() {
   const [loading, setLoading] = useState(true)
   const [savingNotification, setSavingNotification] = useState<string | null>(null)
   const [filter, setFilter] = useState<NotificationFilter>("PENDING")
+  const [page, setPage] = useState(1)
+  const limit = 10
   const [notifications, setNotifications] = useState<InternalNotification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [pendingCount, setPendingCount] = useState(0)
@@ -101,6 +103,7 @@ export default function SchoolNotificationsPage() {
   useEffect(() => {
     void loadData()
   }, [loadData])
+  useEffect(() => { setPage(1) }, [filter])
 
   async function updateNotification(id: string, status: "PENDING" | "RESOLVED" | "DISMISSED") {
     setSavingNotification(id)
@@ -132,7 +135,12 @@ export default function SchoolNotificationsPage() {
     if (filter === "HANDLED") return notification.status !== "PENDING"
     return true
   })
+  const paginatedNotifications = visibleNotifications.slice((page - 1) * limit, page * limit)
   const handledCount = notifications.filter((notification) => notification.status !== "PENDING").length
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(visibleNotifications.length / limit))
+    if (page > maxPage) setPage(maxPage)
+  }, [visibleNotifications.length, limit, page])
 
   if (loading) return <LoadingPage />
 
@@ -186,7 +194,7 @@ export default function SchoolNotificationsPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {visibleNotifications.map((notification) => (
+            {paginatedNotifications.map((notification) => (
               <NotificationCard
                 key={notification.id}
                 notification={notification}
@@ -201,6 +209,7 @@ export default function SchoolNotificationsPage() {
                 t={t}
               />
             ))}
+            <Pagination page={page} total={visibleNotifications.length} limit={limit} onChange={setPage} />
           </div>
         )}
       </Card>

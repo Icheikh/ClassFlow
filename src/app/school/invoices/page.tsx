@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { api } from "@/lib/api"
-import { Button, Card, Input, Select, Badge, LoadingPage } from "@/components/ui"
+import { Button, Card, Input, Select, Badge, LoadingPage, Pagination } from "@/components/ui"
 import { DollarSign, Search, BellRing, FilePlus2, ReceiptText } from "lucide-react"
 import toast from "react-hot-toast"
 import { generateRecentMonthOptions, getMonthLabel } from "@/lib/finance"
@@ -51,6 +51,8 @@ export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [classrooms, setClassrooms] = useState<Classroom[]>([])
   const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1)
+  const limit = 25
   const [generating, setGenerating] = useState(false)
   const [sendingReminders, setSendingReminders] = useState(false)
   const [generateMonth, setGenerateMonth] = useState(recentMonthOptions[0]?.value || "")
@@ -101,6 +103,10 @@ export default function InvoicesPage() {
   useEffect(() => {
     void loadInvoices()
   }, [loadInvoices])
+
+  useEffect(() => {
+    setPage(1)
+  }, [classroomId, month, status])
 
   useEffect(() => {
     setClassroomId(initialClassroomId)
@@ -195,6 +201,11 @@ export default function InvoicesPage() {
   const partialCount = invoices.filter((invoice) => invoice.status === "PARTIAL").length
   const selectedMonthLabel = month ? getMonthLabel(month) : t("allMonths")
   const selectedClassroomLabel = classrooms.find((item) => item.id === classroomId)?.name || t("classroomOptional")
+  const paginatedInvoices = invoices.slice((page - 1) * limit, page * limit)
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(invoices.length / limit))
+    if (page > maxPage) setPage(maxPage)
+  }, [invoices.length, limit, page])
 
   return (
     <div className="space-y-6">
@@ -409,7 +420,7 @@ export default function InvoicesPage() {
               </tr>
             </thead>
             <tbody>
-              {invoices.map((invoice) => {
+              {paginatedInvoices.map((invoice) => {
                 const currentStatus = statusLabels[invoice.status] || { label: invoice.status, variant: "default" as const }
                 const paid = invoice.payments.reduce((sum, payment) => sum + payment.amount, 0)
 
@@ -447,6 +458,7 @@ export default function InvoicesPage() {
               })}
             </tbody>
           </table>
+          <Pagination page={page} total={invoices.length} limit={limit} onChange={setPage} />
         </div>
       )}
 

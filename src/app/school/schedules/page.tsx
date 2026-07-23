@@ -4,8 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useTranslations } from "next-intl"
 import { api } from "@/lib/api"
-import { Card, LoadingPage, Input } from "@/components/ui"
-import { Button } from "@/components/ui"
+import { Button, Card, LoadingPage, Input, Pagination } from "@/components/ui"
 import { School, Calendar } from "lucide-react"
 
 type Classroom = {
@@ -20,6 +19,8 @@ export default function SchedulesPage() {
   const [classrooms, setClassrooms] = useState<Classroom[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
+  const limit = 20
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -31,11 +32,17 @@ export default function SchedulesPage() {
     }
     void load()
   }, [t])
+  useEffect(() => { setPage(1) }, [search])
 
   const filtered = classrooms.filter((c) =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
     c.level.name.toLowerCase().includes(search.toLowerCase())
   )
+  const paginatedClassrooms = filtered.slice((page - 1) * limit, page * limit)
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(filtered.length / limit))
+    if (page > maxPage) setPage(maxPage)
+  }, [filtered.length, limit, page])
 
   if (loading) return <LoadingPage />
 
@@ -65,7 +72,7 @@ export default function SchedulesPage() {
           </div>
         ) : (
           <div className="divide-y">
-            {filtered.map((c) => (
+            {paginatedClassrooms.map((c) => (
               <div key={c.id} className="flex items-center justify-between p-4 hover:bg-gray-50">
                 <div className="flex items-center gap-3">
                   <School className="h-5 w-5 text-gray-400" />
@@ -81,6 +88,9 @@ export default function SchedulesPage() {
                 </Link>
               </div>
             ))}
+            <div className="px-4 pb-4">
+              <Pagination page={page} total={filtered.length} limit={limit} onChange={setPage} />
+            </div>
           </div>
         )}
       </Card>

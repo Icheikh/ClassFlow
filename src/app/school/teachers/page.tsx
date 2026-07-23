@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useLocale, useTranslations } from "next-intl"
 import { api } from "@/lib/api"
-import { Button, Card, Modal, Input, Badge, LoadingPage, ConfirmModal } from "@/components/ui"
+import { Button, Card, Modal, Input, Badge, LoadingPage, ConfirmModal, Pagination } from "@/components/ui"
 import { Plus, UserPlus, BookOpen, Trash2, X, ChevronDown, ChevronUp, Mail, Phone, Shield } from "lucide-react"
 import Link from "next/link"
 import toast from "react-hot-toast"
@@ -31,6 +31,8 @@ export default function TeachersPage() {
   const [classrooms, setClassrooms] = useState<Classroom[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
+  const limit = 10
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const [addModal, setAddModal] = useState(false)
@@ -54,6 +56,7 @@ export default function TeachersPage() {
     setLoading(false)
   }
   useEffect(() => { fetchData() }, [])
+  useEffect(() => { setPage(1) }, [search])
 
   function resetForm() { setForm({ name: "", email: "", phone: "", password: "password123" }); setEditId(null) }
 
@@ -91,6 +94,11 @@ export default function TeachersPage() {
   const filtered = teachers.filter((t) =>
     t.user.name.includes(search) || t.user.email.includes(search)
   )
+  const paginatedTeachers = filtered.slice((page - 1) * limit, page * limit)
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(filtered.length / limit))
+    if (page > maxPage) setPage(maxPage)
+  }, [filtered.length, limit, page])
 
   if (loading) return <LoadingPage />
 
@@ -161,7 +169,7 @@ export default function TeachersPage() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {filtered.map((teacher) => (
+          {paginatedTeachers.map((teacher) => (
             <Card key={teacher.id} padding="md" className="relative group">
               <div className="flex items-start gap-4">
                 <Link href={`/school/teachers/${teacher.id}`} className="flex items-center gap-4 flex-1 min-w-0">
@@ -239,6 +247,7 @@ export default function TeachersPage() {
               )}
             </Card>
           ))}
+          <Pagination page={page} total={filtered.length} limit={limit} onChange={setPage} />
         </div>
       )}
 

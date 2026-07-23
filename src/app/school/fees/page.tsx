@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { useTranslations } from "next-intl"
 import { api } from "@/lib/api"
-import { Button, Card, Input, Select, Modal, Badge, LoadingPage, ConfirmModal } from "@/components/ui"
+import { Button, Card, Input, Select, Modal, Badge, LoadingPage, ConfirmModal, Pagination } from "@/components/ui"
 import { Plus, Pencil, Trash2, Link2, Wallet } from "lucide-react"
 import toast from "react-hot-toast"
 
@@ -28,6 +28,8 @@ export default function FeesPage() {
   const [classrooms, setClassrooms] = useState<Classroom[]>([])
   const [levels, setLevels] = useState<Level[]>([])
   const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1)
+  const limit = 10
 
   const [editModal, setEditModal] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
@@ -157,6 +159,12 @@ export default function FeesPage() {
       assignedStudents,
     }
   }, [fees])
+  const paginatedFees = fees.slice((page - 1) * limit, page * limit)
+
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(fees.length / limit))
+    if (page > maxPage) setPage(maxPage)
+  }, [fees.length, limit, page])
 
   if (loading) return <LoadingPage />
 
@@ -228,7 +236,7 @@ export default function FeesPage() {
         </Card>
       ) : (
         <div className="grid gap-4">
-          {fees.map((fee) => {
+          {paginatedFees.map((fee) => {
             const levelLabel = levels.find((level) => level.id === fee.levelId)?.name || t("allLevels")
             const classroomLabel = classrooms.find((classroom) => classroom.id === fee.classroomId)?.name || t("allClassrooms")
             const frequencyLabel = fee.frequency === "MONTHLY" ? t("frequencyMonthly") : fee.frequency === "YEARLY" ? t("frequencyYearly") : fee.frequency === "ONE_TIME" ? t("frequencyOneTime") : fee.frequency
@@ -278,6 +286,7 @@ export default function FeesPage() {
               </Card>
             )
           })}
+          <Pagination page={page} total={fees.length} limit={limit} onChange={setPage} />
         </div>
       )}
 

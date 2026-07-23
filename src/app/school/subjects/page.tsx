@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { useLocale, useTranslations } from "next-intl"
 import { api } from "@/lib/api"
-import { Button, Card, Modal, Input, Select, Badge, ConfirmModal } from "@/components/ui"
+import { Button, Card, Modal, Input, Select, Badge, ConfirmModal, Pagination } from "@/components/ui"
 import { Plus, BookOpen, Edit2, Trash2, Hash, Layers, School, Filter, CalendarRange } from "lucide-react"
 import toast from "react-hot-toast"
 import { getLocalizedSubjectName } from "@/lib/locale"
@@ -59,6 +59,10 @@ export default function SubjectsPage() {
 
   const [subjectFilterId, setSubjectFilterId] = useState("")
   const [levelFilterId, setLevelFilterId] = useState("")
+  const [subjectPage, setSubjectPage] = useState(1)
+  const [coefficientPage, setCoefficientPage] = useState(1)
+  const subjectLimit = 12
+  const coefficientLimit = 15
   const [coefficientToDelete, setCoefficientToDelete] = useState<CoefficientRule | null>(null)
 
   async function fetchData() {
@@ -99,6 +103,22 @@ export default function SubjectsPage() {
       return true
     })
   }, [coefficients, levelFilterId, subjectFilterId])
+  const paginatedSubjects = subjects.slice((subjectPage - 1) * subjectLimit, subjectPage * subjectLimit)
+  const paginatedCoefficients = visibleCoefficients.slice((coefficientPage - 1) * coefficientLimit, coefficientPage * coefficientLimit)
+
+  useEffect(() => {
+    setCoefficientPage(1)
+  }, [levelFilterId, subjectFilterId])
+
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(subjects.length / subjectLimit))
+    if (subjectPage > maxPage) setSubjectPage(maxPage)
+  }, [subjects.length, subjectLimit, subjectPage])
+
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(visibleCoefficients.length / coefficientLimit))
+    if (coefficientPage > maxPage) setCoefficientPage(maxPage)
+  }, [coefficientLimit, coefficientPage, visibleCoefficients.length])
 
   const summary = useMemo(() => {
     const subjectScoped = new Set(visibleCoefficients.map((rule) => rule.subject.id)).size
@@ -401,7 +421,7 @@ export default function SubjectsPage() {
               <p className="text-sm text-gray-400">{t("noSubjects")}</p>
             ) : (
               <div className="space-y-2">
-                {subjects.map((subject) => (
+                {paginatedSubjects.map((subject) => (
                   <div key={subject.id} className="flex items-center justify-between rounded-lg bg-gray-50 p-2">
                     <div>
                       <span className="font-medium">{getLocalizedSubjectName(subject, locale)}</span>
@@ -421,6 +441,7 @@ export default function SubjectsPage() {
                     </button>
                   </div>
                 ))}
+                <Pagination page={subjectPage} total={subjects.length} limit={subjectLimit} onChange={setSubjectPage} />
               </div>
             )}
           </Card>
@@ -455,7 +476,7 @@ export default function SubjectsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {visibleCoefficients.map((rule) => (
+                    {paginatedCoefficients.map((rule) => (
                       <tr key={rule.id} className="border-b hover:bg-gray-50">
                         <td className="px-3 py-2 font-medium">{getLocalizedSubjectName(rule.subject, locale)}</td>
                         <td className="px-3 py-2 text-gray-600">
@@ -482,6 +503,7 @@ export default function SubjectsPage() {
                     ))}
                   </tbody>
                 </table>
+                <Pagination page={coefficientPage} total={visibleCoefficients.length} limit={coefficientLimit} onChange={setCoefficientPage} />
               </div>
             )}
           </Card>

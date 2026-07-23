@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useTranslations } from "next-intl"
 import { api } from "@/lib/api"
-import { Button, Card, Modal, Input, Select, Badge, ConfirmModal } from "@/components/ui"
+import { Button, Card, Modal, Input, Select, Badge, ConfirmModal, Pagination } from "@/components/ui"
 import { Plus, DoorOpen, Edit2, Trash2, Eye } from "lucide-react"
 import Link from "next/link"
 import toast from "react-hot-toast"
@@ -27,6 +27,8 @@ export default function ClassroomsPage() {
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState<Classroom | null>(null)
+  const [page, setPage] = useState(1)
+  const limit = 12
 
   const [name, setName] = useState("")
   const [levelId, setLevelId] = useState("")
@@ -49,10 +51,15 @@ export default function ClassroomsPage() {
   useEffect(() => {
     fetchData()
   }, [])
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(classrooms.length / limit))
+    if (page > maxPage) setPage(maxPage)
+  }, [classrooms.length, limit, page])
 
   const selectedLevel = levels.find((level) => level.id === levelId) || null
   const filteredStreams = streams.filter((stream) => stream.levelId === levelId)
   const isSecondaryLevel = selectedLevel?.stage.name.includes("ثانوي") ?? false
+  const paginatedClassrooms = classrooms.slice((page - 1) * limit, page * limit)
 
   function openAdd() {
     setEditing(null)
@@ -171,7 +178,7 @@ export default function ClassroomsPage() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {classrooms.map((classroom) => (
+          {paginatedClassrooms.map((classroom) => (
             <Card key={classroom.id} className="relative group">
               <Link href={`/school/classrooms/${classroom.id}`} className="block">
                 <div className="flex items-start justify-between">
@@ -194,6 +201,9 @@ export default function ClassroomsPage() {
               </div>
             </Card>
           ))}
+          <div className="md:col-span-2 lg:col-span-3">
+            <Pagination page={page} total={classrooms.length} limit={limit} onChange={setPage} />
+          </div>
         </div>
       )}
 

@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { api } from "@/lib/api"
-import { Button, Card, LoadingPage, ConfirmModal } from "@/components/ui"
+import { Button, Card, LoadingPage, ConfirmModal, Pagination } from "@/components/ui"
 import { StaffList } from "@/components/staff/StaffList"
 import { StaffFormModal } from "@/components/staff/StaffFormModal"
 import { Plus, Search } from "lucide-react"
@@ -35,6 +35,8 @@ export default function StaffPage() {
   const [staff, setStaff] = useState<StaffMember[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
+  const limit = 10
 
   const [addModal, setAddModal] = useState(false)
   const [editModal, setEditModal] = useState(false)
@@ -62,6 +64,7 @@ export default function StaffPage() {
 
     fetchStaff()
   }, [fetchStaff, router, user.role])
+  useEffect(() => { setPage(1) }, [search])
 
   async function handleCreate(data: { name: string; email: string; phone: string; password: string; permissions: string[] }) {
     const { error } = await api.post("/api/school/staff", data)
@@ -117,6 +120,12 @@ export default function StaffPage() {
   const filtered = staff.filter(
     (s) => s.name.includes(search) || s.email.includes(search)
   )
+  const paginatedStaff = filtered.slice((page - 1) * limit, page * limit)
+
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(filtered.length / limit))
+    if (page > maxPage) setPage(maxPage)
+  }, [filtered.length, limit, page])
 
   if (user.role && user.role !== "SCHOOL_ADMIN") return <LoadingPage />
   if (loading) return <LoadingPage />
@@ -147,11 +156,12 @@ export default function StaffPage() {
       </Card>
 
       <StaffList
-        items={filtered}
+        items={paginatedStaff}
         onEdit={openEdit}
         onManagePermissions={openPermModal}
          onToggleActive={(id, current) => setToggleTarget({ id, current })}
       />
+      <Pagination page={page} total={filtered.length} limit={limit} onChange={setPage} />
 
       <StaffFormModal
         open={addModal}
