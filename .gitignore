@@ -4,6 +4,8 @@ node_modules/
 *.db
 *.db-journal
 .env
-.env.local.DS_Store
+.env.local
+.DS_Store
+tsconfig.tsbuildinfo
 *.log
 tmp/

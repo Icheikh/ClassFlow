@@ -1,73 +1,56 @@
-# Session Summary — 2026-06-24 (Session 5)
+# Session Summary — 2026-06-30 (Session 6)
 
-## Work Done — Phase 2: UX Improvements
+## Work Done — Phase 3 + Finance System
 
-### 1. Date picker for attendance sheet
-- **`AttendanceSheet.tsx`**: Added `selectedDate` state + `<input type="date">` replacing hardcoded `new Date()`
-- The `useEffect` now depends on `[classroomId, subjectId, selectedDate]` — loads existing records for any date
+### 1. Phase 3: Enrich Seed Data (`prisma/seed.js`)
+- Terms for school 2 (الفتح) — 3 فصول دراسية
+- Demo lessons (3 لكل من 8 تكليفات في النور + 3 في الفتح)
+- Demo grades (اختبار أول + فرض الفصل الأول في 3 أقسام)
+- Demo attendance (5 أيام لـ 3 أقسام)
+- 3 extra teachers (فيزياء, إسلامية, تاريخ) + assignments for level 7 (7C, 7D1, 7D2)
+- Fees & payments (رسوم تسجيل 5000 + شهري 2500 + أنشطة 1500 مع StudentFee/Invoice/Payment)
+- All 200 students in النور + 3 in الفتح linked to PARENT accounts
 
-### 2. "Mark all present" button
-- **`AttendanceSheet.tsx`**: `markAllPresent()` sets all students to PRESENT in one click
-- UI: زر "الكل حاضر" بجانب زر إعادة التعيين
+### 2. Finance System (Schema + APIs + UI)
 
-### 3. Edit/Delete lessons
-- **`LessonBook.tsx`**: Edit button (✏️) pre-fills form, Delete button (🗑️) with confirm
-- **`/api/lessons/route.ts`**: Added `PUT` (update by id) + `DELETE` (delete by id) with schoolId verification
+**Schema changes** (`prisma/schema.prisma`):
+- Added `StudentFee` model (student ↔ fee ↔ classroom link)
+- Added `Invoice` model (monthly per student per fee, with status)
+- Modified `Payment` — added optional `invoiceId` relation
 
-### 4. Delete grades (assessments)
-- **`GradeBook.tsx`**: Trash icon on each assessment card with confirm dialog
-- **`/api/grades/route.ts`**: Added `DELETE` — deletes by `label + assessmentType + classroomId + subjectId` with schoolId verification
+**API endpoints (6 new):**
 
-### 5. Fixed RTL icons (ArrowRight → ArrowLeft)
-- **6 files**: Import + JSX changed in `classrooms/[id]/page.tsx`, `teachers/[id]/page.tsx`, `students/[id]/page.tsx`, `classrooms/[id]/page.tsx`
+| Endpoint | Description |
+|----------|-------------|
+| `GET/POST /api/school/fees` | List + create fee types |
+| `PUT/DELETE /api/school/fees/[id]` | Edit + delete fee types |
+| `POST /api/school/student-fees/bulk` | Assign fee to all students in a classroom |
+| `GET/POST /api/school/invoices` | List + generate monthly invoices |
+| `GET/POST /api/school/payments` | List + record payments (auto-updates invoice status) |
 
-### 6. Error boundaries
-- **Created** `/school/error.tsx` and `/teacher/error.tsx` — show error message + "إعادة المحاولة" button
+**UI pages (2 new):**
+- `/school/fees` — CRUD fee types, auto-assign on create with classroom/level, "تعيين للأقسام" button
+- `/school/invoices` — filter by classroom + month, table with status, record payment dialog
 
-## Files Changed
-- `src/features/attendance/components/AttendanceSheet.tsx` — date picker + mark all
-- `src/features/lessons/components/LessonBook.tsx` — edit/delete lessons
-- `src/features/grades/components/GradeBook.tsx` — delete assessments
-- `src/app/api/lessons/route.ts` — PUT + DELETE endpoints
-- `src/app/api/grades/route.ts` — DELETE endpoint
-- `src/app/school/classrooms/[id]/page.tsx` — RTL icon fix
-- `src/app/school/teachers/[id]/page.tsx` — RTL icon fix
-- `src/app/school/students/[id]/page.tsx` — RTL icon fix
-- `src/app/school/error.tsx` — NEW
-- `src/app/teacher/error.tsx` — NEW
+**Sidebar:** Added "الرسوم" (DollarSign) and "الفواتير" (Receipt) links
 
-## Pending
-- `tsc --noEmit` verification (Node.js unavailable)
+### 3. Bug Fixes
+- TypeScript: added `isActive` + `isPrimary` to StudentData type in `students/page.tsx`
+- Select z-index: increased from `z-50` to `z-[60]` for Modal compatibility
+- Fees GET: fallback without `_count` if StudentFee table doesn't exist
+- Fees POST: try-catch around auto-assignment to handle missing tables
 
-## State of the MVP
+### Current State
+- 31 database models (was 26)
+- 12 commits on main
+- `tsc --noEmit` ✅ passes
 
-| Feature | Status |
-|---------|--------|
-| Authentication + Roles | ✅ |
-| Permission System | ✅ (SUPER_ADMIN fixed) |
-| School Admin Pages (11 pages) | ✅ (+ settings + error) |
-| Teacher Interface (4 pages + error) | ✅ |
-| Students CRUD | ✅ |
-| Teacher Attendance (check-in/out) | ✅ |
-| Supervisor Roster (مدير الدروس) | ✅ |
-| Payroll Engine | ✅ |
-| Finance (Fees/Payments) | ❌ |
-| Grade Workflow (Approve) | ❌ |
-| PDF Report Cards | ❌ |
-| Parent Interface | ❌ |
-| Notifications (WhatsApp) | ❌ |
-| Testing | ❌ |
-
-## School Structure
-**الإعدادية:** 1AS1, 1AS2 │ 2AS1, 2AS2 │ 3AS1, 3AS2 │ 4AS1, 4AS2, 4AS3
-**الثانوية:** 5A, 5C, 5D │ 6C1, 6C2, 6A, 6D1, 6D2 │ 7C, 7D1, 7D2
-**200 تلميذ** (10 لكل قسم)، **17 تكليفاً** (عربية 250، رياضيات 300، فرنسية 250)
-
-## Next Session: Phase 3 (Enrich Seed Data)
-1. أضف Terms للمدرسة 2 (الفتح)
-2. أضف دروس، نقاط، حضور للبذرة
-3. أضف معلمين إضافيين + تكليفات للمستوى 7
-4. أضف رسوماً ودفعات مالية تجريبية
-5. اربط الطلاب بأولياء الأمور في البذرة
-
-To resume: `git log -1` then read `SESSION_SUMMARY.md` + `PROJECT_STATUS.md`.
+### Accounts
+- `admin@alnoor.edu` / `password123` — SCHOOL_ADMIN
+- `teacher@alnoor.edu` / `teacher2@alnoor.edu` / `teacher3@alnoor.edu` / `teacher4@alnoor.edu` — TEACHER
+- `accountant@alnoor.edu` — ACCOUNTANT
+- `supervisor@alnoor.edu` — SUPERVISOR
+- `studies@alnoor.edu` — STAFF
+- `parent@alnoor.edu` — PARENT
+- `superadmin@classflow.com` — SUPER_ADMIN
+- `admin@alfath.edu` / `teacher@alfath.edu` — school 2
