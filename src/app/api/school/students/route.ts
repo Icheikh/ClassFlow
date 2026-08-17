@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { hasPermission, PERMISSIONS } from "@/lib/permissions"
+import { sendCredentialsEmail, EmailLocale } from "@/lib/email"
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
@@ -118,6 +119,18 @@ export async function POST(req: NextRequest) {
 
     return student
   })
+
+  if (parentName && parentEmail) {
+    const school = await prisma.school.findUnique({ where: { id: user.schoolId } })
+    sendCredentialsEmail({
+      to: parentEmail,
+      name: parentName,
+      email: parentEmail,
+      password: "parent123",
+      locale: ((body.locale as string) === "fr" ? "fr" : "ar") as EmailLocale,
+      schoolName: school?.name || undefined,
+    }).catch((e) => console.error("[students] parent credential email failed:", e))
+  }
 
   return NextResponse.json(result)
 }

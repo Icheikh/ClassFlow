@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { getSession, signIn } from "next-auth/react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 import toast from "react-hot-toast"
@@ -100,6 +101,15 @@ export default function LoginPage() {
           >
             {loading ? tAuth("loggingIn") : tCommon("login")}
           </button>
+
+          <div className="text-center pt-1">
+            <Link
+              href="/auth/forgot-password"
+              className="text-sm font-medium text-blue-600 hover:text-blue-700"
+            >
+              {tAuth("forgotPassword")}
+            </Link>
+          </div>
         </form>
       </div>
     </div>

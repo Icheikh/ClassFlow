@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { hasPermission, PERMISSIONS } from "@/lib/permissions"
+import { sendCredentialsEmail, EmailLocale } from "@/lib/email"
 
 export async function GET() {
   const session = await getServerSession(authOptions)
@@ -58,6 +59,18 @@ export async function POST(req: NextRequest) {
       user: { select: { id: true, email: true, name: true, phone: true, isActive: true } },
     },
   })
+
+  const effectivePassword = password || "password123"
+  const school = await prisma.school.findUnique({ where: { id: user.schoolId } })
+  sendCredentialsEmail({
+    to: appUser.email,
+    name: appUser.name,
+    email: appUser.email,
+    password: effectivePassword,
+    locale: ((body.locale as string) === "fr" ? "fr" : "ar") as EmailLocale,
+    schoolName: school?.name || undefined,
+  }).catch((e) => console.error("[teachers] credential email failed:", e))
+
   return NextResponse.json(teacher)
 }
 

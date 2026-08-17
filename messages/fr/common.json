@@ -25,7 +25,19 @@
     "passwordChanged": "Mot de passe changé avec succès",
     "passwordChangeFailed": "Échec du changement de mot de passe",
     "currentPassword": "Mot de passe actuel",
-    "redirecting": "Redirection en cours..."
+    "redirecting": "Redirection en cours...",
+    "forgotPassword": "Mot de passe oublié ?",
+    "forgotPasswordTitle": "Récupération du mot de passe",
+    "forgotSubmit": "Envoyer le lien de récupération",
+    "forgotSent": "Si l'adresse e-mail est enregistrée, vous recevrez un message contenant un lien pour réinitialiser votre mot de passe.",
+    "forgotRequestFailed": "Échec de l'envoi du lien, réessayez",
+    "sending": "Envoi en cours...",
+    "backToLogin": "Retour à la connexion",
+    "resetPasswordTitle": "Choisir un nouveau mot de passe",
+    "resetLinkInvalid": "Le lien de réinitialisation est invalide ou expiré",
+    "sameAsCurrent": "Le nouveau mot de passe doit être différent du mot de passe actuel",
+    "resetFailed": "Échec de la modification du mot de passe",
+    "resetSuccess": "Mot de passe modifié avec succès. Vous allez être redirigé vers la page de connexion."
   },
   "shell": {
     "menuOpen": "Ouvrir le menu",
