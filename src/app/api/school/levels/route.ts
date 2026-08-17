@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   const user = session?.user as any
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  const isLegacyRole = ["SUPERVISOR", "ACCOUNTANT"].includes(user?.role)
+  const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
   if (!hasPermission(user, PERMISSIONS.MANAGE_CLASSROOMS) && !isLegacyRole)
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   const body = await req.json()
@@ -36,7 +36,7 @@ export async function PUT(req: NextRequest) {
   const session = await getServerSession(authOptions)
   const user = session?.user as any
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  const isLegacyRole = ["SUPERVISOR", "ACCOUNTANT"].includes(user?.role)
+  const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
   if (!hasPermission(user, PERMISSIONS.MANAGE_CLASSROOMS) && !isLegacyRole)
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   const body = await req.json()
@@ -52,7 +52,7 @@ export async function DELETE(req: NextRequest) {
     const session = await getServerSession(authOptions)
     const user = session?.user as any
     if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    const isLegacyRole = ["SUPERVISOR", "ACCOUNTANT"].includes(user?.role)
+    const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
     if (!hasPermission(user, PERMISSIONS.MANAGE_CLASSROOMS) && !isLegacyRole)
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     const url = new URL(req.url)
@@ -65,7 +65,7 @@ export async function DELETE(req: NextRequest) {
   } catch (e: any) {
     const msg = e?.code === "P2003" 
       ? "لا يمكن حذف هذا المستوى لأنه مرتبط بأقسام أو شعب. احذفها أولاً."
-      : e.message || "فشل الحذف"
+      : "فشل الحذف"
     return NextResponse.json({ error: msg }, { status: 400 })
   }
 }

@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma"
 import { hasPermission, PERMISSIONS } from "@/lib/permissions"
 
 function legacyCheck(user: any) {
-  const isLegacyRole = ["SUPERVISOR", "ACCOUNTANT"].includes(user?.role)
+  const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
   if (!hasPermission(user, PERMISSIONS.MANAGE_ACADEMIC_YEARS) && !isLegacyRole)
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   return null

@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   const user = session?.user as any
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  const isLegacyRole = ["SUPERVISOR", "ACCOUNTANT"].includes(user?.role)
+  const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
   if (!hasPermission(user, PERMISSIONS.MANAGE_TEACHERS) && !isLegacyRole)
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
@@ -39,9 +39,18 @@ export async function POST(req: NextRequest) {
   const existing = await prisma.user.findUnique({ where: { email } })
   if (existing) return NextResponse.json({ error: "البريد الإلكتروني موجود مسبقاً" }, { status: 400 })
 
+  const usesDefaultPassword = !password || !password.trim()
   const passwordHash = await bcrypt.hash(password || "password123", 10)
   const appUser = await prisma.user.create({
-    data: { email, passwordHash, name, phone, role: "TEACHER", schoolId: user.schoolId },
+    data: {
+      email,
+      passwordHash,
+      name,
+      phone,
+      role: "TEACHER",
+      schoolId: user.schoolId,
+      mustChangePassword: usesDefaultPassword,
+    },
   })
   const teacher = await prisma.teacher.create({
     data: { schoolId: user.schoolId, userId: appUser.id, phone },
@@ -56,7 +65,7 @@ export async function PUT(req: NextRequest) {
   const session = await getServerSession(authOptions)
   const user = session?.user as any
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  const isLegacyRole = ["SUPERVISOR", "ACCOUNTANT"].includes(user?.role)
+  const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
   if (!hasPermission(user, PERMISSIONS.MANAGE_TEACHERS) && !isLegacyRole)
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
@@ -87,7 +96,7 @@ export async function DELETE(req: NextRequest) {
     const session = await getServerSession(authOptions)
     const user = session?.user as any
     if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    const isLegacyRole = ["SUPERVISOR", "ACCOUNTANT"].includes(user?.role)
+    const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
     if (!hasPermission(user, PERMISSIONS.MANAGE_TEACHERS) && !isLegacyRole)
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     const url = new URL(req.url)
@@ -100,6 +109,6 @@ export async function DELETE(req: NextRequest) {
     await prisma.user.update({ where: { id: teacher.userId }, data: { isActive: false } })
     return NextResponse.json({ success: true })
   } catch (e: any) {
-    return NextResponse.json({ error: e.message || "فشل الحذف" }, { status: 400 })
+    return NextResponse.json({ error: "فشل الحذف" }, { status: 400 })
   }
 }

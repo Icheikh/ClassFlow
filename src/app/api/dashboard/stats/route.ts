@@ -15,7 +15,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const isLegacyRole = ["SUPERVISOR", "ACCOUNTANT", "SCHOOL_ADMIN", "TEACHER"].includes(user?.role)
+    const isLegacyRole = ["SUPERVISOR", "ACCOUNTANT", "SCHOOL_ADMIN"].includes(user?.role)
     if (!hasPermission(user, PERMISSIONS.VIEW_REPORTS) && !isLegacyRole) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
@@ -410,7 +410,7 @@ export async function GET() {
   } catch (error) {
     console.error("GET /api/dashboard/stats failed", error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to load dashboard" },
+      { error: "Failed to load dashboard" },
       { status: 500 }
     )
   }

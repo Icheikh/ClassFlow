@@ -9,6 +9,7 @@ declare module "next-auth" {
       name: string
       slug: string
     } | null
+    mustChangePassword?: boolean
   }
 
   interface Session {
@@ -23,6 +24,7 @@ declare module "next-auth" {
         name: string
         slug: string
       } | null
+      mustChangePassword?: boolean
     }
   }
 }
@@ -37,5 +39,6 @@ declare module "next-auth/jwt" {
       name: string
       slug: string
     } | null
+    mustChangePassword?: boolean
   }
 }

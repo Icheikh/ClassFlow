@@ -191,6 +191,13 @@ export async function PUT(req: NextRequest) {
   const existing = await prisma.lesson.findFirst({ where: { id, schoolId: user.schoolId } })
   if (!existing) return NextResponse.json({ error: "الدرس غير موجود" }, { status: 404 })
 
+  if (user.role === "TEACHER") {
+    const teacher = await prisma.teacher.findUnique({ where: { userId: user.id } })
+    if (!teacher || existing.teacherId !== teacher.id) {
+      return NextResponse.json({ error: "غير مسموح لك بتعديل درس لا يخصك" }, { status: 403 })
+    }
+  }
+
   const lesson = await prisma.lesson.update({
     where: { id },
     data: {
@@ -216,6 +223,13 @@ export async function DELETE(req: NextRequest) {
 
   const existing = await prisma.lesson.findFirst({ where: { id, schoolId: user.schoolId } })
   if (!existing) return NextResponse.json({ error: "الدرس غير موجود" }, { status: 404 })
+
+  if (user.role === "TEACHER") {
+    const teacher = await prisma.teacher.findUnique({ where: { userId: user.id } })
+    if (!teacher || existing.teacherId !== teacher.id) {
+      return NextResponse.json({ error: "غير مسموح لك بحذف درس لا يخصك" }, { status: 403 })
+    }
+  }
 
   await prisma.lesson.delete({ where: { id } })
   return NextResponse.json({ success: true })

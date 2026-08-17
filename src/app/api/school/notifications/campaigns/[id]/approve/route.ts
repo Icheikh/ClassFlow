@@ -23,6 +23,9 @@ export async function POST(_: NextRequest, { params }: { params: { id: string } 
   if (campaign.status !== "PENDING_APPROVAL") {
     return NextResponse.json({ error: "الحملة ليست بانتظار الاعتماد" }, { status: 400 })
   }
+  if (campaign.createdByUserId === user.id && user.role !== "SCHOOL_ADMIN") {
+    return NextResponse.json({ error: "لا يمكنك اعتماد حملة أنشأتها بنفسك" }, { status: 403 })
+  }
 
   const updated = await prisma.notificationCampaign.update({
     where: { id: campaign.id },

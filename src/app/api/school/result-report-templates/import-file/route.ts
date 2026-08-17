@@ -72,7 +72,7 @@ export async function POST(req: Request) {
     })
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "تعذر استيراد الملف" },
+      { error: "تعذر استيراد الملف" },
       { status: 400 }
     )
   }

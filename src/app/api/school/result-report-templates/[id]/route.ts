@@ -24,7 +24,7 @@ export async function DELETE(
     return NextResponse.json({ success: true })
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "تعذر حذف القالب" },
+      { error: "تعذر حذف القالب" },
       { status: 400 }
     )
   }

@@ -52,6 +52,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "البريد الإلكتروني موجود مسبقاً" }, { status: 400 })
   }
 
+  const usesDefaultPassword = !password || !password.trim()
   const passwordHash = await bcrypt.hash(password || "password123", 10)
 
   const staffUser = await prisma.user.create({
@@ -63,6 +64,7 @@ export async function POST(req: NextRequest) {
       role: "STAFF",
       schoolId: user.schoolId,
       isActive: true,
+      mustChangePassword: usesDefaultPassword,
     },
   })
 

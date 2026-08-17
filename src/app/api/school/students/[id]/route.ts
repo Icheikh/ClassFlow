@@ -31,7 +31,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   const session = await getServerSession(authOptions)
   const user = session?.user as any
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  const isLegacyRole = ["SUPERVISOR", "ACCOUNTANT"].includes(user?.role)
+  const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
   if (!hasPermission(user, PERMISSIONS.MANAGE_STUDENTS) && !isLegacyRole)
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
@@ -87,6 +87,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             email, name: parentName,
             phone: parentPhone || null,
             passwordHash: await bcrypt.hash("parent123", 10),
+            mustChangePassword: true,
             role: "PARENT", schoolId: user.schoolId,
           },
         })

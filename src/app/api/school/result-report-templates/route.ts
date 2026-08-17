@@ -136,7 +136,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "الإجراء غير صالح" }, { status: 400 })
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "تعذر تنفيذ العملية" },
+      { error: "تعذر تنفيذ العملية" },
       { status: 400 }
     )
   }

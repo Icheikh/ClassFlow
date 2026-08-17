@@ -23,6 +23,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (campaign.status !== "PENDING_APPROVAL") {
     return NextResponse.json({ error: "الحملة ليست بانتظار الاعتماد" }, { status: 400 })
   }
+  if (campaign.createdByUserId === user.id && user.role !== "SCHOOL_ADMIN") {
+    return NextResponse.json({ error: "لا يمكنك رفض حملة أنشأتها بنفسك" }, { status: 403 })
+  }
 
   const body = await req.json().catch(() => ({}))
   const reason = typeof body.reason === "string" ? body.reason.trim() : ""

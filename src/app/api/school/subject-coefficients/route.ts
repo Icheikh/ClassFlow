@@ -474,6 +474,6 @@ export async function DELETE(req: NextRequest) {
 
     return NextResponse.json({ success: true })
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || "فشل الحذف" }, { status: 400 })
+    return NextResponse.json({ error: "فشل الحذف" }, { status: 400 })
   }
 }

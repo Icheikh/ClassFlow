@@ -25,6 +25,7 @@ export const authOptions: NextAuthOptions = {
         })
 
         if (!user || !user.isActive) return null
+        if (user.school && !user.school.isActive) return null
 
         const isValid = await bcrypt.compare(credentials.password, user.passwordHash)
         if (!isValid) return null
@@ -36,6 +37,7 @@ export const authOptions: NextAuthOptions = {
           role: user.role,
           schoolId: user.schoolId,
           school: user.school,
+          mustChangePassword: user.mustChangePassword,
         }
       },
     }),
@@ -47,6 +49,7 @@ export const authOptions: NextAuthOptions = {
         token.role = (user as any).role
         token.schoolId = (user as any).schoolId
         token.school = (user as any).school
+        token.mustChangePassword = (user as any).mustChangePassword
         if (user.id) {
           const permissions = await getUserPermissions(user.id as string)
           token.permissions = permissions
@@ -61,6 +64,7 @@ export const authOptions: NextAuthOptions = {
         ;(session.user as any).schoolId = token.schoolId
         ;(session.user as any).school = token.school
         ;(session.user as any).permissions = token.permissions || []
+        ;(session.user as any).mustChangePassword = token.mustChangePassword || false
       }
       return session
     },

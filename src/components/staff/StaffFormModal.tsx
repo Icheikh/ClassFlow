@@ -25,13 +25,13 @@ export function StaffFormModal({ open, onClose, onSave, initial, title }: StaffF
   const t = useTranslations("staffForm")
   const tCommon = useTranslations("common")
   const [form, setForm] = useState<StaffFormData>(
-    initial || { name: "", email: "", phone: "", password: "password123" }
+    initial || { name: "", email: "", phone: "", password: "" }
   )
   const [permissions, setPermissions] = useState<string[]>(initial?.permissions || [])
   const [saving, setSaving] = useState(false)
 
   function reset() {
-    setForm(initial || { name: "", email: "", phone: "", password: "password123" })
+    setForm(initial || { name: "", email: "", phone: "", password: "" })
     setPermissions(initial?.permissions || [])
   }
 

@@ -19,7 +19,7 @@ function getAllowedAssessmentError(termName: string, termOrder: number) {
   return `في ${termName} يسمح فقط بالاختبارات و${termOrder === 1 ? "الامتحان الأول" : termOrder === 2 ? "الامتحان الثاني" : "الامتحان الأخير"}`
 }
 
-const legacyRoles = ["TEACHER", "SCHOOL_ADMIN", "SUPERVISOR", "STAFF"]
+const legacyRoles = ["TEACHER", "SCHOOL_ADMIN", "SUPERVISOR"]
 
 function canAccessGrades(user: any) {
   return legacyRoles.includes(user?.role) || hasPermission(user, PERMISSIONS.APPROVE_GRADES)
@@ -367,6 +367,13 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: access.error }, { status: 403 })
   }
 
+  if (user.role === "TEACHER") {
+    const teacherId = await getTeacherId(user)
+    if (!teacherId || existing.teacherId !== teacherId) {
+      return NextResponse.json({ error: "غير مسموح لك بتعديل نتائج لا تخصك" }, { status: 403 })
+    }
+  }
+
   const term = await prisma.term.findUnique({
     where: { id: existing.termId },
     select: { id: true, name: true, order: true },
@@ -704,6 +711,13 @@ export async function DELETE(req: NextRequest) {
   })
   if (!access.allowed) {
     return NextResponse.json({ error: access.error }, { status: 403 })
+  }
+
+  if (user.role === "TEACHER") {
+    const teacherId = await getTeacherId(user)
+    if (!teacherId || assessment.teacherId !== teacherId) {
+      return NextResponse.json({ error: "غير مسموح لك بحذف نتائج لا تخصك" }, { status: 403 })
+    }
   }
 
   const publicationState = await ensurePublicationIsEditable({

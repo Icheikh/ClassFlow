@@ -38,7 +38,7 @@ export default function TeachersPage() {
   const [addModal, setAddModal] = useState(false)
   const [assignModal, setAssignModal] = useState(false)
   const [assignTeacherId, setAssignTeacherId] = useState<string>("")
-  const [form, setForm] = useState({ name: "", email: "", phone: "", password: "password123" })
+  const [form, setForm] = useState({ name: "", email: "", phone: "", password: "" })
   const [editId, setEditId] = useState<string | null>(null)
   const [assignSubj, setAssignSubj] = useState("")
   const [assignClass, setAssignClass] = useState("")
@@ -58,7 +58,7 @@ export default function TeachersPage() {
   useEffect(() => { fetchData() }, [])
   useEffect(() => { setPage(1) }, [search])
 
-  function resetForm() { setForm({ name: "", email: "", phone: "", password: "password123" }); setEditId(null) }
+  function resetForm() { setForm({ name: "", email: "", phone: "", password: "" }); setEditId(null) }
 
   async function saveTeacher() {
     if (!form.name || !form.email) { toast.error(t("missingNameEmail")); return }

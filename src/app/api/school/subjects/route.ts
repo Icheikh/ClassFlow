@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   const user = session?.user as any
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  const isLegacyRole = ["SUPERVISOR", "ACCOUNTANT"].includes(user?.role)
+  const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
   if (!hasPermission(user, PERMISSIONS.MANAGE_SUBJECTS) && !isLegacyRole)
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   const body = await req.json()
@@ -35,7 +35,7 @@ export async function PUT(req: NextRequest) {
   const session = await getServerSession(authOptions)
   const user = session?.user as any
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  const isLegacyRole = ["SUPERVISOR", "ACCOUNTANT"].includes(user?.role)
+  const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
   if (!hasPermission(user, PERMISSIONS.MANAGE_SUBJECTS) && !isLegacyRole)
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   const body = await req.json()
@@ -51,7 +51,7 @@ export async function DELETE(req: NextRequest) {
     const session = await getServerSession(authOptions)
     const user = session?.user as any
     if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    const isLegacyRole = ["SUPERVISOR", "ACCOUNTANT"].includes(user?.role)
+    const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
     if (!hasPermission(user, PERMISSIONS.MANAGE_SUBJECTS) && !isLegacyRole)
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     const url = new URL(req.url)
@@ -62,7 +62,7 @@ export async function DELETE(req: NextRequest) {
     await prisma.subject.delete({ where: { id } })
     return NextResponse.json({ success: true })
   } catch (e: any) {
-    const msg = e?.code === "P2003" ? "لا يمكن حذف المادة لأنها مرتبطة بمعاملات أو تكليفات" : e.message || "فشل الحذف"
+    const msg = e?.code === "P2003" ? "لا يمكن حذف المادة لأنها مرتبطة بمعاملات أو تكليفات" : "فشل الحذف"
     return NextResponse.json({ error: msg }, { status: 400 })
   }
 }

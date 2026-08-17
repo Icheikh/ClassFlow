@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   const user = session?.user as any
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  const isLegacyRole = ["SUPERVISOR", "ACCOUNTANT"].includes(user?.role)
+  const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
   if (!hasPermission(user, PERMISSIONS.MANAGE_STUDENTS) && !isLegacyRole)
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
@@ -43,6 +43,14 @@ export async function POST(req: NextRequest) {
   const { studentId, classroomId, academicYearId } = body
   if (!studentId || !classroomId || !academicYearId)
     return NextResponse.json({ error: "الطالب والقسم والسنة الدراسية مطلوبة" }, { status: 400 })
+
+  const [student, classroom, academicYear] = await Promise.all([
+    prisma.student.findFirst({ where: { id: studentId, schoolId: user.schoolId }, select: { id: true } }),
+    prisma.classroom.findFirst({ where: { id: classroomId, schoolId: user.schoolId }, select: { id: true } }),
+    prisma.academicYear.findFirst({ where: { id: academicYearId, schoolId: user.schoolId }, select: { id: true } }),
+  ])
+  if (!student || !classroom || !academicYear)
+    return NextResponse.json({ error: "الطالب أو القسم أو السنة الدراسية غير موجودة في هذه المدرسة" }, { status: 404 })
 
   const existing = await prisma.enrollment.findUnique({
     where: { studentId_academicYearId: { studentId, academicYearId } },
@@ -65,7 +73,7 @@ export async function DELETE(req: NextRequest) {
     const session = await getServerSession(authOptions)
     const user = session?.user as any
     if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    const isLegacyRole = ["SUPERVISOR", "ACCOUNTANT"].includes(user?.role)
+    const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
     if (!hasPermission(user, PERMISSIONS.MANAGE_STUDENTS) && !isLegacyRole)
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
@@ -79,6 +87,6 @@ export async function DELETE(req: NextRequest) {
     await prisma.enrollment.delete({ where: { id } })
     return NextResponse.json({ success: true })
   } catch (e: any) {
-    return NextResponse.json({ error: e.message || "فشل الحذف" }, { status: 400 })
+    return NextResponse.json({ error: "فشل الحذف" }, { status: 400 })
   }
 }

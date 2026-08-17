@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   const user = session?.user as any
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  const isLegacyRole = ["SUPERVISOR", "ACCOUNTANT"].includes(user?.role)
+  const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
   if (!hasPermission(user, PERMISSIONS.MANAGE_TEACHERS) && !isLegacyRole)
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
@@ -35,6 +35,17 @@ export async function POST(req: NextRequest) {
 
   const year = await prisma.academicYear.findFirst({ where: { schoolId: user.schoolId, isActive: true } })
   if (!year) return NextResponse.json({ error: "لا توجد سنة دراسية نشطة" }, { status: 400 })
+
+  if (!teacherId || !subjectId || !classroomId)
+    return NextResponse.json({ error: "الأستاذ والمادة والقسم مطلوبة" }, { status: 400 })
+
+  const [teacher, subject, classroom] = await Promise.all([
+    prisma.teacher.findFirst({ where: { id: teacherId, schoolId: user.schoolId }, select: { id: true } }),
+    prisma.subject.findFirst({ where: { id: subjectId, schoolId: user.schoolId }, select: { id: true } }),
+    prisma.classroom.findFirst({ where: { id: classroomId, schoolId: user.schoolId }, select: { id: true } }),
+  ])
+  if (!teacher || !subject || !classroom)
+    return NextResponse.json({ error: "الأستاذ أو المادة أو القسم غير موجودة في هذه المدرسة" }, { status: 404 })
 
   const existing = await prisma.teacherAssignment.findFirst({
     where: { teacherId, subjectId, classroomId, academicYearId: year.id },
@@ -60,7 +71,7 @@ export async function PUT(req: NextRequest) {
   const session = await getServerSession(authOptions)
   const user = session?.user as any
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  const isLegacyRole = ["SUPERVISOR", "ACCOUNTANT"].includes(user?.role)
+  const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
   if (!hasPermission(user, PERMISSIONS.MANAGE_TEACHERS) && !isLegacyRole)
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
@@ -90,7 +101,7 @@ export async function DELETE(req: NextRequest) {
     const session = await getServerSession(authOptions)
     const user = session?.user as any
     if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    const isLegacyRole = ["SUPERVISOR", "ACCOUNTANT"].includes(user?.role)
+    const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
     if (!hasPermission(user, PERMISSIONS.MANAGE_TEACHERS) && !isLegacyRole)
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     const url = new URL(req.url)
@@ -113,7 +124,7 @@ export async function DELETE(req: NextRequest) {
   } catch (e: any) {
     const msg = e?.code === "P2003"
       ? "لا يمكن حذف التكليف لأنه مرتبط ببيانات أخرى"
-      : e.message || "فشل الحذف"
+      : "فشل الحذف"
     return NextResponse.json({ error: msg }, { status: 400 })
   }
 }

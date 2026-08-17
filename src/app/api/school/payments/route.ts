@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { hasPermission, PERMISSIONS } from "@/lib/permissions"
+import { hasAnyPermission, hasPermission, PERMISSIONS } from "@/lib/permissions"
 import { Prisma } from "@prisma/client"
 import { createNotificationCampaign } from "@/lib/notifications"
 
@@ -10,6 +10,14 @@ type ReceiptCampaignPayload = {
   title: string
   message: string
   studentIds: string[]
+}
+
+function canReadFinance(user: any) {
+  return hasAnyPermission(user, [
+    PERMISSIONS.MANAGE_FEES,
+    PERMISSIONS.RECORD_PAYMENTS,
+    PERMISSIONS.VIEW_FINANCE_REPORTS,
+  ]) || ["SUPERVISOR", "ACCOUNTANT"].includes(user?.role)
 }
 
 async function buildReceiptNumber(tx: Prisma.TransactionClient, schoolId: string) {
@@ -22,6 +30,7 @@ export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
   const user = session?.user as any
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!canReadFinance(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const url = new URL(req.url)
   const studentId = url.searchParams.get("studentId")
@@ -58,6 +67,25 @@ export async function POST(req: NextRequest) {
   const body = await req.json()
   const { amount, method, notes, studentId, feeId, invoiceId } = body
   if (!amount || !studentId) return NextResponse.json({ error: "المبلغ والطالب مطلوبان" }, { status: 400 })
+
+  const student = await prisma.student.findFirst({
+    where: { id: studentId, schoolId: user.schoolId },
+    select: { id: true },
+  })
+  if (!student) return NextResponse.json({ error: "الطالب غير موجود" }, { status: 404 })
+
+  if (feeId) {
+    const fee = await prisma.fee.findFirst({ where: { id: feeId, schoolId: user.schoolId }, select: { id: true } })
+    if (!fee) return NextResponse.json({ error: "الرسم غير موجود" }, { status: 404 })
+  }
+
+  if (invoiceId) {
+    const invoice = await prisma.invoice.findFirst({
+      where: { id: invoiceId, schoolId: user.schoolId },
+      select: { id: true },
+    })
+    if (!invoice) return NextResponse.json({ error: "الفاتورة غير موجودة" }, { status: 404 })
+  }
 
   let receiptCampaignData: ReceiptCampaignPayload | undefined
 
