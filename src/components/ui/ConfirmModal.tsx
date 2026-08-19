@@ -1,7 +1,9 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { Modal } from "./Modal"
 import { Button } from "./Button"
+import { Input } from "./Input"
 
 type ConfirmModalProps = {
   open: boolean
@@ -13,6 +15,9 @@ type ConfirmModalProps = {
   cancelText?: string
   variant?: "danger" | "primary"
   loading?: boolean
+  confirmKeyword?: string
+  confirmKeywordLabel?: string
+  confirmKeywordPlaceholder?: string
 }
 
 export function ConfirmModal({
@@ -25,12 +30,39 @@ export function ConfirmModal({
   cancelText = "إلغاء",
   variant = "danger",
   loading = false,
+  confirmKeyword,
+  confirmKeywordLabel,
+  confirmKeywordPlaceholder,
 }: ConfirmModalProps) {
+  const [typed, setTyped] = useState("")
+
+  useEffect(() => {
+    if (!open) setTyped("")
+  }, [open])
+
+  const requiresKeyword = typeof confirmKeyword === "string"
+  const canConfirm = !requiresKeyword || typed.trim() === confirmKeyword
+
   return (
     <Modal open={open} onClose={onClose} title={title}>
-      <p className="text-gray-600 mb-6">{message}</p>
+      <p className="text-gray-600 mb-4">{message}</p>
+      {requiresKeyword && (
+        <Input
+          label={confirmKeywordLabel}
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          placeholder={confirmKeywordPlaceholder}
+          className="mb-4"
+        />
+      )}
       <div className="flex gap-3">
-        <Button variant={variant} onClick={onConfirm} loading={loading} className="flex-1">
+        <Button
+          variant={variant}
+          onClick={onConfirm}
+          loading={loading}
+          disabled={loading || !canConfirm}
+          className="flex-1"
+        >
           {confirmText}
         </Button>
         <Button variant="secondary" onClick={onClose} disabled={loading} className="flex-1">

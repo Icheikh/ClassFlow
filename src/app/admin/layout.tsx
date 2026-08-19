@@ -7,7 +7,7 @@ import { useLocale, useTranslations } from "next-intl"
 import { getRoleLabel } from "@/lib/roles"
 import { getLocaleDirection } from "@/i18n/config"
 import { LanguageSwitcher } from "@/components/ui"
-import { LayoutDashboard, Building2, LogOut, Home } from "lucide-react"
+import { LayoutDashboard, Building2, LogOut, Home, UserCog } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const allowedRoles = ["SUPER_ADMIN"]
@@ -84,6 +84,13 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div className="p-3 border-t space-y-1">
+          <Link
+            href="/account"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-600 hover:bg-gray-100 transition-colors"
+          >
+            <UserCog className="h-5 w-5" />
+            {tShell("account")}
+          </Link>
           <Link
             href="/"
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-600 hover:bg-gray-100 transition-colors"

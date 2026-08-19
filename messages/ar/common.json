@@ -37,13 +37,15 @@
     "resetLinkInvalid": "رابط إعادة التعيين غير صالح أو منتهي",
     "sameAsCurrent": "يجب أن تختلف كلمة المرور الجديدة عن كلمة المرور الحالية",
     "resetFailed": "تعذّر تغيير كلمة المرور",
-    "resetSuccess": "تم تغيير كلمة المرور بنجاح. سيتم تحويلك إلى صفحة تسجيل الدخول."
+    "resetSuccess": "تم تغيير كلمة المرور بنجاح. سيتم تحويلك إلى صفحة تسجيل الدخول.",
+    "incorrectCurrentPassword": "كلمة المرور الحالية غير صحيحة"
   },
   "shell": {
     "menuOpen": "فتح القائمة",
     "menuClose": "إغلاق القائمة",
     "mainNavigation": "التنقل الرئيسي",
     "logout": "تسجيل الخروج",
+    "account": "الحساب الشخصي",
     "loadingUser": "جاري تحميل بيانات المستخدم..."
   },
   "school": {
@@ -595,9 +597,15 @@
     "currentAssignments": "التكليفات الحالية ({count})",
     "noAssignments": "لا توجد تكليفات بعد",
     "deleteAssignmentAria": "حذف التكليف",
-    "disableTitle": "تعطيل الأستاذ",
-    "disableMessage": "سيتم تعطيل حساب هذا الأستاذ. هل أنت متأكد؟",
-    "disableConfirm": "تعطيل"
+    "disableTitle": "فصل الأستاذ",
+    "disableMessage": "سيتم فصل هذا الأستاذ: تعطيل حسابه وقطع تعييناته في السنة الحالية. بياناته السابقة تُحفظ.",
+    "disableConfirm": "فصل",
+    "filter_active": "نشطون",
+    "filter_all": "الكل",
+    "filter_inactive": "موقوفون",
+    "reactivateSuccess": "تمت إعادة تفعيل الحساب",
+    "reactivateAria": "إعادة تفعيل",
+    "disableTeacherAria": "فصل الأستاذ"
   },
   "academicYearsPage": {
     "title": "السنوات الدراسية والفصول",
@@ -701,7 +709,18 @@
     "sub_ACTIVE": "نشط",
     "sub_EXPIRED": "منتهي",
     "sub_CANCELLED": "ملغي",
-    "recentSchoolsHint": "أحدث المدارس المسجلة في المنصة"
+    "recentSchoolsHint": "أحدث المدارس المسجلة في المنصة",
+    "editSchoolHint": "عدّل بيانات المدرسة وبيانات مديرها من هنا.",
+    "adminSectionTitle": "بيانات مدير المدرسة",
+    "newAdminPassword": "كلمة مرور جديدة (اختياري)",
+    "newAdminPasswordPlaceholder": "اتركها فارغة إن لم ترد تغييرها",
+    "adminPasswordUpdated": "تم تحديث كلمة مرور المدير وسيُطلب منه تغييرها عند الدخول",
+    "deleteAria": "حذف المدرسة",
+    "deleteTitle": "حذف المدرسة",
+    "deleteMessage": "هل أنت متأكد من حذف {name}؟ سيتم حذف جميع بياناتها نهائياً ولا يمكن التراجع عن هذا الإجراء.",
+    "deleteConfirm": "نعم، حذف نهائي",
+    "deleteSuccess": "تم حذف المدرسة وجميع بياناتها بنجاح",
+    "deleteTypeNameLabel": "اكتب اسم المدرسة في الحقل أدناه للتأكيد على الحذف"
   },
   "parentPage": {
     "role": "ولي الأمر",
@@ -1662,6 +1681,8 @@
   },
   "settingsPage": {
     "title": "إعدادات المدرسة",
+    "changePassword": "تغيير كلمة المرور",
+    "changePasswordHint": "يتيح لك تغيير كلمة مرور حسابك في أي وقت.",
     "schoolName": "اسم المدرسة",
     "phone": "الهاتف",
     "email": "البريد الإلكتروني",

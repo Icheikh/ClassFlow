@@ -15,6 +15,7 @@ export const config = {
     "/supervision/:path*",
     "/admin/:path*",
     "/parent/:path*",
+    "/account/:path*",
     "/api/attendance/:path*",
     "/api/lessons/:path*",
     "/api/grades/:path*",

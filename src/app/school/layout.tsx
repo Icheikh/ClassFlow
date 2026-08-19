@@ -11,6 +11,7 @@ import { LanguageSwitcher } from "@/components/ui"
 import {
   LayoutDashboard, Calendar, Layers, BookOpen, GraduationCap,
   Users, ClipboardList, Settings, LogOut, School, UserPlus, Wallet, Shield, DollarSign, Receipt, Clock3, Bell, CalendarDays,
+  UserCog,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -156,11 +157,18 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        <div className="p-3 border-t">
+        <div className="p-3 border-t space-y-1">
+          <Link
+            href="/account"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-600 hover:bg-gray-100 transition-colors"
+          >
+            <UserCog className="h-5 w-5" />
+            {tShell("account")}
+          </Link>
           <button
             type="button"
             onClick={() => void signOut({ callbackUrl: "/auth/login" })}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-red-600 hover:bg-red-50 transition-colors"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-red-600 hover:bg-red-50 transition-colors w-full"
           >
             <LogOut className="h-5 w-5" />
             {tShell("logout")}

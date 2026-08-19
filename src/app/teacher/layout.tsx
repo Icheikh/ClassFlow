@@ -14,6 +14,7 @@ import {
   Users,
   Home,
   Calendar,
+  UserCog,
 } from "lucide-react"
 import { getRoleLabel } from "@/lib/roles"
 import { getLocaleDirection } from "@/i18n/config"
@@ -113,7 +114,11 @@ function TeacherLayoutContent({ children }: { children: React.ReactNode }) {
                 </Link>
               )
             })}
-            <button onClick={() => signOut()} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-red-600 hover:bg-red-50 w-full mt-4">
+            <Link href="/account" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100">
+                <UserCog className="h-5 w-5" />
+                {tShell("account")}
+              </Link>
+              <button onClick={() => signOut()} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-red-600 hover:bg-red-50 w-full mt-4">
               <LogOut className="h-5 w-5" />
               {tShell("logout")}
             </button>

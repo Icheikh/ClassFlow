@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useLocale, useTranslations } from "next-intl"
 import { api } from "@/lib/api"
 import { Button, Card, Modal, Input, Badge, LoadingPage, ConfirmModal, Pagination } from "@/components/ui"
-import { Plus, UserPlus, BookOpen, Trash2, X, ChevronDown, ChevronUp, Mail, Phone, Shield } from "lucide-react"
+import { Plus, UserPlus, BookOpen, Trash2, X, ChevronDown, ChevronUp, Mail, Phone, Shield, RotateCcw } from "lucide-react"
 import Link from "next/link"
 import toast from "react-hot-toast"
 import { getLocalizedSubjectName } from "@/lib/locale"
@@ -31,6 +31,7 @@ export default function TeachersPage() {
   const [classrooms, setClassrooms] = useState<Classroom[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
+  const [statusFilter, setStatusFilter] = useState<"active" | "inactive" | "all">("active")
   const [page, setPage] = useState(1)
   const limit = 10
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -46,7 +47,7 @@ export default function TeachersPage() {
 
   const fetchData = async () => {
     const [t, s, c] = await Promise.all([
-      api.get<TeacherData[]>("/api/school/teachers"),
+      api.get<TeacherData[]>(`/api/school/teachers?status=${statusFilter}`),
       api.get<Subject[]>("/api/school/subjects"),
       api.get<Classroom[]>("/api/school/classrooms"),
     ])
@@ -55,7 +56,8 @@ export default function TeachersPage() {
     if (c.data) setClassrooms(c.data)
     setLoading(false)
   }
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => { setStatusFilter("active") }, [])
+  useEffect(() => { fetchData() }, [statusFilter])
   useEffect(() => { setPage(1) }, [search])
 
   function resetForm() { setForm({ name: "", email: "", phone: "", password: "" }); setEditId(null) }
@@ -74,6 +76,12 @@ export default function TeachersPage() {
     const { error } = await api.delete(`/api/school/teachers?id=${id}`)
     setTeacherToDelete(null)
     if (error) toast.error(error); else { toast.success(t("disableSuccess")); fetchData() }
+  }
+
+  async function reactivateTeacher(id: string) {
+    const { error } = await api.put("/api/school/teachers", { id, isActive: true })
+    if (error) toast.error(error)
+    else { toast.success(t("reactivateSuccess")); fetchData() }
   }
 
   async function saveAssignment() {
@@ -115,13 +123,33 @@ export default function TeachersPage() {
         </Button>
       </div>
 
-      {/* Search */}
+      {/* Search + Status filter */}
       <Card padding="md" className="mb-6">
-        <Input
-          placeholder={t("searchPlaceholder")}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <Input
+            placeholder={t("searchPlaceholder")}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="flex-1"
+          />
+          <div className="flex gap-2">
+            {(["active", "all", "inactive"] as const).map((f) => (
+              <button
+                key={f}
+                onClick={() => setStatusFilter(f)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  statusFilter === f
+                    ? f === "inactive"
+                      ? "bg-red-600 text-white"
+                      : "bg-blue-600 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                {t(`filter_${f}`)}
+              </button>
+            ))}
+          </div>
+        </div>
       </Card>
 
       {/* Modals */}
@@ -205,9 +233,15 @@ export default function TeachersPage() {
                   <Button variant="ghost" size="sm" onClick={(e) => { e.preventDefault(); setEditId(teacher.id); setForm({ name: teacher.user.name, email: teacher.user.email, phone: teacher.user.phone || "", password: "" }); setAddModal(true) }}>
                     {t("edit")}
                   </Button>
-                   <Button variant="ghost" size="sm" onClick={(e) => { e.preventDefault(); setTeacherToDelete(teacher.id) }} className="text-red-500" aria-label={t("deleteTeacherAria")}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  {teacher.user.isActive ? (
+                    <Button variant="ghost" size="sm" onClick={(e) => { e.preventDefault(); setTeacherToDelete(teacher.id) }} className="text-red-500" aria-label={t("disableTeacherAria")}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  ) : (
+                    <Button variant="ghost" size="sm" onClick={(e) => { e.preventDefault(); reactivateTeacher(teacher.id) }} className="text-green-600" aria-label={t("reactivateAria")}>
+                      <RotateCcw className="h-4 w-4" />
+                    </Button>
+                  )}
                   <button onClick={(e) => { e.preventDefault(); setExpandedId(expandedId === teacher.id ? null : teacher.id) }}
                     className="p-1.5 hover:bg-gray-100 rounded"
                     aria-label={expandedId === teacher.id ? t("hideAssignments") : t("showAssignments")}

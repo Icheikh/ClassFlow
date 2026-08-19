@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useTranslations } from "next-intl"
 import { api } from "@/lib/api"
 import { Button, Card, Input, Select, Modal, Badge, LoadingPage, ConfirmModal } from "@/components/ui"
-import { Plus, School, Power, Pencil } from "lucide-react"
+import { Plus, School, Power, Pencil, Trash2, KeyRound } from "lucide-react"
 import toast from "react-hot-toast"
 
 type SchoolRow = {
@@ -21,7 +21,7 @@ type SchoolRow = {
   userCount: number
   studentCount: number
   teacherCount: number
-  admin: { email: string; name: string; isActive: boolean } | null
+  admin: { id?: string; email: string; name: string; isActive: boolean } | null
 }
 
 const SUBSCRIPTION_OPTIONS = ["TRIAL", "ACTIVE", "EXPIRED", "CANCELLED"]
@@ -48,14 +48,25 @@ export default function AdminSchoolsPage() {
   const [saving, setSaving] = useState(false)
 
   const [editId, setEditId] = useState<string | null>(null)
-  const [editForm, setEditForm] = useState<{ subscriptionStatus: string; billingStudentCount: string }>({
+  const [editForm, setEditForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    address: "",
     subscriptionStatus: "TRIAL",
     billingStudentCount: "0",
+    adminName: "",
+    adminEmail: "",
+    adminPassword: "",
   })
   const [editModal, setEditModal] = useState(false)
   const [savingEdit, setSavingEdit] = useState(false)
 
   const [deactivateId, setDeactivateId] = useState<string | null>(null)
+  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [selectedSchool, setSelectedSchool] = useState<SchoolRow | null>(null)
+  const [toggleLoading, setToggleLoading] = useState(false)
 
   async function load() {
     const schoolsRes = await api.get<SchoolRow[]>("/api/admin/schools")
@@ -101,9 +112,17 @@ export default function AdminSchoolsPage() {
 
   function openEdit(school: SchoolRow) {
     setEditId(school.id)
+    setSelectedSchool(school)
     setEditForm({
+      name: school.name,
+      email: school.email || "",
+      phone: school.phone || "",
+      address: school.address || "",
       subscriptionStatus: school.subscriptionStatus,
       billingStudentCount: String(school.billingStudentCount),
+      adminName: school.admin?.name || "",
+      adminEmail: school.admin?.email || "",
+      adminPassword: "",
     })
     setEditModal(true)
   }
@@ -111,14 +130,25 @@ export default function AdminSchoolsPage() {
   async function saveEdit() {
     if (!editId) return
     setSavingEdit(true)
-    const { error } = await api.put(`/api/admin/schools/${editId}`, {
+    const { data, error } = await api.put<SchoolRow>(`/api/admin/schools/${editId}`, {
+      name: editForm.name,
+      email: editForm.email,
+      phone: editForm.phone,
+      address: editForm.address,
       subscriptionStatus: editForm.subscriptionStatus,
       billingStudentCount: Number(editForm.billingStudentCount) || 0,
+      admin: {
+        userId: selectedSchool?.admin?.id,
+        name: editForm.adminName,
+        email: editForm.adminEmail,
+        password: editForm.adminPassword || undefined,
+      },
     })
     if (error) {
       toast.error(error)
     } else {
       toast.success(t("updateSuccess"))
+      if (editForm.adminPassword) toast.success(t("adminPasswordUpdated"))
       setEditModal(false)
       await load()
     }
@@ -126,6 +156,7 @@ export default function AdminSchoolsPage() {
   }
 
   async function toggleActive(school: SchoolRow) {
+    setToggleLoading(true)
     setDeactivateId(null)
     const { error } = await api.put(`/api/admin/schools/${school.id}`, {
       isActive: !school.isActive,
@@ -136,6 +167,21 @@ export default function AdminSchoolsPage() {
       toast.success(school.isActive ? t("deactivated") : t("activated"))
       await load()
     }
+    setToggleLoading(false)
+  }
+
+  async function confirmDelete() {
+    if (!deleteId) return
+    setDeleting(true)
+    const { error } = await api.delete(`/api/admin/schools/${deleteId}`)
+    if (error) {
+      toast.error(error)
+    } else {
+      toast.success(t("deleteSuccess"))
+      setDeleteId(null)
+      await load()
+    }
+    setDeleting(false)
   }
 
   if (loading) return <LoadingPage />
@@ -146,6 +192,8 @@ export default function AdminSchoolsPage() {
     EXPIRED: "danger",
     CANCELLED: "default",
   }
+
+  const deletingSchool = schools.find((s) => s.id === deleteId)
 
   return (
     <div className="space-y-6">
@@ -221,6 +269,14 @@ export default function AdminSchoolsPage() {
                         >
                           <Power className={`h-4 w-4 ${school.isActive ? "text-red-500" : "text-green-600"}`} />
                         </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setDeleteId(school.id)}
+                          aria-label={t("deleteAria")}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-600" />
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -265,18 +321,48 @@ export default function AdminSchoolsPage() {
 
       <Modal open={editModal} onClose={() => setEditModal(false)} title={t("editSchool")}>
         <div className="space-y-4">
-          <Select
-            label={t("subscription")}
-            value={editForm.subscriptionStatus}
-            onChange={(value) => setEditForm({ ...editForm, subscriptionStatus: value })}
-            options={SUBSCRIPTION_OPTIONS.map((status) => ({ value: status, label: t(`sub_${status}`) }))}
-          />
-          <Input
-            label={t("billingStudentCount")}
-            type="number"
-            value={editForm.billingStudentCount}
-            onChange={(e) => setEditForm({ ...editForm, billingStudentCount: e.target.value })}
-          />
+          <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            {t("editSchoolHint")}
+          </div>
+          <Input label={t("schoolName")} value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
+          <div className="grid gap-4 md:grid-cols-2">
+            <Input label={t("email")} type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} />
+            <Input label={t("phone")} value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
+          </div>
+          <Input label={t("address")} value={editForm.address} onChange={(e) => setEditForm({ ...editForm, address: e.target.value })} />
+          <div className="grid gap-4 md:grid-cols-2">
+            <Select
+              label={t("subscription")}
+              value={editForm.subscriptionStatus}
+              onChange={(value) => setEditForm({ ...editForm, subscriptionStatus: value })}
+              options={SUBSCRIPTION_OPTIONS.map((status) => ({ value: status, label: t(`sub_${status}`) }))}
+            />
+            <Input
+              label={t("billingStudentCount")}
+              type="number"
+              value={editForm.billingStudentCount}
+              onChange={(e) => setEditForm({ ...editForm, billingStudentCount: e.target.value })}
+            />
+          </div>
+
+          <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+            <div className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
+              <KeyRound className="h-4 w-4" /> {t("adminSectionTitle")}
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Input label={t("adminName")} value={editForm.adminName} onChange={(e) => setEditForm({ ...editForm, adminName: e.target.value })} />
+              <Input label={t("adminEmail")} type="email" value={editForm.adminEmail} onChange={(e) => setEditForm({ ...editForm, adminEmail: e.target.value })} />
+            </div>
+            <div className="mt-3">
+              <Input
+                label={t("newAdminPassword")}
+                value={editForm.adminPassword}
+                onChange={(e) => setEditForm({ ...editForm, adminPassword: e.target.value })}
+                placeholder={t("newAdminPasswordPlaceholder")}
+              />
+            </div>
+          </div>
+
           <Button fullWidth loading={savingEdit} onClick={saveEdit}>
             {t("save")}
           </Button>
@@ -295,6 +381,26 @@ export default function AdminSchoolsPage() {
         confirmText={tCommon("confirm")}
         cancelText={tCommon("cancel")}
         variant="danger"
+        loading={toggleLoading}
+      />
+
+      <ConfirmModal
+        open={!!deleteId}
+        onClose={() => setDeleteId(null)}
+        onConfirm={() => void confirmDelete()}
+        title={t("deleteTitle")}
+        message={
+          deletingSchool
+            ? t("deleteMessage", { name: deletingSchool.name })
+            : ""
+        }
+        confirmText={t("deleteConfirm")}
+        cancelText={tCommon("cancel")}
+        variant="danger"
+        loading={deleting}
+        confirmKeyword={deletingSchool?.name}
+        confirmKeywordLabel={t("deleteTypeNameLabel")}
+        confirmKeywordPlaceholder={deletingSchool?.name || ""}
       />
     </div>
   )

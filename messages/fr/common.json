@@ -37,13 +37,15 @@
     "resetLinkInvalid": "Le lien de réinitialisation est invalide ou expiré",
     "sameAsCurrent": "Le nouveau mot de passe doit être différent du mot de passe actuel",
     "resetFailed": "Échec de la modification du mot de passe",
-    "resetSuccess": "Mot de passe modifié avec succès. Vous allez être redirigé vers la page de connexion."
+    "resetSuccess": "Mot de passe modifié avec succès. Vous allez être redirigé vers la page de connexion.",
+    "incorrectCurrentPassword": "Le mot de passe actuel est incorrect"
   },
   "shell": {
     "menuOpen": "Ouvrir le menu",
     "menuClose": "Fermer le menu",
     "mainNavigation": "Navigation principale",
     "logout": "Déconnexion",
+    "account": "Compte personnel",
     "loadingUser": "Chargement des informations utilisateur..."
   },
   "school": {
@@ -596,8 +598,14 @@
     "noAssignments": "Aucune affectation pour le moment",
     "deleteAssignmentAria": "Supprimer l'affectation",
     "disableTitle": "Désactiver le professeur",
-    "disableMessage": "Le compte de ce professeur sera désactivé. Confirmez-vous ?",
-    "disableConfirm": "Désactiver"
+    "disableMessage": "Ce professeur sera désactivé : compte bloqué et affectations de l’année en cours retirées. Ses données antérieures sont conservées.",
+    "disableConfirm": "Désactiver",
+    "filter_active": "Actifs",
+    "filter_all": "Tous",
+    "filter_inactive": "Désactivés",
+    "reactivateSuccess": "Compte réactivé",
+    "reactivateAria": "Réactiver",
+    "disableTeacherAria": "Désactiver le professeur"
   },
   "academicYearsPage": {
     "title": "Années scolaires et trimestres",
@@ -701,7 +709,18 @@
     "sub_ACTIVE": "Actif",
     "sub_EXPIRED": "Expiré",
     "sub_CANCELLED": "Annulé",
-    "recentSchoolsHint": "Les écoles les plus récentes de la plateforme"
+    "recentSchoolsHint": "Les écoles les plus récentes de la plateforme",
+    "editSchoolHint": "Modifiez ici les informations de l'école et de son directeur.",
+    "adminSectionTitle": "Données du directeur de l'école",
+    "newAdminPassword": "Nouveau mot de passe (optionnel)",
+    "newAdminPasswordPlaceholder": "Laissez vide pour ne pas changer",
+    "adminPasswordUpdated": "Mot de passe du directeur mis à jour ; il devra le changer à la prochaine connexion",
+    "deleteAria": "Supprimer l'école",
+    "deleteTitle": "Supprimer l'école",
+    "deleteMessage": "Êtes-vous sûr de vouloir supprimer {name} ? Toutes ses données seront définitivement supprimées. Cette action est irréversible.",
+    "deleteConfirm": "Oui, supprimer définitivement",
+    "deleteSuccess": "École et toutes ses données supprimées avec succès",
+    "deleteTypeNameLabel": "Saisissez le nom de l’école ci-dessous pour confirmer la suppression"
   },
   "parentPage": {
     "role": "Parent",
@@ -1662,6 +1681,8 @@
   },
   "settingsPage": {
     "title": "Paramètres de l'école",
+    "changePassword": "Changer le mot de passe",
+    "changePasswordHint": "Vous permet de changer le mot de passe de votre compte à tout moment.",
     "schoolName": "Nom de l'école",
     "phone": "Téléphone",
     "email": "Email",

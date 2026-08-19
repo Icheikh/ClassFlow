@@ -6,13 +6,23 @@ import bcrypt from "bcryptjs"
 import { hasPermission, PERMISSIONS } from "@/lib/permissions"
 import { sendCredentialsEmail, EmailLocale } from "@/lib/email"
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
   const user = session?.user as any
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
+  const url = new URL(req.url)
+  const status = url.searchParams.get("status") // "active" (default) | "inactive" | "all"
+
   const teachers = await prisma.teacher.findMany({
-    where: { schoolId: user.schoolId },
+    where: {
+      schoolId: user.schoolId,
+      ...(status === "inactive"
+        ? { user: { isActive: false } }
+        : status === "all"
+          ? {}
+          : { user: { isActive: true } }),
+    },
     include: {
       user: { select: { id: true, email: true, name: true, phone: true, isActive: true } },
       teacherAssignments: {
@@ -119,9 +129,17 @@ export async function DELETE(req: NextRequest) {
     const teacher = await prisma.teacher.findFirst({ where: { id, schoolId: user.schoolId } })
     if (!teacher) return NextResponse.json({ error: "غير موجود" }, { status: 404 })
 
+    // قطع التعيينات في السنة الدراسية النشطة ثم تعطيل الحساب
+    await prisma.teacherAssignment.deleteMany({
+      where: {
+        teacherId: teacher.id,
+        schoolId: user.schoolId,
+        academicYear: { isActive: true },
+      },
+    })
     await prisma.user.update({ where: { id: teacher.userId }, data: { isActive: false } })
     return NextResponse.json({ success: true })
   } catch (e: any) {
-    return NextResponse.json({ error: "فشل الحذف" }, { status: 400 })
+    return NextResponse.json({ error: "فشل الفصل" }, { status: 400 })
   }
 }
