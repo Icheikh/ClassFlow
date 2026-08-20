@@ -325,7 +325,7 @@ export function AttendanceSheet() {
             )}
           </Card>
 
-          <div className="fixed inset-x-0 bottom-20 z-20 border-t border-gray-200 bg-white/95 p-4 backdrop-blur md:static md:mt-6 md:border-0 md:bg-transparent md:p-0">
+          <div className="sticky bottom-20 z-20 mt-5 rounded-2xl border border-gray-200 bg-white/95 p-4 shadow-lg shadow-black/5 backdrop-blur lg:bottom-6 lg:static lg:mt-6 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
             <Button
               fullWidth
               size="lg"
