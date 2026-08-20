@@ -325,7 +325,7 @@ export function AttendanceSheet() {
             )}
           </Card>
 
-          <div className="fixed inset-x-0 bottom-0 z-20 border-t border-gray-200 bg-white/95 p-4 backdrop-blur md:static md:mt-6 md:border-0 md:bg-transparent md:p-0">
+          <div className="fixed inset-x-0 bottom-20 z-20 border-t border-gray-200 bg-white/95 p-4 backdrop-blur md:static md:mt-6 md:border-0 md:bg-transparent md:p-0">
             <Button
               fullWidth
               size="lg"
