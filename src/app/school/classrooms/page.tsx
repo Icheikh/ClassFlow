@@ -58,7 +58,7 @@ export default function ClassroomsPage() {
 
   const selectedLevel = levels.find((level) => level.id === levelId) || null
   const filteredStreams = streams.filter((stream) => stream.levelId === levelId)
-  const isSecondaryLevel = selectedLevel?.stage.name.includes("ثانوي") ?? false
+  const isSecondaryLevel = selectedLevel ? ["ثانوي", "secondaire", "secondary"].some(k => selectedLevel.stage.name.toLowerCase().includes(k)) : false
   const paginatedClassrooms = classrooms.slice((page - 1) * limit, page * limit)
 
   function openAdd() {

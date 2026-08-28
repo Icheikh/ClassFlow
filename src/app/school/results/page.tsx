@@ -201,7 +201,7 @@ async function updatePublicationStatus(status: string) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">النتائج</h1>
+          <h1 className="text-2xl font-bold">{t("title")}</h1>
           <p className="text-sm text-gray-500">{t("subtitle")}</p>
         </div>
         {data && (
@@ -407,7 +407,6 @@ async function updatePublicationStatus(status: string) {
             <div className="flex gap-2">
               <Link href={`/school/results/report?classroomId=${classroomId}&termId=${termId}`}>
                 <Button variant="secondary">
-                  <Printer className="h-4 w-4" /> طباعة كشف القسم
                   <Printer className="h-4 w-4" /> {t("printClassReport")}
                 </Button>
               </Link>
@@ -533,7 +532,7 @@ async function updatePublicationStatus(status: string) {
                                     <div>
                                       <div className="font-medium">{subjectResult.finalAverage.toFixed(2)}</div>
                                       {data.template.showSubjectCoefficient && (
-                                        <div className="text-xs text-gray-400">ض {subjectResult.coefficient}</div>
+                                        <div className="text-xs text-gray-400">{t("subjectCoefficientPrefix" as any) || "ض"} {subjectResult.coefficient}</div>
                                       )}
                                     </div>
                                   ) : "—"}

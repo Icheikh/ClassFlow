@@ -297,7 +297,7 @@ export default function SchoolResultRulesPage() {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <Card padding="lg" className="xl:col-span-2">
           <div className="space-y-4">
-            <Input label="اسم القاعدة" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            <Input label={t("ruleName")} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
 
             <div className="grid gap-4 lg:grid-cols-3">
               <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm">

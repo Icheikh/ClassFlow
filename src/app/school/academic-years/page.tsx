@@ -139,7 +139,7 @@ export default function AcademicYearsPage() {
       </Modal>
 
       {loading ? (
-        <Card><p className="text-center text-gray-400 py-8">جاري التحميل...</p></Card>
+        <Card><p className="text-center text-gray-400 py-8">{t("loading" as any) || "جاري التحميل..."}</p></Card>
       ) : years.length === 0 ? (
         <Card>
           <div className="text-center py-12">

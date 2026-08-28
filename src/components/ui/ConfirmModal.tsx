@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useLocale } from "next-intl"
 import { Modal } from "./Modal"
 import { Button } from "./Button"
 import { Input } from "./Input"
@@ -26,14 +27,17 @@ export function ConfirmModal({
   onConfirm,
   title,
   message,
-  confirmText = "تأكيد",
-  cancelText = "إلغاء",
+  confirmText,
+  cancelText,
   variant = "danger",
   loading = false,
   confirmKeyword,
   confirmKeywordLabel,
   confirmKeywordPlaceholder,
 }: ConfirmModalProps) {
+  const locale = useLocale()
+  const resolvedConfirmText = confirmText ?? (locale === "fr" ? "Confirmer" : "تأكيد")
+  const resolvedCancelText = cancelText ?? (locale === "fr" ? "Annuler" : "إلغاء")
   const [typed, setTyped] = useState("")
 
   useEffect(() => {
@@ -63,10 +67,10 @@ export function ConfirmModal({
           disabled={loading || !canConfirm}
           className="flex-1"
         >
-          {confirmText}
+          {resolvedConfirmText}
         </Button>
         <Button variant="secondary" onClick={onClose} disabled={loading} className="flex-1">
-          {cancelText}
+          {resolvedCancelText}
         </Button>
       </div>
     </Modal>

@@ -233,7 +233,7 @@ export function GradeBook() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">دفتر النقاط</h1>
+          <h1 className="text-2xl font-bold">{t("title")}</h1>
           {data?.term && (
             <p className="text-sm text-gray-500 mt-1">
               {t("currentTerm")} <span className="font-medium">{data.term.name}</span>
@@ -402,7 +402,7 @@ export function GradeBook() {
                 />
               </div>
               <p className="text-xs text-gray-500">
-                {data.termCalculationNote}. يجب تسجيل اختبار واحد على الأقل في هذا الفصل، ويمكن إضافة أكثر من اختبار ثم يحسب النظام معدل الاختبارات تلقائياً.
+                {data.termCalculationNote}. {t("assessmentHintSuffix")}
               </p>
 
               <div className="bg-gray-50 rounded-lg p-4">

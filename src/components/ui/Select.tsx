@@ -25,7 +25,7 @@ export function Select({
   value,
   onChange,
   options,
-  placeholder = "اختر...",
+  placeholder,
   label,
   error,
   disabled = false,
@@ -33,6 +33,7 @@ export function Select({
   className,
 }: SelectProps) {
   const locale = useLocale()
+  const resolvedPlaceholder = placeholder ?? (locale === "fr" ? "Choisir..." : "اختر...")
   const normalizedValue = value === "" ? EMPTY_VALUE_SENTINEL : value
   const errorId = id && error ? `${id}-error` : undefined
 
@@ -57,7 +58,7 @@ export function Select({
           aria-invalid={error ? "true" : undefined}
           aria-describedby={errorId}
         >
-          <RadixSelect.Value placeholder={placeholder} />
+          <RadixSelect.Value placeholder={resolvedPlaceholder} />
           <RadixSelect.Icon>
             <ChevronDown className="h-4 w-4 text-gray-400" />
           </RadixSelect.Icon>

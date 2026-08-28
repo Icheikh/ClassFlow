@@ -822,10 +822,10 @@ export default function ClassroomDetailsPage() {
           </div>
 
           {resultOverviewLoading ? (
-            <p className="py-6 text-center text-gray-400">جاري التحميل...</p>
+            <p className="py-6 text-center text-gray-400">{t("loading" as any) || "جاري التحميل..."}</p>
           ) : topStudents.length === 0 ? (
             <p className="rounded-xl border border-dashed border-gray-200 px-4 py-8 text-center text-gray-500">
-              لم تكتمل نتائج أي تلميذ بعد.
+              {t("noTopResults" as any) || "لم تكتمل نتائج أي تلميذ بعد."}
             </p>
           ) : (
             <div className="space-y-3">
@@ -1022,7 +1022,7 @@ export default function ClassroomDetailsPage() {
                       loading={deletingAssessmentId === assessment.id}
                       onClick={() => setAssessmentToDelete(assessment.id)}
                     >
-                      <Trash2 className="h-4 w-4" /> حذف
+                      <Trash2 className="h-4 w-4" /> {t("delete" as any) || "حذف"}
                     </Button>
                     <Button
                       variant="ghost"

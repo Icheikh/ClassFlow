@@ -3,7 +3,10 @@
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { api } from "@/lib/api"
+import { useTranslations } from "next-intl"
 import { Button, Card, Badge, Modal, LoadingPage, Select, ConfirmModal } from "@/components/ui"
+import { useLocale } from "next-intl"
+import { getLocalizedSubjectName } from "@/lib/locale"
 import { ArrowLeft, Plus, Trash2, Edit2, Clock, BookOpen, User } from "lucide-react"
 import Link from "next/link"
 import toast from "react-hot-toast"
@@ -17,19 +20,22 @@ type ScheduleEntry = {
   subjectId: string
   teacherId: string | null
   classroom: { id: string; name: string; level: { name: string } }
-  subject: { id: string; nameAr: string }
+  subject: { id: string; nameAr: string; nameFr?: string | null }
   teacher: { id: string; user: { name: string } } | null
 }
 
-type Subject = { id: string; nameAr: string }
+type Subject = { id: string; nameAr: string; nameFr?: string | null }
 type Teacher = { id: string; user: { name: string }; teacherAssignments: { subjectId: string; classroomId: string }[] }
 
-const DAYS = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"]
+
 const TIME_SLOTS = [
   "08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00",
 ]
 
 export default function ClassroomSchedulePage() {
+  const locale = useLocale()
+  const t = useTranslations("classroomSchedulePage")
+  const DAYS = [t("days.0"), t("days.1"), t("days.2"), t("days.3"), t("days.4"), t("days.5"), t("days.6")]
   const params = useParams()
   const id = typeof params?.id === "string" ? params.id : ""
   const router = useRouter()
@@ -79,8 +85,8 @@ export default function ClassroomSchedulePage() {
   }
 
   async function handleSave() {
-    if (!form.subjectId) { toast.error("اختر المادة"); return }
-    if (form.startTime >= form.endTime) { toast.error("وقت نهاية الحصة يجب أن يكون بعد وقت البداية"); return }
+    if (!form.subjectId) { toast.error(t("selectSubject")); return }
+    if (form.startTime >= form.endTime) { toast.error(t("endAfterStart")); return }
     setSaving(true)
     const payload = { ...form, dayOfWeek: parseInt(form.dayOfWeek), classroomId: id }
     const { error } = editId
@@ -88,7 +94,7 @@ export default function ClassroomSchedulePage() {
       : await api.post("/api/school/schedules", payload)
     if (error) toast.error(error)
     else {
-      toast.success(editId ? "تم التعديل" : "تمت الإضافة")
+      toast.success(editId ? t("updated") : t("created"))
       setShowModal(false)
       await loadData()
     }
@@ -100,11 +106,12 @@ export default function ClassroomSchedulePage() {
     const { error } = await api.delete(`/api/school/schedules?id=${deleteTarget}`)
     setDeleteTarget(null)
     if (error) toast.error(error)
-    else { toast.success("تم الحذف"); await loadData() }
+    else { toast.success(t("deleted")); await loadData() }
   }
 
   function getSubjectName(subjectId: string) {
-    return subjects.find((s) => s.id === subjectId)?.nameAr || subjectId
+    const subj = subjects.find((s) => s.id === subjectId)
+    return subj ? getLocalizedSubjectName(subj, locale) : subjectId
   }
 
   function getTeacherName(teacherId: string | null) {
@@ -142,22 +149,22 @@ export default function ClassroomSchedulePage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <Link href={`/school/classrooms/${id}`} aria-label="العودة لصفحة القسم">
+          <Link href={`/school/classrooms/${id}`} aria-label={t("backToClassroom")}>
             <Button variant="ghost" size="sm"><ArrowLeft className="h-4 w-4" /></Button>
           </Link>
           <div>
-            <h1 className="text-2xl font-bold">جدول القسم</h1>
+            <h1 className="text-2xl font-bold">{t("title")}</h1>
             <p className="text-sm text-gray-500">{classroom?.name || "..."} - {classroom?.level?.name || "..."}</p>
           </div>
         </div>
-        <Button onClick={openAdd}><Plus className="h-5 w-5" /> إضافة حصة</Button>
+        <Button onClick={openAdd}><Plus className="h-5 w-5" /> {t("addSession")}</Button>
       </div>
 
       <div className="overflow-x-auto">
-        <div className="min-w-[800px]" role="grid" aria-label="جدول الحصص الأسبوعي">
+        <div className="min-w-[800px]" role="grid" aria-label={t("weeklyTable")}>
           {/* Header */}
           <div className="grid grid-cols-[80px_repeat(7,1fr)] gap-px bg-gray-200 rounded-t-lg overflow-hidden">
-            <div className="bg-gray-100 p-3 font-medium text-sm text-gray-500 text-center">الوقت</div>
+            <div className="bg-gray-100 p-3 font-medium text-sm text-gray-500 text-center">{t("time")}</div>
             {DAYS.map((day, i) => (
               <div key={i} className="bg-gray-100 p-3 font-medium text-sm text-center">{day}</div>
             ))}
@@ -186,7 +193,7 @@ export default function ClassroomSchedulePage() {
                         >
                           <div className="flex items-center gap-1 text-blue-700 font-medium">
                             <BookOpen className="h-3 w-3" />
-                            {entry.subject.nameAr}
+                            {getLocalizedSubjectName(entry.subject, locale)}
                           </div>
                           {entry.teacher && (
                             <div className="flex items-center gap-1 text-gray-500 mt-0.5">
@@ -201,7 +208,7 @@ export default function ClassroomSchedulePage() {
                           <button
                             onClick={(e) => { e.stopPropagation(); setDeleteTarget(entry.id) }}
                             className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-opacity"
-                            aria-label="حذف الحصة"
+                            aria-label={t("deleteTitle")}
                           >
                             <Trash2 className="h-3 w-3" />
                           </button>
@@ -220,44 +227,44 @@ export default function ClassroomSchedulePage() {
         <Card className="mt-6">
           <div className="text-center py-12">
             <Clock className="h-12 w-12 mx-auto text-gray-200 mb-3" />
-            <p className="text-gray-500">لا توجد حصص مسجلة لهذا القسم</p>
+            <p className="text-gray-500">{t("noSessions")}</p>
             <Button variant="secondary" size="sm" onClick={openAdd} className="mt-4">
-              <Plus className="h-4 w-4" /> إضافة أول حصة
+              <Plus className="h-4 w-4" /> {t("addFirstSession")}
             </Button>
           </div>
         </Card>
       )}
 
-      <Modal open={showModal} onClose={() => setShowModal(false)} title={editId ? "تعديل الحصة" : "إضافة حصة"}>
+      <Modal open={showModal} onClose={() => setShowModal(false)} title={editId ? t("editSession") : t("addSessionTitle")}>
         <div className="space-y-4">
           <Select
-            label="اليوم"
+            label={t("day")}
             value={form.dayOfWeek}
             onChange={(v) => setForm({ ...form, dayOfWeek: v })}
             options={DAYS.map((day, i) => ({ value: String(i), label: day }))}
           />
           <div className="grid grid-cols-2 gap-3">
             <Select
-              label="بداية"
+              label={t("start")}
               value={form.startTime}
               onChange={(v) => setForm({ ...form, startTime: v })}
               options={TIME_SLOTS.map((t) => ({ value: t, label: t }))}
             />
             <Select
-              label="نهاية"
+              label={t("end")}
               value={form.endTime}
               onChange={(v) => setForm({ ...form, endTime: v })}
               options={TIME_SLOTS.map((t) => ({ value: t, label: t }))}
             />
           </div>
           <Select
-            label="المادة"
+            label={t("subject")}
             value={form.subjectId}
             onChange={(v) => setForm({ ...form, subjectId: v, teacherId: "" })}
-            options={subjects.map((s) => ({ value: s.id, label: s.nameAr }))}
+            options={subjects.map((s) => ({ value: s.id, label: getLocalizedSubjectName(s, locale) }))}
           />
           <Select
-            label="الأستاذ (اختياري)"
+            label={t("teacherOptional")}
             value={form.teacherId}
             onChange={(v) => setForm({ ...form, teacherId: v })}
             options={[
@@ -268,9 +275,9 @@ export default function ClassroomSchedulePage() {
           />
           <div className="flex gap-2">
             <Button fullWidth onClick={handleSave} loading={saving}>
-              {editId ? "حفظ التعديلات" : "إضافة الحصة"}
+              {editId ? t("saveChanges") : t("addSessionConfirm")}
             </Button>
-            <Button variant="secondary" onClick={() => setShowModal(false)}>إلغاء</Button>
+            <Button variant="secondary" onClick={() => setShowModal(false)}>{t("cancel")}</Button>
           </div>
         </div>
       </Modal>
@@ -279,10 +286,10 @@ export default function ClassroomSchedulePage() {
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={() => void handleDelete()}
-        title="حذف الحصة"
-        message="سيتم حذف هذه الحصة من الجدول. هل أنت متأكد؟"
-        confirmText="حذف"
-        cancelText="إلغاء"
+        title={t("deleteTitle")}
+        message={t("deleteMessage")}
+        confirmText={t("deleteConfirm")}
+        cancelText={t("cancel")}
         variant="danger"
       />
     </div>

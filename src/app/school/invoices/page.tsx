@@ -38,7 +38,7 @@ type ReminderResponse = {
   invoices: number
 }
 
-const recentMonthOptions = generateRecentMonthOptions(18)
+
 
 export default function InvoicesPage() {
   const locale = useLocale()
@@ -68,6 +68,7 @@ export default function InvoicesPage() {
   const [payInvoiceId, setPayInvoiceId] = useState<string | null>(null)
   const [payAmount, setPayAmount] = useState("")
   const [payMethod, setPayMethod] = useState("CASH")
+  const recentMonthOptions = generateRecentMonthOptions(18, locale)
   const [paying, setPaying] = useState(false)
   const monthOptions = [
     { value: "", label: t("allMonths") },
@@ -160,7 +161,7 @@ export default function InvoicesPage() {
       toast.error(error)
     } else {
       setLastGeneration(data || null)
-      toast.success(t("generatedInvoicesSuccess", { count: data?.created || 0, month: getMonthLabel(generateMonth) }))
+      toast.success(t("generatedInvoicesSuccess", { count: data?.created || 0, month: getMonthLabel(generateMonth, locale) }))
       if (month === generateMonth || !month) {
         void loadInvoices()
       }
@@ -199,7 +200,7 @@ export default function InvoicesPage() {
   const totalPaid = invoices.reduce((sum, invoice) => sum + invoice.payments.reduce((paid, payment) => paid + payment.amount, 0), 0)
   const unpaidCount = invoices.filter((invoice) => invoice.status === "PENDING").length
   const partialCount = invoices.filter((invoice) => invoice.status === "PARTIAL").length
-  const selectedMonthLabel = month ? getMonthLabel(month) : t("allMonths")
+  const selectedMonthLabel = month ? getMonthLabel(month, locale) : t("allMonths")
   const selectedClassroomLabel = classrooms.find((item) => item.id === classroomId)?.name || t("classroomOptional")
   const paginatedInvoices = invoices.slice((page - 1) * limit, page * limit)
   useEffect(() => {
@@ -434,7 +435,7 @@ export default function InvoicesPage() {
                     </td>
                     <td className="py-3">{invoice.classroom.name}</td>
                     <td className="py-3">{invoice.fee.name}</td>
-                    <td className="py-3">{getMonthLabel(invoice.month)}</td>
+                    <td className="py-3">{getMonthLabel(invoice.month, locale)}</td>
                     <td className="py-3">{invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString(getDateLocale(locale)) : t("unspecified")}</td>
                     <td className="py-3 font-medium">{invoice.amount} MRU</td>
                     <td className="py-3"><Badge variant={currentStatus.variant}>{currentStatus.label}</Badge></td>
@@ -476,7 +477,7 @@ export default function InvoicesPage() {
                 <p><span className="text-gray-400">{t("student")}:</span> {invoice.student.firstName} {invoice.student.lastName}</p>
                 <p><span className="text-gray-400">{t("classroom")}:</span> {invoice.classroom.name}</p>
                 <p><span className="text-gray-400">{t("fee")}:</span> {invoice.fee.name}</p>
-                <p><span className="text-gray-400">{t("month")}:</span> {getMonthLabel(invoice.month)}</p>
+                <p><span className="text-gray-400">{t("month")}:</span> {getMonthLabel(invoice.month, locale)}</p>
                 <p><span className="text-gray-400">{t("remainingAmount")}:</span> {remainingAmount} MRU</p>
               </div>
               <div className="space-y-4">

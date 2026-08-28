@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import toast from "react-hot-toast"
+import { useTranslations } from "next-intl"
 import { api } from "@/lib/api"
 import { Button, Card, Input, LoadingPage } from "@/components/ui"
 import { formatDateOnly, parseDateOnly } from "@/lib/date"
@@ -37,14 +38,8 @@ type DraftEntry = {
   notes: string
 }
 
-const ATTENDANCE_LABELS: Record<string, string> = {
-  PRESENT: "حاضر",
-  ABSENT: "غائب",
-  LATE: "متأخر",
-  EXCUSED: "بعذر",
-}
-
 export default function TeachingHoursPage() {
+  const t = useTranslations("teachingHoursPage")
   const [data, setData] = useState<TeachingHoursData | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -139,7 +134,7 @@ export default function TeachingHoursPage() {
     if (error) {
       toast.error(error)
     } else {
-      toast.success("تم حفظ الساعات التعويضية")
+      toast.success(t("saveSuccess")
       const { data: refreshed } = await api.get<TeachingHoursData>(`/api/school/teaching-hours?date=${dateStr}`)
       if (refreshed) {
         setData(refreshed)
@@ -162,7 +157,7 @@ export default function TeachingHoursPage() {
   if (!data) {
     return (
       <Card>
-        <p className="py-8 text-center text-gray-500" role="alert">تعذر تحميل الساعات التعويضية</p>
+        <p className="py-8 text-center text-gray-500" role="alert">{t("loadError")}</p>
       </Card>
     )
   }
@@ -171,8 +166,8 @@ export default function TeachingHoursPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">الساعات التعويضية والإضافية</h1>
-          <p className="text-sm text-gray-500">أضف هنا الحصص الخارجة عن الجدول العادي مثل التعويض والدعم والمراجعة</p>
+          <h1 className="text-2xl font-bold">{t("title")}</h1>
+          <p className="text-sm text-gray-500">{t("subtitle")}</p>
         </div>
         <div className="flex items-center gap-2">
           <input
@@ -183,7 +178,7 @@ export default function TeachingHoursPage() {
           />
           <Button onClick={saveAll} loading={saving}>
             <Save className="h-4 w-4" />
-            حفظ الكل
+            {t("saveAll")}
           </Button>
         </div>
       </div>
@@ -194,7 +189,7 @@ export default function TeachingHoursPage() {
             <div className="p-2 bg-blue-50 rounded-lg"><Clock className="h-5 w-5 text-blue-600" /></div>
             <div>
               <p className="text-2xl font-bold">{totalHours}</p>
-              <p className="text-xs text-gray-500">إجمالي الساعات الإضافية</p>
+              <p className="text-xs text-gray-500">{t("totalExtraHours")}</p>
             </div>
           </div>
         </Card>
@@ -203,7 +198,7 @@ export default function TeachingHoursPage() {
             <div className="p-2 bg-green-50 rounded-lg"><BookOpen className="h-5 w-5 text-green-600" /></div>
             <div>
               <p className="text-2xl font-bold">{recordedAssignments}</p>
-              <p className="text-xs text-gray-500">تكليفات بها إضافة</p>
+              <p className="text-xs text-gray-500">{t("assignmentsWithAddition")}</p>
             </div>
           </div>
         </Card>
@@ -212,7 +207,7 @@ export default function TeachingHoursPage() {
             <div className="p-2 bg-purple-50 rounded-lg"><Calendar className="h-5 w-5 text-purple-600" /></div>
             <div>
               <p className="text-2xl font-bold">{groupedTeachers.length}</p>
-              <p className="text-xs text-gray-500">عدد الأساتذة</p>
+              <p className="text-xs text-gray-500">{t("teachersCount")}</p>
             </div>
           </div>
         </Card>
@@ -221,7 +216,7 @@ export default function TeachingHoursPage() {
             <div className="p-2 bg-amber-50 rounded-lg"><Wallet className="h-5 w-5 text-amber-600" /></div>
             <div>
               <p className="text-sm font-semibold">{data.academicYear.name}</p>
-              <p className="text-xs text-gray-500">السنة الدراسية النشطة</p>
+              <p className="text-xs text-gray-500">{t("activeYear")}</p>
             </div>
           </div>
         </Card>
@@ -231,21 +226,21 @@ export default function TeachingHoursPage() {
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-sm text-blue-700">
-              الرواتب الأسبوعية تُحسب أساسًا من الحصص المجدولة التي تم تأكيدها من صفحة حضور الأساتذة.
+              {t("payrollHint1")}
             </p>
             <p className="mt-2 text-xs text-blue-700">
-              استخدم هذه الصفحة فقط إذا كانت هناك حصة تعويضية أو ساعة دعم أو تعديل يدوي يجب إضافته فوق الحصص العادية.
+              {t("payrollHint2")}
             </p>
             <p className="mt-2 text-xs text-blue-700">
-              <strong>المتوقع</strong> هنا مرجع من جدول اليوم فقط، أما <strong>المسجل</strong> فهو إضافة استثنائية وليس بديلاً عن تأكيد الحصة في سجل الحضور.
+              {t("payrollHint3")}
             </p>
           </div>
           <div className="flex flex-col items-end gap-1">
             <Link href="/school/teacher-attendance" className="text-sm font-medium text-blue-700 hover:underline">
-              فتح تأكيد حصص الأساتذة
+              {t("openAttendance")}
             </Link>
             <Link href={`/school/payroll?weekStart=${dateStr}`} className="text-sm font-medium text-blue-700 hover:underline">
-              فتح كشف الرواتب الأسبوعي
+              {t("openPayroll")}
             </Link>
           </div>
         </div>
@@ -253,25 +248,25 @@ export default function TeachingHoursPage() {
 
       <div className="grid gap-4 mb-6 lg:grid-cols-3">
         <Card padding="md">
-          <p className="text-sm font-medium text-gray-900">ماذا تسجل هنا؟</p>
+          <p className="text-sm font-medium text-gray-900">{t("whatToRecordTitle")}</p>
           <p className="mt-2 text-sm text-gray-600">
-            سجّل فقط الساعات الاستثنائية لكل تكليف في هذا اليوم، مثل تعويض حصة ضائعة أو مراجعة إضافية أو دعم خاص.
+            {t("whatToRecordText")}
           </p>
         </Card>
         <Card padding="md" className={assignmentsWithoutRate > 0 ? "border-amber-200 bg-amber-50" : ""}>
-          <p className="text-sm font-medium text-gray-900">تكليفات بلا أجر/ساعة</p>
+          <p className="text-sm font-medium text-gray-900">{t("withoutRateTitle")}</p>
           <p className="mt-2 text-sm text-gray-600">
             {assignmentsWithoutRate > 0
-              ? `يوجد ${assignmentsWithoutRate} تكليفات بلا أجر ساعة، ويمكن تسجيل ساعاتها لكن المستحق لن يُحسب بدقة حتى يتم تحديد الأجر في ملف الأستاذ.`
-              : "كل التكاليف المعروضة تملك أجر ساعة، لذا يمكن للنظام تقدير المستحقات مباشرة."}
+              ? t("withoutRateWarning", { count: assignmentsWithoutRate })
+              : t("withoutRateOk")}
           </p>
         </Card>
         <Card padding="md" className={absentAssignments > 0 ? "border-blue-200 bg-blue-50" : ""}>
-          <p className="text-sm font-medium text-gray-900">حالة تأكيد الحصص</p>
+          <p className="text-sm font-medium text-gray-900">{t("attendanceStatusTitle")}</p>
           <p className="mt-2 text-sm text-gray-600">
             {absentAssignments > 0
-              ? `يوجد ${absentAssignments} تكليفات مرتبطة بأساتذة لديهم حصص مؤكدة كغياب اليوم. يمكن رغم ذلك تسجيل تعويض مستقل إذا تم لاحقًا إنجاز حصة إضافية.`
-              : "لا توجد اليوم تكليفات مرتبطة بغياب مؤكد ضمن هذه القائمة."}
+              ? t("absentWarning", { count: absentAssignments })
+              : t("noAbsentWarning")}
           </p>
         </Card>
       </div>
@@ -282,17 +277,17 @@ export default function TeachingHoursPage() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="font-semibold text-lg">{teacher.teacherName}</h2>
-                <p className="text-xs text-gray-500">{teacher.rows.length} تكليفات متاحة لإضافات اليوم</p>
+                <p className="text-xs text-gray-500">{t("assignmentsAvailable", { count: teacher.rows.length })}</p>
               </div>
               <Link href={`/school/teachers/${teacher.teacherId}`} className="text-sm text-blue-700 hover:underline">
-                فتح ملف الأستاذ
+                {t("openTeacherFile")}
               </Link>
             </div>
 
             <div className="space-y-3">
               {teacher.rows.map((row) => {
                 const entry = draft[row.teacherAssignmentId] || { hoursTaught: "", notes: "" }
-                const attendanceLabel = row.attendanceStatus ? ATTENDANCE_LABELS[row.attendanceStatus] || row.attendanceStatus : "غير مسجل"
+                const attendanceLabel = row.attendanceStatus ? t(row.attendanceStatus === "PRESENT" ? "present" : row.attendanceStatus === "ABSENT" ? "absent" : row.attendanceStatus === "LATE" ? "late" : "excused") : t("notRecorded")
 
                 return (
                   <div key={row.teacherAssignmentId} className={`rounded-xl border p-4 ${row.expectedHours > 0 && Number(entry.hoursTaught || 0) !== row.expectedHours && Number(entry.hoursTaught || 0) > 0 ? "border-amber-200 bg-amber-50/50" : "border-gray-200"}`}>
@@ -312,29 +307,29 @@ export default function TeachingHoursPage() {
                             <UserCheck className="h-3.5 w-3.5" />
                             {attendanceLabel}
                           </span>
-                          <span>الأجر/ساعة: {row.hourlyRate != null ? `${row.hourlyRate} MRU` : "غير محدد"}</span>
-                          <span>المتوقع أسبوعياً: {row.weeklyHours != null ? row.weeklyHours : "—"} ساعة</span>
-                          {row.recordedBy && <span>آخر حفظ: {row.recordedBy}</span>}
+                          <span>{row.hourlyRate != null ? t("hourlyRateValue", { value: row.hourlyRate }) : t("notSpecified")}</span>
+                          <span>{row.weeklyHours != null ? t("weeklyHoursValue", { value: row.weeklyHours }) : "—"}</span>
+                          {row.recordedBy && <span>{t("lastSaved", { value: row.recordedBy })}</span>}
                         </div>
                         <div className="mt-2 flex flex-wrap gap-3 text-xs">
                           <Link href={`/school/teachers/${row.teacherId}`} className="text-blue-700 hover:underline">
-                            مراجعة ملف الأستاذ
+                            {t("reviewTeacherFile")}
                           </Link>
                           <Link href={`/school/teachers/${row.teacherId}/weekly-report?weekStart=${dateStr}`} className="text-blue-700 hover:underline">
-                            فتح التقرير الأسبوعي
+                            {t("openWeeklyReport")}
                           </Link>
                         </div>
                       </div>
 
                       <div className="space-y-1">
-                        <label className="block text-sm font-medium text-gray-700">مرجع الجدول</label>
+                        <label className="block text-sm font-medium text-gray-700">{t("tableReference")}</label>
                         <div className={`h-[42px] px-4 rounded-lg border flex items-center text-sm ${row.expectedHours > 0 ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-gray-50 border-gray-200 text-gray-400"}`}>
-                          {row.expectedHours > 0 ? `${row.expectedHours} س` : "—"}
+                          {row.expectedHours > 0 ? `${row.expectedHours} ${t("hourSuffix")}` : "—"}
                         </div>
                       </div>
 
                       <Input
-                        label="الإضافة"
+                        label={t("addition")}
                         type="number"
                         step="0.25"
                         min="0"
@@ -345,7 +340,7 @@ export default function TeachingHoursPage() {
                       />
 
                       <div className="space-y-1">
-                        <label className="block text-sm font-medium text-gray-700">قيمة الإضافة</label>
+                        <label className="block text-sm font-medium text-gray-700">{t("additionValue")}</label>
                         <div className="h-[42px] px-4 rounded-lg border border-gray-200 bg-gray-50 flex items-center text-sm text-gray-700">
                           {row.hourlyRate != null && Number(entry.hoursTaught || 0) > 0
                             ? `${(Number(entry.hoursTaught || 0) * row.hourlyRate).toLocaleString()} MRU`
@@ -354,10 +349,10 @@ export default function TeachingHoursPage() {
                       </div>
 
                         <Input
-                          label="ملاحظات"
+                          label={t("notes")}
                           value={entry.notes}
                           onChange={(e) => updateDraft(row.teacherAssignmentId, { notes: e.target.value })}
-                          placeholder="مثال: حصة تعويضية"
+                          placeholder={t("notesPlaceholder")}
                         />
                     </div>
                   </div>
