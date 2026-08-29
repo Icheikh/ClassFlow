@@ -32,6 +32,7 @@ export type Student = {
   lastName: string
   gender: string | null
   studentNumber: string | null
+  rollNumber?: number | null
   isActive: boolean
 }
 

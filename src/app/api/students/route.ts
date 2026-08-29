@@ -35,9 +35,9 @@ export async function GET(req: NextRequest) {
       status: "ACTIVE",
     },
     include: { student: true },
-    orderBy: { student: { firstName: "asc" } },
+    orderBy: [{ rollNumber: "asc" }, { student: { firstName: "asc" } }],
   })
 
-  const students = enrollments.map((e) => e.student)
+  const students = enrollments.map((e) => ({ ...e.student, rollNumber: e.rollNumber }))
   return NextResponse.json(students)
 }

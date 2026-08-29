@@ -301,9 +301,10 @@ export function AttendanceSheet() {
               <p className="py-8 text-center text-gray-400">{t("emptyClassroom")}</p>
             ) : (
               <div className="grid grid-cols-4 gap-3 sm:grid-cols-5 md:grid-cols-6">
-                {students.map((student, index) => {
+                {students.map((student) => {
                   const status = getStatus(student.id)
                   const absent = status === "absent"
+                  const number = (student as any).rollNumber ?? student.studentNumber ?? "?"
                   return (
                     <button
                       key={student.id}
@@ -314,10 +315,10 @@ export function AttendanceSheet() {
                           ? "border-red-500 bg-red-600 text-white shadow-lg shadow-red-100"
                           : "border-emerald-200 bg-emerald-50 text-emerald-800"
                       }`}
-                      aria-label={`${index + 1} - ${student.firstName} ${student.lastName} - ${absent ? tStatus("absent") : tStatus("present")}`}
-                      title={`${index + 1} - ${student.firstName} ${student.lastName}`}
+                      aria-label={`${number} - ${student.firstName} ${student.lastName} - ${absent ? tStatus("absent") : tStatus("present")}`}
+                      title={`${number} - ${student.firstName} ${student.lastName}`}
                     >
-                      {index + 1}
+                      {number}
                     </button>
                   )
                 })}
