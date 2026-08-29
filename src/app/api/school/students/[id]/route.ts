@@ -82,7 +82,9 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         }
       } else if (parentName) {
         const phoneDigits = (parentPhone || "").replace(/\D/g, "")
-        const email = parentEmail || (phoneDigits ? `${phoneDigits}@classflow.phone` : `parent-${params.id}@classflow.edu`)
+        const school = await tx.school.findUnique({ where: { id: user.schoolId }, select: { slug: true } })
+        const schoolSlug = school?.slug || "school"
+        const email = parentEmail || (phoneDigits ? `p${phoneDigits}@${schoolSlug}.classflow` : `parent-${params.id}@${schoolSlug}.classflow`)
         const rawPassword = phoneDigits || "parent123"
         const appUser = await tx.user.create({
           data: {

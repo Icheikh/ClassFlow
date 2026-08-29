@@ -30,7 +30,14 @@ export const authOptions: NextAuthOptions = {
         if (!user && isPhone) {
           user = await prisma.user.findFirst({
             where: {
-              OR: [{ phone: rawId }, { phone: `+${phoneDigits}` }, { email: `${phoneDigits}@classflow.phone` }],
+              OR: [
+                { phone: rawId },
+                { phone: `+${phoneDigits}` },
+                { email: `${phoneDigits}@classflow.phone` },
+                { email: `p${phoneDigits}@alfath.classflow` },
+                { email: `p${phoneDigits}@alnoor.classflow` },
+                { email: { contains: phoneDigits } },
+              ],
             },
             include: { school: true },
           })
