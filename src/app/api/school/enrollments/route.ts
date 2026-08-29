@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { hasPermission, PERMISSIONS } from "@/lib/permissions"
+import { createEnrollmentSchema, parseOrError } from "@/lib/validation"
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
@@ -40,9 +41,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const body = await req.json()
-  const { studentId, classroomId, academicYearId } = body
-  if (!studentId || !classroomId || !academicYearId)
-    return NextResponse.json({ error: "الطالب والقسم والسنة الدراسية مطلوبة" }, { status: 400 })
+  const parsed = parseOrError(createEnrollmentSchema, body)
+  if ("error" in parsed) return NextResponse.json({ error: parsed.error }, { status: 400 })
+  const { studentId, classroomId, academicYearId } = parsed.data
 
   const [student, classroom, academicYear] = await Promise.all([
     prisma.student.findFirst({ where: { id: studentId, schoolId: user.schoolId! }, select: { id: true } }),

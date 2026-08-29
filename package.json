@@ -12,7 +12,9 @@
     "db:push": "prisma db push && node scripts/fix-prisma-client.mjs",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "db:seed": "node prisma/seed.js"
+    "db:seed": "node prisma/seed.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [],
   "author": "",
@@ -40,7 +42,8 @@
     "recharts": "^3.8.1",
     "resend": "^6.20.0",
     "tailwind-merge": "^3.6.0",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
@@ -52,6 +55,7 @@
     "eslint-config-next": "^14.2.35",
     "postcss": "^8.5.15",
     "tailwindcss": "^3.4.19",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
   }
 }

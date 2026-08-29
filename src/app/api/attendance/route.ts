@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma"
 import { hasAnyPermission, PERMISSIONS } from "@/lib/permissions"
 import { notifySchoolManagers } from "@/lib/operational-notifications"
 import { buildAbsenceSMS, isMoorsylConfigured, sendMoorsylSMS } from "@/lib/moorsyl"
+import { parseOrError, saveAttendanceSchema } from "@/lib/validation"
 
 const legacyRoles = ["TEACHER", "SCHOOL_ADMIN", "SUPERVISOR"]
 
@@ -23,8 +24,10 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { scheduleId, date, records } = body
-  let { classroomId, subjectId } = body
+  const parsed = parseOrError(saveAttendanceSchema, body)
+  if ("error" in parsed) return NextResponse.json({ error: parsed.error }, { status: 400 })
+  const { scheduleId, date, records } = parsed.data as typeof body
+  let { classroomId, subjectId } = parsed.data as typeof body
 
   const activeYear = await prisma.academicYear.findFirst({
     where: { schoolId: user.schoolId!, isActive: true },

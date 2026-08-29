@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { hasPermission, PERMISSIONS } from "@/lib/permissions"
 import { sendCredentialsEmail, EmailLocale } from "@/lib/email"
+import { createStudentSchema, parseOrError } from "@/lib/validation"
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
@@ -66,15 +67,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const body = await req.json()
-  const { firstName, lastName, gender, birthDate, studentNumber, address, phone, parentName, parentPhone, parentEmail } = body
-  if (!firstName || !lastName) return NextResponse.json({ error: "الاسم الأول واسم العائلة مطلوبان" }, { status: 400 })
-
-  if (studentNumber) {
-    const existing = await prisma.student.findFirst({
-      where: { schoolId: user.schoolId!, studentNumber },
-    })
-    if (existing) return NextResponse.json({ error: "رقم التسجيل موجود مسبقاً" }, { status: 400 })
-  }
+  const parsed = parseOrError(createStudentSchema, body)
+  if ("error" in parsed) return NextResponse.json({ error: parsed.error }, { status: 400 })
+  const { firstName, lastName, gender, birthDate, address, phone, parentName, parentPhone, parentEmail } = parsed.data as typeof body & { firstName: string; lastName: string }
 
   const result = await prisma.$transaction(async (tx) => {
     const student = await tx.student.create({
@@ -83,7 +78,7 @@ export async function POST(req: NextRequest) {
         firstName, lastName,
         gender: gender || null,
         birthDate: birthDate ? new Date(birthDate) : null,
-        studentNumber: studentNumber || null,
+        studentNumber: null,
         address: address || null,
         phone: phone || null,
       },
