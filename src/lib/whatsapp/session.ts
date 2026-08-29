@@ -1,10 +1,3 @@
-import makeWASocket, {
-  DisconnectReason,
-  useMultiFileAuthState,
-  WASocket,
-  proto,
-} from "@whiskeysockets/baileys"
-import { Boom } from "@hapi/boom"
 import path from "path"
 import fs from "fs"
 
@@ -15,7 +8,7 @@ type StatusCallback = (status: WhatsAppConnectionStatus) => void
 
 const SESSION_DIR = path.join(process.cwd(), "whatsapp-sessions")
 
-let sock: WASocket | null = null
+let sock: any = null
 let currentStatus: WhatsAppConnectionStatus = "DISCONNECTED"
 let latestQR: string | null = null
 let qrCallbacks: QRCallback[] = []
@@ -60,11 +53,15 @@ function emitStatus(status: WhatsAppConnectionStatus) {
   statusCallbacks.forEach((cb) => cb(status))
 }
 
-export async function startWhatsApp(): Promise<WASocket> {
+export async function startWhatsApp(): Promise<any> {
   if (sock) return sock
 
+  const [{ default: makeWASocket, DisconnectReason, useMultiFileAuthState }, { Boom }] = await Promise.all([
+    import("@whiskeysockets/baileys"),
+    import("@hapi/boom"),
+  ])
+
   ensureSessionDir()
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   const { state, saveCreds } = await useMultiFileAuthState(SESSION_DIR)
 
   sock = makeWASocket({
@@ -77,7 +74,7 @@ export async function startWhatsApp(): Promise<WASocket> {
 
   sock.ev.on("creds.update", saveCreds)
 
-  sock.ev.on("connection.update", (update) => {
+  sock.ev.on("connection.update", (update: any) => {
     const { connection, lastDisconnect, qr } = update
 
     if (qr) {
@@ -86,7 +83,7 @@ export async function startWhatsApp(): Promise<WASocket> {
     }
 
     if (connection === "close") {
-      const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode
+      const statusCode = (lastDisconnect?.error as any)?.output?.statusCode
       const shouldReconnect = statusCode !== DisconnectReason.loggedOut
 
       console.log("[whatsapp] connection closed:", statusCode, "reconnect:", shouldReconnect)
@@ -115,7 +112,7 @@ export async function startWhatsApp(): Promise<WASocket> {
   return sock
 }
 
-export function getSocket(): WASocket | null {
+export function getSocket(): any | null {
   return sock
 }
 
