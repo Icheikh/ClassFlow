@@ -56,10 +56,15 @@ function emitStatus(status: WhatsAppConnectionStatus) {
 export async function startWhatsApp(): Promise<any> {
   if (sock) return sock
 
-  const [{ default: makeWASocket, DisconnectReason, useMultiFileAuthState }, { Boom }] = await Promise.all([
-    import("@whiskeysockets/baileys"),
-    import("@hapi/boom"),
-  ])
+  let makeWASocket: any, DisconnectReason: any, useMultiFileAuthState: any
+  try {
+    const baileys = await import("@whiskeysockets/baileys")
+    makeWASocket = baileys.default
+    DisconnectReason = baileys.DisconnectReason
+    useMultiFileAuthState = baileys.useMultiFileAuthState
+  } catch {
+    throw new Error("مكتبة Baileys غير مثبتة. ثبّتها يدوياً: npm install @whiskeysockets/baileys @hapi/boom")
+  }
 
   ensureSessionDir()
   const { state, saveCreds } = await useMultiFileAuthState(SESSION_DIR)
