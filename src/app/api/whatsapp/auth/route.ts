@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { startWhatsApp } from "@/lib/whatsapp/session"
 
 export async function GET() {
   const session = await getServerSession(authOptions)
@@ -10,10 +9,8 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  try {
-    await startWhatsApp()
-    return NextResponse.json({ ok: true, message: "تم بدء اتصال WhatsApp" })
-  } catch (error: any) {
-    return NextResponse.json({ error: error?.message || "فشل بدء الاتصال" }, { status: 500 })
-  }
+  return NextResponse.json(
+    { error: "WhatsApp معطل — يتم استخدام SMS والإشعارات الداخلية حالياً" },
+    { status: 503 }
+  )
 }

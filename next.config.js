@@ -10,9 +10,7 @@ module.exports = (phase) => {
     images: {
       domains: ["avatars.githubusercontent.com"],
     },
-    experimental: {
-      serverComponentsExternalPackages: ["@whiskeysockets/baileys", "@hapi/boom"],
-    },
+    experimental: {},
   }
 
   return nextConfig

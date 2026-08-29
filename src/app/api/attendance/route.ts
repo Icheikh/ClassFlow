@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { hasAnyPermission, PERMISSIONS } from "@/lib/permissions"
 import { notifySchoolManagers } from "@/lib/operational-notifications"
+import { buildAbsenceSMS, isMoorsylConfigured, sendMoorsylSMS } from "@/lib/moorsyl"
 
 const legacyRoles = ["TEACHER", "SCHOOL_ADMIN", "SUPERVISOR"]
 
@@ -165,6 +166,64 @@ export async function POST(req: NextRequest) {
       })
     } catch (error) {
       console.error("Attendance manager notification creation failed:", error)
+    }
+
+    // --- MoorSyl SMS + in-app notification for parents (critical absence) ---
+    try {
+      const school = await prisma.school.findUnique({
+        where: { id: user.schoolId },
+        select: { name: true },
+      })
+
+      const absentIds = absentStudents.map((r: { studentId: string }) => r.studentId)
+      const links = await prisma.studentParent.findMany({
+        where: {
+          schoolId: user.schoolId,
+          studentId: { in: absentIds },
+          isPrimary: true,
+          receiveNotifications: true,
+        },
+        include: {
+          student: { select: { firstName: true, lastName: true } },
+          parent: { include: { user: { select: { id: true, name: true, phone: true } } } },
+        },
+      })
+
+      for (const link of links) {
+        const parentPhone = link.parent.phone || link.parent.user.phone
+        const studentName = `${link.student.firstName} ${link.student.lastName}`
+        const smsBody = buildAbsenceSMS({
+          studentName,
+          classroomName: classroom?.name || "القسم",
+          dateLabel,
+          schoolName: school?.name,
+        })
+
+        // In-app notification (always — fallback if SMS fails)
+        await prisma.notification.create({
+          data: {
+            schoolId: user.schoolId,
+            title: `غياب: ${studentName}`,
+            message: smsBody,
+            type: "ATTENDANCE_ABSENCE",
+            entityType: "ATTENDANCE",
+            entityId: link.studentId,
+            channel: "IN_APP",
+            status: "PENDING",
+            userId: link.parent.user.id,
+          },
+        })
+
+        // SMS via MoorSyl (only if configured and phone exists)
+        if (parentPhone && isMoorsylConfigured()) {
+          const smsResult = await sendMoorsylSMS(parentPhone, smsBody)
+          if (!smsResult.success) {
+            console.warn(`[attendance] MoorSyl SMS failed for ${studentName} (${parentPhone}):`, smsResult.error)
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Attendance parent notification failed:", error)
     }
   } else {
     await prisma.notification.updateMany({

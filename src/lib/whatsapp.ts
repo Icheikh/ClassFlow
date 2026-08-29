@@ -1,29 +1,19 @@
 /**
- * WhatsApp messaging service for ClassFlow
+ * WhatsApp messaging service for ClassFlow — DISABLED by default
  *
- * Provider hierarchy (configured via WHATSAPP_PROVIDER env var):
- *   1. "baileys"  → Free, direct WhatsApp Web protocol (default)
- *   2. "ultramsg" → UltraMsg API (paid, popular in Africa)
- *   3. "wati"     → WATI WhatsApp Business API (paid)
- *   4. "generic"  → Generic HTTP POST (any REST API)
+ * Decision (2026-08-29): WhatsApp bulk disabled. Use MoorSyl SMS for absences
+ * and in-app notifications for everything else. This file is kept as a stub
+ * for future re-enablement (set WHATSAPP_PROVIDER to ultramsg/wati/generic).
  *
- * For production/scale: use "ultramsg" or "wati"
- * For launch/MVP: use "baileys" (free, no subscription)
+ * No baileys import here — it breaks Vercel builds (native deps + preinstall).
  */
 
-import {
-  sendMessage as baileysSend,
-  getWhatsAppStatus,
-  getLatestQR,
-  formatPhone as baileysFormatPhone,
-} from "./whatsapp/session"
-
-export type { WhatsAppConnectionStatus } from "./whatsapp/session"
-
-const PROVIDER = process.env.WHATSAPP_PROVIDER || "baileys"
+const PROVIDER = process.env.WHATSAPP_PROVIDER || "disabled"
 const API_URL = process.env.WHATSAPP_API_URL || ""
 const API_TOKEN = process.env.WHATSAPP_API_TOKEN || ""
 const INSTANCE_ID = process.env.WHATSAPP_INSTANCE_ID || ""
+
+export type WhatsAppConnectionStatus = "DISCONNECTED" | "CONNECTED" | "CONNECTING" | "QR_REQUIRED"
 
 export type WhatsAppSendResult = {
   success: boolean
@@ -32,51 +22,49 @@ export type WhatsAppSendResult = {
 }
 
 export function formatPhone(phone: string): string | null {
-  return baileysFormatPhone(phone)
+  const cleaned = phone.replace(/[\s\-\(\)]/g, "")
+  if (!cleaned) return null
+  if (cleaned.startsWith("+")) return cleaned
+  if (cleaned.startsWith("222")) return `+${cleaned}`
+  if (cleaned.length === 8) return `+222${cleaned}`
+  return cleaned
 }
 
 export async function sendWhatsAppMessage(
   to: string,
   message: string
 ): Promise<WhatsAppSendResult> {
+  if (PROVIDER === "disabled") {
+    return { success: false, error: "WhatsApp معطل — يتم استخدام SMS والإشعارات الداخلية حالياً" }
+  }
   const formatted = formatPhone(to)
   if (!formatted) {
     return { success: false, error: `رقم الهاتف غير صالح: ${to}` }
   }
 
   switch (PROVIDER) {
-    case "baileys":
-      return sendViaBaileys(formatted, message)
     case "ultramsg":
       return sendViaUltraMsg(formatted, message)
     case "wati":
       return sendViaWATI(formatted, message)
-    default:
+    case "generic":
       return sendViaGeneric(formatted, message)
+    default:
+      return { success: false, error: `مزود WhatsApp غير معروف: ${PROVIDER}` }
   }
 }
 
 export function isWhatsAppConfigured(): boolean {
-  if (PROVIDER === "baileys") {
-    return true
-  }
+  if (PROVIDER === "disabled") return false
   return !!(API_URL && API_TOKEN)
 }
 
-export function getWhatsAppConnectionStatus() {
-  return getWhatsAppStatus()
+export function getWhatsAppConnectionStatus(): WhatsAppConnectionStatus {
+  return "DISCONNECTED"
 }
 
-export function getWhatsAppQR() {
-  return getLatestQR()
-}
-
-async function sendViaBaileys(phone: string, message: string): Promise<WhatsAppSendResult> {
-  const status = getWhatsAppStatus()
-  if (status !== "CONNECTED") {
-    return { success: false, error: "WhatsApp غير متصل — امسح QR أولاً من إعدادات WhatsApp" }
-  }
-  return baileysSend(phone, message)
+export function getWhatsAppQR(): string | null {
+  return null
 }
 
 async function sendViaUltraMsg(to: string, message: string): Promise<WhatsAppSendResult> {

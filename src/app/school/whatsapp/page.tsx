@@ -1,161 +1,79 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
-import { useTranslations } from "next-intl"
-import { api } from "@/lib/api"
-import { Badge, Button, Card, LoadingPage } from "@/components/ui"
-import { CheckCircle2, LogOut, Phone, QrCode, RefreshCw, Wifi, WifiOff } from "lucide-react"
+import { Badge, Card } from "@/components/ui"
+import { Bell, MessageSquare, Phone, Smartphone } from "lucide-react"
 
-type WhatsAppStatus = "CONNECTING" | "CONNECTED" | "DISCONNECTED" | "QR_REQUIRED"
-
-export default function WhatsAppSettingsPage() {
-  const t = useTranslations("settingsPage")
-  const [loading, setLoading] = useState(true)
-  const [connecting, setConnecting] = useState(false)
-  const [status, setStatus] = useState<WhatsAppStatus>("DISCONNECTED")
-  const [qr, setQr] = useState<string | null>(null)
-
-  const pollStatus = useCallback(async () => {
-    const { data } = await api.get<{ status: WhatsAppStatus; qr: string | null }>("/api/whatsapp/status")
-    if (data) {
-      setStatus(data.status)
-      setQr(data.qr)
-    }
-    setLoading(false)
-  }, [])
-
-  useEffect(() => {
-    void pollStatus()
-  }, [pollStatus])
-
-  useEffect(() => {
-    if (status === "CONNECTING" || status === "QR_REQUIRED") {
-      const interval = setInterval(pollStatus, 2000)
-      return () => clearInterval(interval)
-    }
-  }, [status, pollStatus])
-
-  async function connect() {
-    setConnecting(true)
-    await api.get("/api/whatsapp/auth")
-    void pollStatus()
-    setConnecting(false)
-  }
-
-  async function disconnect() {
-    await api.post("/api/whatsapp/logout", {})
-    await pollStatus()
-  }
-
-  const statusConfig: Record<WhatsAppStatus, { label: string; variant: "success" | "warning" | "danger" | "default"; icon: React.ComponentType<{ className?: string }> }> = {
-    CONNECTED: { label: "متصل", variant: "success", icon: CheckCircle2 },
-    CONNECTING: { label: "جاري الاتصال...", variant: "warning", icon: RefreshCw },
-    QR_REQUIRED: { label: "مسح QR", variant: "warning", icon: QrCode },
-    DISCONNECTED: { label: "غير متصل", variant: "danger", icon: WifiOff },
-  }
-
-  if (loading) return <LoadingPage />
-
-  const cfg = statusConfig[status]
-  const StatusIcon = cfg.icon
-
+export default function NotificationsSettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">إعدادات WhatsApp</h1>
-        <p className="text-sm text-gray-500">اتصل بواتساب لإرسال الإشعارات للأولياء مجاناً</p>
+        <h1 className="text-2xl font-bold">إعدادات الإشعارات</h1>
+        <p className="text-sm text-gray-500">نظام الإشعارات الجديد — SMS للغياب + إشعارات داخلية للباقي</p>
       </div>
 
       <Card padding="lg">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="rounded-xl bg-green-50 p-3">
-              <Phone className="h-6 w-6 text-green-600" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold">حالة الاتصال</h2>
-              <div className="mt-1 flex items-center gap-2">
-                <Badge variant={cfg.variant}>
-                  <StatusIcon className={`inline h-3 w-3 ${status === "CONNECTING" ? "animate-spin" : ""}`} />
-                  {" "}{cfg.label}
-                </Badge>
-              </div>
+        <div className="flex items-center gap-4">
+          <div className="rounded-xl bg-blue-50 p-3">
+            <MessageSquare className="h-6 w-6 text-blue-600" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold">إشعارات الغياب — SMS عبر MoorSyl</h2>
+            <div className="mt-1 flex items-center gap-2">
+              <Badge variant="success">نشط</Badge>
+              <span className="text-sm text-gray-500">يُرسل تلقائياً عند تسجيل الغياب</span>
             </div>
           </div>
-          <div className="flex gap-2">
-            {status === "DISCONNECTED" ? (
-              <Button onClick={() => void connect()} loading={connecting}>
-                <Wifi className="h-4 w-4" /> اتصال
-              </Button>
-            ) : (
-              <Button variant="danger" onClick={() => void disconnect()}>
-                <LogOut className="h-4 w-4" /> قطع الاتصال
-              </Button>
-            )}
+        </div>
+        <div className="mt-4 rounded-xl bg-gray-50 p-4 text-sm text-gray-600">
+          <p>عندما يسجل الأستاذ غياب تلميذ، يتم:</p>
+          <ol className="mt-2 list-decimal space-y-1 ps-5">
+            <li>إنشاء إشعار داخلي للولي (يظهر في بوابة الولي 🔔)</li>
+            <li>إرسال SMS فوري عبر MoorSyl إلى هاتف الولي</li>
+          </ol>
+          <p className="mt-3 text-xs text-gray-400">
+            يتطلب إعداد <code className="rounded bg-white px-1">MOORSYL_API_KEY</code> في ملف .env — التكلفة 0.18-0.95 MRU للرسالة
+          </p>
+        </div>
+      </Card>
+
+      <Card padding="lg">
+        <div className="flex items-center gap-4">
+          <div className="rounded-xl bg-purple-50 p-3">
+            <Bell className="h-6 w-6 text-purple-600" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold">الإشعارات الداخلية</h2>
+            <div className="mt-1 flex items-center gap-2">
+              <Badge variant="success">نشط</Badge>
+              <span className="text-sm text-gray-500">النتائج، الرسوم، التتبع — داخل النظام</span>
+            </div>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <div className="rounded-xl bg-gray-50 p-4 text-center">
+            <Smartphone className="mx-auto h-8 w-8 text-gray-400" />
+            <p className="mt-2 text-sm font-medium">بوابة الولي</p>
+            <p className="text-xs text-gray-500">جرس + عداد غير مقروء</p>
+          </div>
+          <div className="rounded-xl bg-gray-50 p-4 text-center">
+            <Phone className="mx-auto h-8 w-8 text-gray-400" />
+            <p className="mt-2 text-sm font-medium">SMS للغياب فقط</p>
+            <p className="text-xs text-gray-500">الحالات الحرجة فقط</p>
+          </div>
+          <div className="rounded-xl bg-gray-50 p-4 text-center">
+            <Bell className="mx-auto h-8 w-8 text-gray-400" />
+            <p className="mt-2 text-sm font-medium">باقي الإشعارات</p>
+            <p className="text-xs text-gray-500">داخل النظام فقط</p>
           </div>
         </div>
       </Card>
 
-      {status === "QR_REQUIRED" && qr && (
-        <Card padding="lg">
-          <div className="text-center">
-            <h2 className="mb-4 text-lg font-semibold">امسح رمز QR بهاتفك</h2>
-            <p className="mb-4 text-sm text-gray-500">
-              افتح واتساب على هاتفك → الإعدادات → الأجهزة المتصلة → ربط جهاز
-            </p>
-            <div className="mx-auto inline-block rounded-xl border-2 border-gray-200 p-4">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qr)}`}
-                alt="WhatsApp QR Code"
-                className="h-64 w-64"
-              />
-            </div>
-            <p className="mt-4 text-sm text-gray-400">
-              الرمز يتحدث تلقائياً — امسحه قبل انتهاء الصلاحية
-            </p>
-          </div>
-        </Card>
-      )}
-
-      {status === "CONNECTED" && (
-        <Card padding="lg">
-          <div className="flex items-center gap-4">
-            <div className="rounded-xl bg-green-50 p-3">
-              <CheckCircle2 className="h-6 w-6 text-green-600" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-green-700">WhatsApp متصل!</h2>
-              <p className="text-sm text-gray-500">
-                يمكنك الآن إرسال الإشعارات للأولياء عبر واتساب. سيتم الإرسال تلقائياً عند اعتماد الحملات.
-              </p>
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {status === "DISCONNECTED" && (
-        <Card padding="lg">
-          <h2 className="mb-3 text-lg font-semibold">كيف يعمل؟</h2>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="rounded-xl bg-gray-50 p-4">
-              <p className="text-sm font-medium text-gray-700">1. اضغط اتصال</p>
-              <p className="mt-1 text-xs text-gray-500">سيظهر رمز QR</p>
-            </div>
-            <div className="rounded-xl bg-gray-50 p-4">
-              <p className="text-sm font-medium text-gray-700">2. امسح الرمز</p>
-              <p className="mt-1 text-xs text-gray-500">باستخدام واتساب على هاتفك</p>
-            </div>
-            <div className="rounded-xl bg-gray-50 p-4">
-              <p className="text-sm font-medium text-gray-700">3. جاهز!</p>
-              <p className="mt-1 text-xs text-gray-500">سيعمل الاتصال تلقائياً</p>
-            </div>
-          </div>
-          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-            <strong>ملاحظة:</strong> هذا الحل المجاني (Baileys). للإنتاج مع حركة مرور عالية، يُنصح باستخدام WhatsApp Business API (UltraMsg أو WATI).
-          </div>
-        </Card>
-      )}
+      <Card padding="lg" className="border-amber-200 bg-amber-50">
+        <p className="text-sm text-amber-800">
+          <strong>WhatsApp معطل حالياً.</strong> تم تعطيله لتوفير التكلفة والتعقيد. يمكن إعادة تفعيله لاحقاً عند الحاجة عبر إعداد{" "}
+          <code className="rounded bg-white px-1">WHATSAPP_PROVIDER</code>.
+        </p>
+      </Card>
     </div>
   )
 }

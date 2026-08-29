@@ -4,12 +4,12 @@ import Link from "next/link"
 import { signOut, useSession } from "next-auth/react"
 import { SessionProvider } from "next-auth/react"
 import { redirect, usePathname } from "next/navigation"
-import { useState } from "react"
-import { useLocale, useTranslations } from "next-intl"
+import { useEffect, useState } from "react"
+import { useLocale } from "next-intl"
 import { getLocaleDirection } from "@/i18n/config"
 import { LanguageSwitcher } from "@/components/ui"
 import {
-  LayoutDashboard, CalendarCheck, GraduationCap, Receipt, LogOut, UserCog, Menu, X,
+  LayoutDashboard, CalendarCheck, GraduationCap, Receipt, LogOut, Menu, X, Bell,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -18,6 +18,7 @@ type NavItem = {
 }
 const nav: NavItem[] = [
   { href: "/parent", label: "لوحة التحكم", icon: LayoutDashboard },
+  { href: "/parent/notifications", label: "الإشعارات", icon: Bell },
   { href: "/parent/attendance", label: "الحضور والغياب", icon: CalendarCheck },
   { href: "/parent/grades", label: "النتائج", icon: GraduationCap },
   { href: "/parent/invoices", label: "الفواتير", icon: Receipt },
@@ -29,9 +30,19 @@ function ParentLayoutContent({ children }: { children: React.ReactNode }) {
   const isRtl = direction === "rtl"
   const { data: session, status } = useSession()
   const pathname = usePathname()
-  const user = session?.user as any
+  const user = session?.user as { id: string; name: string; role: string } | undefined
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
   const closeMobile = () => setMobileOpen(false)
+
+  useEffect(() => {
+    if (user?.role === "PARENT") {
+      fetch("/api/parent/notifications")
+        .then((r) => r.json())
+        .then((d: { unreadCount?: number }) => setUnreadCount(d.unreadCount || 0))
+        .catch(() => {})
+    }
+  }, [user?.role])
 
   if (status === "loading") {
     return (
@@ -60,6 +71,7 @@ function ParentLayoutContent({ children }: { children: React.ReactNode }) {
           <div className="p-3 space-y-1 pb-24">
             {nav.map((item) => {
               const active = item.href === "/parent" ? pathname === item.href : pathname?.startsWith(item.href)
+              const showBadge = item.href === "/parent/notifications" && unreadCount > 0
               return (
                 <Link key={item.href} href={item.href} onClick={closeMobile}
                   className={cn(
@@ -67,7 +79,12 @@ function ParentLayoutContent({ children }: { children: React.ReactNode }) {
                     active ? "bg-blue-50 text-blue-700 font-medium" : "text-gray-600 hover:bg-gray-100"
                   )}>
                   <item.icon className="h-5 w-5" />
-                  {item.label}
+                  <span className="flex-1">{item.label}</span>
+                  {showBadge && (
+                    <span className="min-w-5 h-5 px-1.5 flex items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white">
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                  )}
                 </Link>
               )
             })}
@@ -95,6 +112,7 @@ function ParentLayoutContent({ children }: { children: React.ReactNode }) {
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           {nav.map((item) => {
             const active = item.href === "/parent" ? pathname === item.href : pathname?.startsWith(item.href)
+            const showBadge = item.href === "/parent/notifications" && unreadCount > 0
             return (
               <Link key={item.href} href={item.href}
                 className={cn(
@@ -102,7 +120,12 @@ function ParentLayoutContent({ children }: { children: React.ReactNode }) {
                   active ? "bg-blue-50 text-blue-700 font-medium" : "text-gray-600 hover:bg-gray-100"
                 )}>
                 <item.icon className="h-5 w-5" />
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                {showBadge && (
+                  <span className="min-w-5 h-5 px-1.5 flex items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
               </Link>
             )
           })}

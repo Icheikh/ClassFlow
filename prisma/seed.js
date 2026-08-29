@@ -399,10 +399,11 @@ async function createUsersAndTeachers(schoolId, permissionMap) {
   return { admin, staff, accountant, supervisor, teachers, parent, passwordHash }
 }
 
-async function seedStudentsAndLinks(schoolId, academicYearId, classroomMap, parentId) {
+async function seedStudentsAndLinks(schoolId, academicYearId, classroomMap, _sharedParentId) {
   const firstNames = ["أحمد", "محمد", "مريم", "سارة", "خديجة", "يوسف", "إبراهيم", "فاطمة", "عبد الله", "آمنة"]
   const lastNames = ["ولد محمد", "بنت أحمد", "ولد المختار", "بنت سيدي", "ولد الشيخ", "بنت عبد الله"]
   const classroomNames = Object.keys(classroomMap)
+  const parentPasswordHash = await bcrypt.hash("parent123", 10)
 
   const createdStudents = []
   let counter = 1
@@ -430,11 +431,25 @@ async function seedStudentsAndLinks(schoolId, academicYearId, classroomMap, pare
       })
 
       if (counter <= 10) {
+        const parentIndex = counter
+        const parentUser = await prisma.user.create({
+          data: {
+            email: `parent${parentIndex}@alnoor.edu`,
+            passwordHash: parentPasswordHash,
+            name: `ولي أمر ${parentIndex}`,
+            phone: `+2223000000${String(parentIndex).padStart(2, "0")}`,
+            role: "PARENT",
+            schoolId,
+          },
+        })
+        const parent = await prisma.parent.create({
+          data: { schoolId, userId: parentUser.id, phone: `+2223000000${String(parentIndex).padStart(2, "0")}` },
+        })
         await prisma.studentParent.create({
           data: {
             schoolId,
             studentId: student.id,
-            parentId,
+            parentId: parent.id,
             relationship: "ولي أمر",
             isPrimary: true,
             receiveNotifications: true,
