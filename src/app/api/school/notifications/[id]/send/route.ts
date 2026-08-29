@@ -19,12 +19,12 @@ function toStringArray(value: unknown) {
 
 export async function POST(_: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!canManageNotifications(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const notification = await prisma.notification.findFirst({
-    where: { id: params.id, schoolId: user.schoolId, userId: user.id },
+    where: { id: params.id, schoolId: user.schoolId!, userId: user.id },
   })
   if (!notification) return NextResponse.json({ error: "التنبيه غير موجود" }, { status: 404 })
   if (notification.type !== "ATTENDANCE_RECORDED") {
@@ -41,7 +41,7 @@ export async function POST(_: NextRequest, { params }: { params: { id: string } 
 
   try {
     const campaign = await createNotificationCampaign({
-      schoolId: user.schoolId,
+      schoolId: user.schoolId!,
       createdByUserId: user.id,
       type: "ATTENDANCE",
       channel: "WHATSAPP",

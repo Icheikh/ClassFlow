@@ -11,12 +11,12 @@ function canManageNotifications(user: any) {
 
 export async function POST(_: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!canManageNotifications(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const campaign = await prisma.notificationCampaign.findFirst({
-    where: { id: params.id, schoolId: user.schoolId },
+    where: { id: params.id, schoolId: user.schoolId! },
   })
 
   if (!campaign) return NextResponse.json({ error: "الحملة غير موجودة" }, { status: 404 })

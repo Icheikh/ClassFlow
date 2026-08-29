@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma"
 
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.id || user?.role !== "PARENT") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }

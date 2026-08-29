@@ -12,12 +12,12 @@ function canManageNotifications(user: any) {
 
 export async function GET() {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!canManageNotifications(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const campaigns = await prisma.notificationCampaign.findMany({
-    where: { schoolId: user.schoolId },
+    where: { schoolId: user.schoolId! },
     include: {
       template: { select: { id: true, name: true } },
       createdByUser: { select: { id: true, name: true } },
@@ -46,7 +46,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!canManageNotifications(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const campaign = await createNotificationCampaign({
-      schoolId: user.schoolId,
+      schoolId: user.schoolId!,
       createdByUserId: user.id,
       templateId,
       type,

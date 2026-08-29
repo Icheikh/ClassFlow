@@ -171,7 +171,7 @@ async function notifyAssessmentChange(options: {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!session || !user?.schoolId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
@@ -205,7 +205,7 @@ export async function POST(req: NextRequest) {
 
   const calculationTerms = await prisma.term.findMany({
     where: {
-      schoolId: user.schoolId,
+      schoolId: user.schoolId!,
       academicYearId: context.activeYear.id,
       order: { lte: context.activeTerm.order },
     },
@@ -228,7 +228,7 @@ export async function POST(req: NextRequest) {
 
   const publicationState = await ensurePublicationIsEditable({
     user,
-    schoolId: user.schoolId,
+    schoolId: user.schoolId!,
     academicYearId: context.activeYear.id,
     termId: context.activeTerm.id,
     classroomId,
@@ -250,7 +250,7 @@ export async function POST(req: NextRequest) {
   const teacherId = access.teacherId || (
     await prisma.teacherAssignment.findFirst({
       where: {
-        schoolId: user.schoolId,
+        schoolId: user.schoolId!,
         academicYearId: context.activeYear.id,
         classroomId,
         subjectId,
@@ -266,7 +266,7 @@ export async function POST(req: NextRequest) {
 
   const assessment = await prisma.assessment.create({
     data: {
-      schoolId: user.schoolId,
+      schoolId: user.schoolId!,
       academicYearId: context.activeYear.id,
       termId: context.activeTerm.id,
       classroomId,
@@ -279,7 +279,7 @@ export async function POST(req: NextRequest) {
       date: date ? new Date(date) : new Date(),
       scores: {
         create: scores.map((row: { studentId: string; score: number }) => ({
-          schoolId: user.schoolId,
+          schoolId: user.schoolId!,
           studentId: row.studentId,
           score: Number(row.score),
           status: "DRAFT",
@@ -297,7 +297,7 @@ export async function POST(req: NextRequest) {
 
   await createResultAuditLog({
     prisma,
-    schoolId: user.schoolId,
+    schoolId: user.schoolId!,
     actorUserId: user.id,
     entityType: publicationState.overrideLockedPublication ? "ASSESSMENT_OVERRIDE" : "ASSESSMENT",
     entityId: assessment.id,
@@ -317,7 +317,7 @@ export async function POST(req: NextRequest) {
   })
 
   await notifyAssessmentChange({
-    schoolId: user.schoolId,
+    schoolId: user.schoolId!,
     assessmentId: assessment.id,
     classroomId,
     subjectId,
@@ -335,7 +335,7 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!session || !user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!canAccessGrades(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
@@ -350,7 +350,7 @@ export async function PUT(req: NextRequest) {
   }
 
   const existing = await prisma.assessment.findFirst({
-    where: { id, schoolId: user.schoolId },
+    where: { id, schoolId: user.schoolId! },
     include: { scores: true },
   })
   if (!existing) {
@@ -387,7 +387,7 @@ export async function PUT(req: NextRequest) {
 
   const publicationState = await ensurePublicationIsEditable({
     user,
-    schoolId: user.schoolId,
+    schoolId: user.schoolId!,
     academicYearId: existing.academicYearId,
     termId: existing.termId,
     classroomId: existing.classroomId,
@@ -436,7 +436,7 @@ export async function PUT(req: NextRequest) {
     for (const [studentId, score] of scoreMap.entries()) {
       await tx.assessmentScore.create({
         data: {
-          schoolId: user.schoolId,
+          schoolId: user.schoolId!,
           assessmentId: id,
           studentId,
           score,
@@ -459,7 +459,7 @@ export async function PUT(req: NextRequest) {
 
   await createResultAuditLog({
     prisma,
-    schoolId: user.schoolId,
+    schoolId: user.schoolId!,
     actorUserId: user.id,
     entityType: publicationState.overrideLockedPublication ? "ASSESSMENT_OVERRIDE" : "ASSESSMENT",
     entityId: id,
@@ -480,7 +480,7 @@ export async function PUT(req: NextRequest) {
 
   if (assessment) {
     await notifyAssessmentChange({
-      schoolId: user.schoolId,
+      schoolId: user.schoolId!,
       assessmentId: assessment.id,
       classroomId: assessment.classroomId,
       subjectId: assessment.subjectId,
@@ -499,7 +499,7 @@ export async function PUT(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!session || !user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!canAccessGrades(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
@@ -515,7 +515,7 @@ export async function GET(req: NextRequest) {
 
   const calculationTerms = await prisma.term.findMany({
     where: {
-      schoolId: user.schoolId,
+      schoolId: user.schoolId!,
       academicYearId: context.activeYear.id,
       order: { lte: context.activeTerm.order },
     },
@@ -524,7 +524,7 @@ export async function GET(req: NextRequest) {
   const calculationTermIds = calculationTerms.map((term) => term.id)
 
   const where: any = {
-    schoolId: user.schoolId,
+    schoolId: user.schoolId!,
     academicYearId: context.activeYear.id,
     termId: context.activeTerm.id,
   }
@@ -579,7 +579,7 @@ export async function GET(req: NextRequest) {
       : Promise.resolve([]),
     classroomId
       ? getResultPublication({
-          schoolId: user.schoolId,
+          schoolId: user.schoolId!,
           academicYearId: context.activeYear.id,
           termId: context.activeTerm.id,
           classroomId,
@@ -587,14 +587,14 @@ export async function GET(req: NextRequest) {
       : Promise.resolve(null),
     classroomId
       ? prisma.classroom.findFirst({
-          where: { id: classroomId, schoolId: user.schoolId },
+          where: { id: classroomId, schoolId: user.schoolId! },
           select: { id: true, name: true, levelId: true, streamId: true },
         })
       : Promise.resolve(null),
     classroomId
       ? prisma.enrollment.findMany({
           where: {
-            schoolId: user.schoolId,
+            schoolId: user.schoolId!,
             classroomId,
             academicYearId: context.activeYear.id,
             status: "ACTIVE",
@@ -686,7 +686,7 @@ export async function GET(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!session || !user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!canAccessGrades(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
@@ -697,7 +697,7 @@ export async function DELETE(req: NextRequest) {
   }
 
   const assessment = await prisma.assessment.findFirst({
-    where: { id, schoolId: user.schoolId },
+    where: { id, schoolId: user.schoolId! },
   })
   if (!assessment) {
     return NextResponse.json({ error: "التقويم غير موجود" }, { status: 404 })
@@ -722,7 +722,7 @@ export async function DELETE(req: NextRequest) {
 
   const publicationState = await ensurePublicationIsEditable({
     user,
-    schoolId: user.schoolId,
+    schoolId: user.schoolId!,
     academicYearId: assessment.academicYearId,
     termId: assessment.termId,
     classroomId: assessment.classroomId,
@@ -735,7 +735,7 @@ export async function DELETE(req: NextRequest) {
   await prisma.assessment.delete({ where: { id } })
   await createResultAuditLog({
     prisma,
-    schoolId: user.schoolId,
+    schoolId: user.schoolId!,
     actorUserId: user.id,
     entityType: publicationState.overrideLockedPublication ? "ASSESSMENT_OVERRIDE" : "ASSESSMENT",
     entityId: id,

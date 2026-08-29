@@ -14,7 +14,7 @@ function canReadFinance(user: any) {
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!canReadFinance(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
   const month = url.searchParams.get("month")
   const status = url.searchParams.get("status")
 
-  const where: any = { schoolId: user.schoolId }
+  const where: any = { schoolId: user.schoolId! }
   if (classroomId) where.classroomId = classroomId
   if (month) where.month = month
   if (status) where.status = status
@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const isLegacyRole = ["SUPERVISOR", "ACCOUNTANT"].includes(user?.role)
   if (!hasPermission(user, PERMISSIONS.MANAGE_FEES) && !isLegacyRole)
@@ -54,11 +54,11 @@ export async function POST(req: NextRequest) {
   const { feeId, classroomId, month, amount, dueDate } = body
   if (!feeId || !classroomId || !month) return NextResponse.json({ error: "الرسم والقسم والشهر مطلوبون" }, { status: 400 })
 
-  const fee = await prisma.fee.findFirst({ where: { id: feeId, schoolId: user.schoolId } })
+  const fee = await prisma.fee.findFirst({ where: { id: feeId, schoolId: user.schoolId! } })
   if (!fee) return NextResponse.json({ error: "الرسم غير موجود" }, { status: 404 })
 
   const studentFees = await prisma.studentFee.findMany({
-    where: { feeId, classroomId, isActive: true, schoolId: user.schoolId },
+    where: { feeId, classroomId, isActive: true, schoolId: user.schoolId! },
   })
 
   let created = 0
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
     if (existing) continue
     await prisma.invoice.create({
       data: {
-        schoolId: user.schoolId,
+        schoolId: user.schoolId!,
         studentId: sf.studentId,
         feeId,
         studentFeeId: sf.id,

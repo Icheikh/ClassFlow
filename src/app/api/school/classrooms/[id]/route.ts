@@ -5,19 +5,19 @@ import { prisma } from "@/lib/prisma"
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const classroom = await prisma.classroom.findFirst({
-    where: { id: params.id, schoolId: user.schoolId },
+    where: { id: params.id, schoolId: user.schoolId! },
     include: { level: { include: { stage: true } }, stream: true },
   })
   if (!classroom) return NextResponse.json({ error: "غير موجود" }, { status: 404 })
 
-  const year = await prisma.academicYear.findFirst({ where: { schoolId: user.schoolId, isActive: true } })
+  const year = await prisma.academicYear.findFirst({ where: { schoolId: user.schoolId!, isActive: true } })
   const activeTerm = year
     ? await prisma.term.findFirst({
-        where: { schoolId: user.schoolId, academicYearId: year.id, isActive: true },
+        where: { schoolId: user.schoolId!, academicYearId: year.id, isActive: true },
       })
     : null
 
@@ -74,7 +74,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const recentActivity = assessmentIds.length || publication
     ? await prisma.resultAuditLog.findMany({
         where: {
-          schoolId: user.schoolId,
+          schoolId: user.schoolId!,
           OR: [
             ...(assessmentIds.length
               ? [{ entityType: { in: ["ASSESSMENT", "ASSESSMENT_OVERRIDE"] }, entityId: { in: assessmentIds } }]

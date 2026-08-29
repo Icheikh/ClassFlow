@@ -4,6 +4,28 @@ import { prisma } from "./prisma"
 import bcrypt from "bcryptjs"
 import { getUserPermissions } from "./permissions"
 
+export type SessionUser = {
+  id: string
+  email: string
+  name: string
+  role: string
+  schoolId: string | null
+  school: { id: string; name: string; slug: string } | null
+  permissions?: string[]
+  mustChangePassword: boolean
+}
+
+declare module "next-auth" {
+  interface Session {
+    user: SessionUser
+  }
+  interface User extends SessionUser {}
+}
+
+declare module "next-auth/jwt" {
+  interface JWT extends SessionUser {}
+}
+
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
   pages: {
@@ -54,7 +76,7 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           role: user.role,
-          schoolId: user.schoolId,
+          schoolId: user.schoolId!,
           school: user.school,
           mustChangePassword: user.mustChangePassword,
         }
@@ -64,13 +86,14 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id
-        token.role = (user as any).role
-        token.schoolId = (user as any).schoolId
-        token.school = (user as any).school
-        token.mustChangePassword = (user as any).mustChangePassword
-        if (user.id) {
-          const permissions = await getUserPermissions(user.id as string)
+        const u = user as unknown as SessionUser
+        token.id = u.id
+        token.role = u.role
+        token.schoolId = u.schoolId
+        token.school = u.school
+        token.mustChangePassword = u.mustChangePassword
+        if (u.id) {
+          const permissions = await getUserPermissions(u.id)
           token.permissions = permissions
         }
       }
@@ -78,12 +101,13 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       if (session.user) {
-        (session.user as any).id = token.id
-        ;(session.user as any).role = token.role
-        ;(session.user as any).schoolId = token.schoolId
-        ;(session.user as any).school = token.school
-        ;(session.user as any).permissions = token.permissions || []
-        ;(session.user as any).mustChangePassword = token.mustChangePassword || false
+        const t = token as unknown as SessionUser & { permissions?: string[] }
+        session.user.id = t.id as string
+        session.user.role = t.role as string
+        session.user.schoolId = t.schoolId as string | null
+        session.user.school = t.school as SessionUser["school"]
+        session.user.permissions = (t.permissions as string[]) || []
+        session.user.mustChangePassword = (t.mustChangePassword as boolean) || false
       }
       return session
     },

@@ -6,19 +6,19 @@ import { hasPermission, PERMISSIONS } from "@/lib/permissions"
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   let fees
   try {
     fees = await prisma.fee.findMany({
-      where: { schoolId: user.schoolId },
+      where: { schoolId: user.schoolId! },
       include: { _count: { select: { studentFees: true } } },
       orderBy: { createdAt: "desc" },
     })
   } catch {
     fees = await prisma.fee.findMany({
-      where: { schoolId: user.schoolId },
+      where: { schoolId: user.schoolId! },
       orderBy: { createdAt: "desc" },
     })
   }
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const isLegacyRole = ["SUPERVISOR", "ACCOUNTANT"].includes(user?.role)
   if (!hasPermission(user, PERMISSIONS.MANAGE_FEES) && !isLegacyRole)
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
 
   const fee = await prisma.fee.create({
     data: {
-      schoolId: user.schoolId,
+      schoolId: user.schoolId!,
       name,
       amount: parseFloat(amount),
       frequency: frequency || "MONTHLY",
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
   // Auto-assign fee to students if classroom or level is specified
   try {
     if (fee.classroomId || fee.levelId) {
-      const studentWhere: any = { schoolId: user.schoolId, isActive: true }
+      const studentWhere: any = { schoolId: user.schoolId!, isActive: true }
       if (fee.classroomId) {
         studentWhere.enrollments = { some: { classroomId: fee.classroomId, status: "ACTIVE" } }
       } else if (fee.levelId) {
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
         })
         if (!existing) {
           await prisma.studentFee.create({
-            data: { schoolId: user.schoolId, studentId: student.id, feeId: fee.id, classroomId: cId },
+            data: { schoolId: user.schoolId!, studentId: student.id, feeId: fee.id, classroomId: cId },
           })
         }
       }

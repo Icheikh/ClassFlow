@@ -8,7 +8,7 @@ import { sendCredentialsEmail, EmailLocale } from "@/lib/email"
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const url = new URL(req.url)
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
 
   const teachers = await prisma.teacher.findMany({
     where: {
-      schoolId: user.schoolId,
+      schoolId: user.schoolId!,
       ...(status === "inactive"
         ? { user: { isActive: false } }
         : status === "all"
@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
   if (!hasPermission(user, PERMISSIONS.MANAGE_TEACHERS) && !isLegacyRole)
@@ -59,12 +59,12 @@ export async function POST(req: NextRequest) {
       name,
       phone,
       role: "TEACHER",
-      schoolId: user.schoolId,
+      schoolId: user.schoolId!,
       mustChangePassword: usesDefaultPassword,
     },
   })
   const teacher = await prisma.teacher.create({
-    data: { schoolId: user.schoolId, userId: appUser.id, phone },
+    data: { schoolId: user.schoolId!, userId: appUser.id, phone },
     include: {
       user: { select: { id: true, email: true, name: true, phone: true, isActive: true } },
     },
@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
   if (!hasPermission(user, PERMISSIONS.MANAGE_TEACHERS) && !isLegacyRole)
@@ -95,7 +95,7 @@ export async function PUT(req: NextRequest) {
   const body = await req.json()
   const { id, name, phone, isActive } = body
 
-  const teacher = await prisma.teacher.findFirst({ where: { id, schoolId: user.schoolId } })
+  const teacher = await prisma.teacher.findFirst({ where: { id, schoolId: user.schoolId! } })
   if (!teacher) return NextResponse.json({ error: "غير موجود" }, { status: 404 })
 
   await prisma.user.update({
@@ -117,7 +117,7 @@ export async function PUT(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    const user = session?.user as any
+    const user = session?.user
     if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
     if (!hasPermission(user, PERMISSIONS.MANAGE_TEACHERS) && !isLegacyRole)
@@ -126,14 +126,14 @@ export async function DELETE(req: NextRequest) {
     const id = url.searchParams.get("id")
     if (!id) return NextResponse.json({ error: "id required" }, { status: 400 })
 
-    const teacher = await prisma.teacher.findFirst({ where: { id, schoolId: user.schoolId } })
+    const teacher = await prisma.teacher.findFirst({ where: { id, schoolId: user.schoolId! } })
     if (!teacher) return NextResponse.json({ error: "غير موجود" }, { status: 404 })
 
     // قطع التعيينات في السنة الدراسية النشطة ثم تعطيل الحساب
     await prisma.teacherAssignment.deleteMany({
       where: {
         teacherId: teacher.id,
-        schoolId: user.schoolId,
+        schoolId: user.schoolId!,
         academicYear: { isActive: true },
       },
     })

@@ -15,7 +15,7 @@ function canReadStudents(user: any) {
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!session || !user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!canReadStudents(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
@@ -24,13 +24,13 @@ export async function GET(req: NextRequest) {
   if (!classroomId) return NextResponse.json({ error: "classroomId is required" }, { status: 400 })
 
   const activeYear = await prisma.academicYear.findFirst({
-    where: { schoolId: user.schoolId, isActive: true },
+    where: { schoolId: user.schoolId!, isActive: true },
   })
 
   const enrollments = await prisma.enrollment.findMany({
     where: {
       classroomId,
-      schoolId: user.schoolId,
+      schoolId: user.schoolId!,
       academicYearId: activeYear?.id,
       status: "ACTIVE",
     },

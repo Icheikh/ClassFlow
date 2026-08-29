@@ -16,12 +16,12 @@ function canView(user: any) {
 
 export async function GET() {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!canView(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const items = await prisma.term.findMany({
-    where: { schoolId: user.schoolId },
+    where: { schoolId: user.schoolId! },
     include: { academicYear: true },
     orderBy: [{ academicYear: { startsAt: "desc" } }, { order: "asc" }],
   })
@@ -30,7 +30,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!canManage(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
@@ -38,21 +38,21 @@ export async function POST(req: NextRequest) {
   const { academicYearId, name, startsAt, endsAt, order } = body
 
   const item = await prisma.term.create({
-    data: { schoolId: user.schoolId, academicYearId, name, startsAt: new Date(startsAt), endsAt: new Date(endsAt), order: parseInt(order) },
+    data: { schoolId: user.schoolId!, academicYearId, name, startsAt: new Date(startsAt), endsAt: new Date(endsAt), order: parseInt(order) },
   })
   return NextResponse.json(item)
 }
 
 export async function PUT(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!canManage(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const body = await req.json()
   const { id, name, startsAt, endsAt, order, isActive } = body
 
-  const existing = await prisma.term.findFirst({ where: { id, schoolId: user.schoolId } })
+  const existing = await prisma.term.findFirst({ where: { id, schoolId: user.schoolId! } })
   if (!existing) return NextResponse.json({ error: "غير موجود" }, { status: 404 })
 
   const item = await prisma.term.update({
@@ -64,7 +64,7 @@ export async function PUT(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!canManage(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
@@ -72,7 +72,7 @@ export async function DELETE(req: NextRequest) {
   const id = url.searchParams.get("id")
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 })
 
-  const existing = await prisma.term.findFirst({ where: { id, schoolId: user.schoolId } })
+  const existing = await prisma.term.findFirst({ where: { id, schoolId: user.schoolId! } })
   if (!existing) return NextResponse.json({ error: "غير موجود" }, { status: 404 })
 
   await prisma.term.delete({ where: { id } })

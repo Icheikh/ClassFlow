@@ -45,7 +45,7 @@ async function getAcademicContext(schoolId: string, termId?: string | null) {
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!canReviewResults(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
 
   const calculationTerms = await prisma.term.findMany({
     where: {
-      schoolId: user.schoolId,
+      schoolId: user.schoolId!,
       academicYearId: context.activeYear.id,
       order: { lte: context.term.order },
     },
@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
   const calculationTermIds = calculationTerms.map((term) => term.id)
 
   const classroom = await prisma.classroom.findFirst({
-    where: { id: classroomId, schoolId: user.schoolId },
+    where: { id: classroomId, schoolId: user.schoolId! },
     include: {
       level: { include: { stage: true } },
       stream: true,
@@ -85,7 +85,7 @@ export async function GET(req: NextRequest) {
   }
 
   const calculationAssessmentWhere = {
-    schoolId: user.schoolId,
+    schoolId: user.schoolId!,
     academicYearId: context.activeYear.id,
     classroomId,
     termId: { in: calculationTermIds },
@@ -103,7 +103,7 @@ export async function GET(req: NextRequest) {
     }),
     prisma.enrollment.findMany({
       where: {
-        schoolId: user.schoolId,
+        schoolId: user.schoolId!,
         academicYearId: context.activeYear.id,
         classroomId,
         status: "ACTIVE",
@@ -124,7 +124,7 @@ export async function GET(req: NextRequest) {
     }),
     prisma.subjectCoefficient.findMany({
       where: {
-        schoolId: user.schoolId,
+        schoolId: user.schoolId!,
         academicYearId: context.activeYear.id,
         OR: [
           { classroomId },
@@ -155,7 +155,7 @@ export async function GET(req: NextRequest) {
 
   const teacherAssignments = await prisma.teacherAssignment.findMany({
     where: {
-      schoolId: user.schoolId,
+      schoolId: user.schoolId!,
       academicYearId: context.activeYear.id,
       classroomId,
       isActive: true,
@@ -227,7 +227,7 @@ export async function GET(req: NextRequest) {
   const template =
     templateId && user.role === "SCHOOL_ADMIN"
       ? await prisma.resultReportTemplate.findFirst({
-          where: { id: templateId, schoolId: user.schoolId },
+          where: { id: templateId, schoolId: user.schoolId! },
         })
       : activeTemplate
 
@@ -302,7 +302,7 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!canReviewResults(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
@@ -324,7 +324,7 @@ export async function PUT(req: NextRequest) {
 
   const calculationTerms = await prisma.term.findMany({
     where: {
-      schoolId: user.schoolId,
+      schoolId: user.schoolId!,
       academicYearId: context.activeYear.id,
       order: { lte: context.term.order },
     },
@@ -333,7 +333,7 @@ export async function PUT(req: NextRequest) {
   const calculationTermIds = calculationTerms.map((term) => term.id)
 
   const classroom = await prisma.classroom.findFirst({
-    where: { id: classroomId, schoolId: user.schoolId },
+    where: { id: classroomId, schoolId: user.schoolId! },
     select: { id: true, name: true, levelId: true, streamId: true },
   })
   if (!classroom) {
@@ -341,7 +341,7 @@ export async function PUT(req: NextRequest) {
   }
 
   const calculationAssessmentWhere = {
-    schoolId: user.schoolId,
+    schoolId: user.schoolId!,
     academicYearId: context.activeYear.id,
     classroomId,
     termId: { in: calculationTermIds },
@@ -359,7 +359,7 @@ export async function PUT(req: NextRequest) {
   const [enrollments, assessments, coefficients, teacherAssignments, resultRule] = await Promise.all([
     prisma.enrollment.findMany({
       where: {
-        schoolId: user.schoolId,
+        schoolId: user.schoolId!,
         academicYearId: context.activeYear.id,
         classroomId,
         status: "ACTIVE",
@@ -377,7 +377,7 @@ export async function PUT(req: NextRequest) {
     }),
     prisma.subjectCoefficient.findMany({
       where: {
-        schoolId: user.schoolId,
+        schoolId: user.schoolId!,
         academicYearId: context.activeYear.id,
         OR: [
           { classroomId },
@@ -395,7 +395,7 @@ export async function PUT(req: NextRequest) {
     }),
     prisma.teacherAssignment.findMany({
       where: {
-        schoolId: user.schoolId,
+        schoolId: user.schoolId!,
         academicYearId: context.activeYear.id,
         classroomId,
         isActive: true,
@@ -470,7 +470,7 @@ export async function PUT(req: NextRequest) {
       lockedByUserId: status === RESULT_PUBLICATION_STATUSES.LOCKED ? user.id : null,
     },
     create: {
-      schoolId: user.schoolId,
+      schoolId: user.schoolId!,
       academicYearId: context.activeYear.id,
       termId: context.term.id,
       classroomId,
@@ -484,7 +484,7 @@ export async function PUT(req: NextRequest) {
 
   await createResultAuditLog({
     prisma,
-    schoolId: user.schoolId,
+    schoolId: user.schoolId!,
     actorUserId: user.id,
     entityType: "RESULT_PUBLICATION",
     entityId: publication.id,
@@ -502,7 +502,7 @@ export async function PUT(req: NextRequest) {
   ) {
     try {
       const campaign = await createNotificationCampaign({
-        schoolId: user.schoolId,
+        schoolId: user.schoolId!,
         createdByUserId: user.id,
         type: "RESULTS",
         channel: "WHATSAPP",

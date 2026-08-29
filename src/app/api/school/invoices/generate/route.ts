@@ -7,7 +7,7 @@ import { monthBelongsToYear } from "@/lib/finance"
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const isLegacyRole = ["SUPERVISOR", "ACCOUNTANT"].includes(user?.role)
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
 
   const activeStudentFees = await prisma.studentFee.findMany({
     where: {
-      schoolId: user.schoolId,
+      schoolId: user.schoolId!,
       isActive: true,
       ...(classroomId ? { classroomId } : {}),
       student: { isActive: true },
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
 
     await prisma.invoice.create({
       data: {
-        schoolId: user.schoolId,
+        schoolId: user.schoolId!,
         studentId: studentFee.studentId,
         feeId: studentFee.feeId,
         studentFeeId: studentFee.id,

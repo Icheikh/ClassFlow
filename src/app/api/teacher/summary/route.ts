@@ -30,7 +30,7 @@ function roundMoney(value: number) {
 
 export async function GET() {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
 
   if (!user?.schoolId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -50,7 +50,7 @@ export async function GET() {
   }
 
   const activeYear = await prisma.academicYear.findFirst({
-    where: { schoolId: user.schoolId, isActive: true },
+    where: { schoolId: user.schoolId!, isActive: true },
   })
 
   if (!activeYear) {
@@ -76,7 +76,7 @@ export async function GET() {
 
   const assignments = await prisma.teacherAssignment.findMany({
     where: {
-      schoolId: user.schoolId,
+      schoolId: user.schoolId!,
       teacherId: teacher.id,
       academicYearId: activeYear.id,
       isActive: true,
@@ -96,7 +96,7 @@ export async function GET() {
 
   const schedules = await prisma.schedule.findMany({
     where: {
-      schoolId: user.schoolId,
+      schoolId: user.schoolId!,
       teacherId: teacher.id,
     },
     include: {
@@ -112,7 +112,7 @@ export async function GET() {
   const scheduleAttendances = schedules.length
     ? await prisma.scheduleAttendance.findMany({
         where: {
-          schoolId: user.schoolId,
+          schoolId: user.schoolId!,
           scheduleId: { in: schedules.map((schedule) => schedule.id) },
           date: { gte: weekStart, lt: weekEnd },
         },
@@ -124,12 +124,12 @@ export async function GET() {
 
   const [notifications, unreadNotifications] = await Promise.all([
     prisma.notification.findMany({
-      where: { schoolId: user.schoolId, userId: user.id },
+      where: { schoolId: user.schoolId!, userId: user.id },
       orderBy: { createdAt: "desc" },
       take: 5,
     }),
     prisma.notification.count({
-      where: { schoolId: user.schoolId, userId: user.id, read: false },
+      where: { schoolId: user.schoolId!, userId: user.id, read: false },
     }),
   ])
 

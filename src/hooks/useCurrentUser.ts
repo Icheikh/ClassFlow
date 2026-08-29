@@ -2,7 +2,7 @@ import { useSession } from "next-auth/react"
 
 export function useCurrentUser() {
   const { data: session } = useSession()
-  const user = session?.user as any
+  const user = session?.user
   const permissions: string[] = user?.permissions ?? []
 
   function hasPermission(permission: string): boolean {

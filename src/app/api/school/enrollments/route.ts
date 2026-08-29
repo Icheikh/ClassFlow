@@ -6,7 +6,7 @@ import { hasPermission, PERMISSIONS } from "@/lib/permissions"
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const url = new URL(req.url)
@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   const academicYearId = url.searchParams.get("academicYearId")
   const status = url.searchParams.get("status")
 
-  const where: any = { schoolId: user.schoolId }
+  const where: any = { schoolId: user.schoolId! }
   if (classroomId) where.classroomId = classroomId
   if (academicYearId) where.academicYearId = academicYearId
   if (status) where.status = status
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
   if (!hasPermission(user, PERMISSIONS.MANAGE_STUDENTS) && !isLegacyRole)
@@ -45,9 +45,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "الطالب والقسم والسنة الدراسية مطلوبة" }, { status: 400 })
 
   const [student, classroom, academicYear] = await Promise.all([
-    prisma.student.findFirst({ where: { id: studentId, schoolId: user.schoolId }, select: { id: true } }),
-    prisma.classroom.findFirst({ where: { id: classroomId, schoolId: user.schoolId }, select: { id: true } }),
-    prisma.academicYear.findFirst({ where: { id: academicYearId, schoolId: user.schoolId }, select: { id: true } }),
+    prisma.student.findFirst({ where: { id: studentId, schoolId: user.schoolId! }, select: { id: true } }),
+    prisma.classroom.findFirst({ where: { id: classroomId, schoolId: user.schoolId! }, select: { id: true } }),
+    prisma.academicYear.findFirst({ where: { id: academicYearId, schoolId: user.schoolId! }, select: { id: true } }),
   ])
   if (!student || !classroom || !academicYear)
     return NextResponse.json({ error: "الطالب أو القسم أو السنة الدراسية غير موجودة في هذه المدرسة" }, { status: 404 })
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
     const nextRoll = (last?.rollNumber || 0) + 1
 
     return tx.enrollment.create({
-      data: { schoolId: user.schoolId, studentId, classroomId, academicYearId, rollNumber: nextRoll },
+      data: { schoolId: user.schoolId!, studentId, classroomId, academicYearId, rollNumber: nextRoll },
       include: {
         student: true,
         classroom: { include: { level: true } },
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    const user = session?.user as any
+    const user = session?.user
     if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
     if (!hasPermission(user, PERMISSIONS.MANAGE_STUDENTS) && !isLegacyRole)
@@ -90,7 +90,7 @@ export async function DELETE(req: NextRequest) {
     const id = url.searchParams.get("id")
     if (!id) return NextResponse.json({ error: "id required" }, { status: 400 })
 
-    const enrollment = await prisma.enrollment.findFirst({ where: { id, schoolId: user.schoolId } })
+    const enrollment = await prisma.enrollment.findFirst({ where: { id, schoolId: user.schoolId! } })
     if (!enrollment) return NextResponse.json({ error: "غير موجود" }, { status: 404 })
 
     await prisma.enrollment.delete({ where: { id } })

@@ -13,7 +13,7 @@ function canAccessLessons(user: any) {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!session || !user?.schoolId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
   let { classroomId, subjectId } = body
 
   const activeYear = await prisma.academicYear.findFirst({
-    where: { schoolId: user.schoolId, isActive: true },
+    where: { schoolId: user.schoolId!, isActive: true },
   })
   if (!activeYear) return NextResponse.json({ error: "لا توجد سنة دراسية نشطة" }, { status: 400 })
 
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     teacherId = teacher.id
   } else {
     const assignment = await prisma.teacherAssignment.findFirst({
-      where: { classroomId, subjectId, schoolId: user.schoolId, academicYearId: activeYear.id },
+      where: { classroomId, subjectId, schoolId: user.schoolId!, academicYearId: activeYear.id },
     })
     teacherId = assignment?.teacherId || ""
     if (!teacherId) return NextResponse.json({ error: "لا يوجد أستاذ مكلف" }, { status: 404 })
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
     schedule = await prisma.schedule.findFirst({
       where: {
         id: scheduleId,
-        schoolId: user.schoolId,
+        schoolId: user.schoolId!,
         teacherId,
       },
       select: {
@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
       duration: duration ? parseInt(duration) : null,
       classroomId, subjectId, teacherId,
       scheduleId: scheduleId || null,
-      schoolId: user.schoolId,
+      schoolId: user.schoolId!,
       academicYearId: activeYear.id,
       termId: activeTerm?.id,
       status: "DRAFT",
@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
   ])
 
   await notifySchoolManagers({
-    schoolId: user.schoolId,
+    schoolId: user.schoolId!,
     type: "LESSON_RECORDED",
     entityType: "LESSON",
     entityId: lesson.id,
@@ -142,7 +142,7 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!session || !user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const url = new URL(req.url)
@@ -152,7 +152,7 @@ export async function GET(req: NextRequest) {
   const scheduleId = url.searchParams.get("scheduleId")
   const date = url.searchParams.get("date")
 
-  const where: any = { schoolId: user.schoolId }
+  const where: any = { schoolId: user.schoolId! }
   if (classroomId) where.classroomId = classroomId
   if (subjectId) where.subjectId = subjectId
   if (teacherId) where.teacherId = teacherId
@@ -181,14 +181,14 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!session || !user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!canAccessLessons(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const body = await req.json()
   const { id, title, description, homework, notes, duration } = body
 
-  const existing = await prisma.lesson.findFirst({ where: { id, schoolId: user.schoolId } })
+  const existing = await prisma.lesson.findFirst({ where: { id, schoolId: user.schoolId! } })
   if (!existing) return NextResponse.json({ error: "الدرس غير موجود" }, { status: 404 })
 
   if (user.role === "TEACHER") {
@@ -213,7 +213,7 @@ export async function PUT(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!session || !user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!canAccessLessons(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
@@ -221,7 +221,7 @@ export async function DELETE(req: NextRequest) {
   const id = url.searchParams.get("id")
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 })
 
-  const existing = await prisma.lesson.findFirst({ where: { id, schoolId: user.schoolId } })
+  const existing = await prisma.lesson.findFirst({ where: { id, schoolId: user.schoolId! } })
   if (!existing) return NextResponse.json({ error: "الدرس غير موجود" }, { status: 404 })
 
   if (user.role === "TEACHER") {

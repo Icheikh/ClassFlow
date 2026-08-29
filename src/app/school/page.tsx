@@ -35,7 +35,7 @@ export default function SchoolDashboardPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [retryKey, setRetryKey] = useState(0)
   const [savingSession, setSavingSession] = useState<string | null>(null)
-  const user = session?.user as any
+  const user = session?.user
 
   async function loadDashboard() {
     setLoading(true)

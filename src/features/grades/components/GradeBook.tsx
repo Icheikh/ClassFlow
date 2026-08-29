@@ -62,7 +62,7 @@ export function GradeBook() {
   const t = useTranslations("gradeBook")
   const tCommon = useTranslations("common")
   const { data: session } = useSession()
-  const user = session?.user as any
+  const user = session?.user
   const searchParams = useSearchParams()
   const { assignments, loading } = useClasses()
 
@@ -263,7 +263,7 @@ export function GradeBook() {
           <option value="">{t("selectClassroom")}</option>
           {classroomOptions.map((classroom) => (
             <option key={classroom.id} value={classroom.id}>
-              {classroom.name} - {(classroom as any).level?.name}
+              {classroom.name}
             </option>
           ))}
         </select>

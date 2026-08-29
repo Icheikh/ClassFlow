@@ -8,7 +8,7 @@ const legacyRoles = ["TEACHER", "SCHOOL_ADMIN", "SUPERVISOR"]
 
 export async function GET() {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!session || !user?.schoolId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
@@ -19,7 +19,7 @@ export async function GET() {
   }
 
   const activeYear = await prisma.academicYear.findFirst({
-    where: { schoolId: user.schoolId, isActive: true },
+    where: { schoolId: user.schoolId!, isActive: true },
   })
 
   if (!activeYear) {
@@ -40,7 +40,7 @@ export async function GET() {
   }
 
   const assignments = await prisma.teacherAssignment.findMany({
-    where: { schoolId: user.schoolId, academicYearId: activeYear.id, isActive: true },
+    where: { schoolId: user.schoolId!, academicYearId: activeYear.id, isActive: true },
     include: {
       classroom: { include: { level: true, stream: true } },
       subject: true,

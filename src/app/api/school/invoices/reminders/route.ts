@@ -8,7 +8,7 @@ import { createNotificationCampaign } from "@/lib/notifications"
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const isLegacyRole = ["SUPERVISOR", "ACCOUNTANT"].includes(user?.role)
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
 
   const invoices = await prisma.invoice.findMany({
     where: {
-      schoolId: user.schoolId,
+      schoolId: user.schoolId!,
       ...(month ? { month } : {}),
       ...(classroomId ? { classroomId } : {}),
       status: { in: ["PENDING", "PARTIAL"] },
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const campaign = await createNotificationCampaign({
-      schoolId: user.schoolId,
+      schoolId: user.schoolId!,
       createdByUserId: user.id,
       type: "FEES",
       channel: "WHATSAPP",

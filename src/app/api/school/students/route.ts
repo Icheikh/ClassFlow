@@ -8,7 +8,7 @@ import { sendCredentialsEmail, EmailLocale } from "@/lib/email"
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const url = new URL(req.url)
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
   const limit = parseInt(url.searchParams.get("limit") || "50")
   const skip = (page - 1) * limit
 
-  const where: any = { schoolId: user.schoolId }
+  const where: any = { schoolId: user.schoolId! }
   if (search) {
     where.OR = [
       { firstName: { contains: search } },
@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
   if (!hasPermission(user, PERMISSIONS.MANAGE_STUDENTS) && !isLegacyRole)
@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
 
   if (studentNumber) {
     const existing = await prisma.student.findFirst({
-      where: { schoolId: user.schoolId, studentNumber },
+      where: { schoolId: user.schoolId!, studentNumber },
     })
     if (existing) return NextResponse.json({ error: "رقم التسجيل موجود مسبقاً" }, { status: 400 })
   }
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
   const result = await prisma.$transaction(async (tx) => {
     const student = await tx.student.create({
       data: {
-        schoolId: user.schoolId,
+        schoolId: user.schoolId!,
         firstName, lastName,
         gender: gender || null,
         birthDate: birthDate ? new Date(birthDate) : null,
@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
 
     if (parentName) {
       const phoneDigits = (parentPhone || "").replace(/\D/g, "")
-      const school = await tx.school.findUnique({ where: { id: user.schoolId }, select: { slug: true } })
+      const school = await tx.school.findUnique({ where: { id: user.schoolId! }, select: { slug: true } })
       const schoolSlug = school?.slug || "school"
       const email = parentEmail || (phoneDigits ? `p${phoneDigits}@${schoolSlug}.classflow` : `parent-${student.id}@${schoolSlug}.classflow`)
       const rawPassword = phoneDigits || "parent123"
@@ -103,15 +103,15 @@ export async function POST(req: NextRequest) {
           passwordHash: await bcrypt.hash(rawPassword, 10),
           mustChangePassword: false,
           role: "PARENT",
-          schoolId: user.schoolId,
+          schoolId: user.schoolId!,
         },
       })
       const parent = await tx.parent.create({
-        data: { schoolId: user.schoolId, userId: appUser.id, phone: parentPhone || null },
+        data: { schoolId: user.schoolId!, userId: appUser.id, phone: parentPhone || null },
       })
       await tx.studentParent.create({
         data: {
-          schoolId: user.schoolId,
+          schoolId: user.schoolId!,
           studentId: student.id,
           parentId: parent.id,
           relationship: "ولي أمر",

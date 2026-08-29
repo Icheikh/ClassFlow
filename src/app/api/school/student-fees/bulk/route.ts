@@ -6,7 +6,7 @@ import { hasPermission, PERMISSIONS } from "@/lib/permissions"
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const isLegacyRole = ["SUPERVISOR", "ACCOUNTANT"].includes(user?.role)
   if (!hasPermission(user, PERMISSIONS.MANAGE_FEES) && !isLegacyRole)
@@ -16,10 +16,10 @@ export async function POST(req: NextRequest) {
   const { feeId, classroomId, levelId } = body
   if (!feeId) return NextResponse.json({ error: "الرسم مطلوب" }, { status: 400 })
 
-  const fee = await prisma.fee.findFirst({ where: { id: feeId, schoolId: user.schoolId } })
+  const fee = await prisma.fee.findFirst({ where: { id: feeId, schoolId: user.schoolId! } })
   if (!fee) return NextResponse.json({ error: "الرسم غير موجود" }, { status: 404 })
 
-  const where: any = { schoolId: user.schoolId, isActive: true }
+  const where: any = { schoolId: user.schoolId!, isActive: true }
   if (classroomId) {
     where.enrollments = { some: { classroomId, status: "ACTIVE" } }
   } else if (levelId) {
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     if (existing) continue
     await prisma.studentFee.create({
       data: {
-        schoolId: user.schoolId,
+        schoolId: user.schoolId!,
         studentId: student.id,
         feeId,
         classroomId: classroomIdForFee,

@@ -14,7 +14,7 @@ function canAccessAttendance(user: any) {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!session || !user?.schoolId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   let { classroomId, subjectId } = body
 
   const activeYear = await prisma.academicYear.findFirst({
-    where: { schoolId: user.schoolId, isActive: true },
+    where: { schoolId: user.schoolId!, isActive: true },
   })
   if (!activeYear) return NextResponse.json({ error: "No active academic year" }, { status: 400 })
 
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     teacherId = teacher.id
   } else {
     const assignment = await prisma.teacherAssignment.findFirst({
-      where: { classroomId, subjectId, schoolId: user.schoolId, academicYearId: activeYear.id },
+      where: { classroomId, subjectId, schoolId: user.schoolId!, academicYearId: activeYear.id },
     })
     teacherId = assignment?.teacherId || ""
     if (!teacherId) return NextResponse.json({ error: "No teacher assigned" }, { status: 404 })
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     schedule = await prisma.schedule.findFirst({
       where: {
         id: scheduleId,
-        schoolId: user.schoolId,
+        schoolId: user.schoolId!,
         teacherId,
       },
       select: {
@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
 
       return prisma.attendance.create({
         data: {
-          schoolId: user.schoolId, academicYearId: activeYear.id,
+          schoolId: user.schoolId!, academicYearId: activeYear.id,
           studentId: record.studentId, classroomId, subjectId, teacherId,
           scheduleId: scheduleId || null,
           status: record.status, date: attendanceDate,
@@ -139,7 +139,7 @@ export async function POST(req: NextRequest) {
 
     try {
       await notifySchoolManagers({
-        schoolId: user.schoolId,
+        schoolId: user.schoolId!,
         type: "ATTENDANCE_RECORDED",
         entityType: "ATTENDANCE",
         entityId: notificationEntityId,
@@ -178,7 +178,7 @@ export async function POST(req: NextRequest) {
       const absentIds = absentStudents.map((r: { studentId: string }) => r.studentId)
       const links = await prisma.studentParent.findMany({
         where: {
-          schoolId: user.schoolId,
+          schoolId: user.schoolId!,
           studentId: { in: absentIds },
           isPrimary: true,
           receiveNotifications: true,
@@ -202,7 +202,7 @@ export async function POST(req: NextRequest) {
         // In-app notification (always — fallback if SMS fails)
         await prisma.notification.create({
           data: {
-            schoolId: user.schoolId,
+            schoolId: user.schoolId!,
             title: `غياب: ${studentName}`,
             message: smsBody,
             type: "ATTENDANCE_ABSENCE",
@@ -228,7 +228,7 @@ export async function POST(req: NextRequest) {
   } else {
     await prisma.notification.updateMany({
       where: {
-        schoolId: user.schoolId,
+        schoolId: user.schoolId!,
         entityType: "ATTENDANCE",
         entityId: notificationEntityId,
         status: "PENDING",
@@ -246,7 +246,7 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    const user = session?.user as any
+    const user = session?.user
     if (!session || !user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
     const url = new URL(req.url)
@@ -257,7 +257,7 @@ export async function GET(req: NextRequest) {
 
     const records = await prisma.attendance.findMany({
       where: {
-        schoolId: user.schoolId,
+        schoolId: user.schoolId!,
         ...(scheduleId && { scheduleId }),
         ...(classroomId && { classroomId }),
         ...(subjectId && { subjectId }),

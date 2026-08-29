@@ -6,11 +6,11 @@ import { hasPermission, PERMISSIONS } from "@/lib/permissions"
 
 export async function GET() {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const items = await prisma.stream.findMany({
-    where: { schoolId: user.schoolId },
+    where: { schoolId: user.schoolId! },
     include: { level: { include: { stage: true } } },
     orderBy: { name: "asc" },
   })
@@ -19,7 +19,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
   if (!hasPermission(user, PERMISSIONS.MANAGE_CLASSROOMS) && !isLegacyRole)
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json()
   const { levelId, name, code } = body
   const item = await prisma.stream.create({
-    data: { schoolId: user.schoolId, levelId, name, code },
+    data: { schoolId: user.schoolId!, levelId, name, code },
   })
   return NextResponse.json(item)
 }
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    const user = session?.user as any
+    const user = session?.user
     if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
     if (!hasPermission(user, PERMISSIONS.MANAGE_CLASSROOMS) && !isLegacyRole)
@@ -43,7 +43,7 @@ export async function DELETE(req: NextRequest) {
     const url = new URL(req.url)
     const id = url.searchParams.get("id")
     if (!id) return NextResponse.json({ error: "id required" }, { status: 400 })
-    const existing = await prisma.stream.findFirst({ where: { id, schoolId: user.schoolId } })
+    const existing = await prisma.stream.findFirst({ where: { id, schoolId: user.schoolId! } })
     if (!existing) return NextResponse.json({ error: "غير موجود" }, { status: 404 })
     await prisma.stream.delete({ where: { id } })
     return NextResponse.json({ success: true })

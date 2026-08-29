@@ -8,13 +8,13 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId || user.role !== "SCHOOL_ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   const target = await prisma.user.findFirst({
-    where: { id: params.id, schoolId: user.schoolId, role: "STAFF" },
+    where: { id: params.id, schoolId: user.schoolId!, role: "STAFF" },
     include: {
       userPermissions: {
         include: { permission: true },
@@ -47,7 +47,7 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId || user.role !== "SCHOOL_ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
@@ -57,7 +57,7 @@ export async function PUT(
   }
 
   const target = await prisma.user.findFirst({
-    where: { id: params.id, schoolId: user.schoolId, role: "STAFF" },
+    where: { id: params.id, schoolId: user.schoolId!, role: "STAFF" },
   })
   if (!target) {
     return NextResponse.json({ error: "غير موجود" }, { status: 404 })

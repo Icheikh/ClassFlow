@@ -12,7 +12,7 @@ function canManageNotifications(user: any) {
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!canManageNotifications(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 
   const notifications = await prisma.notification.findMany({
     where: {
-      schoolId: user.schoolId,
+      schoolId: user.schoolId!,
       userId: user.id,
       channel: "IN_APP",
       ...(status && { status }),
@@ -32,10 +32,10 @@ export async function GET(req: NextRequest) {
 
   const [unreadCount, pendingCount] = await Promise.all([
     prisma.notification.count({
-      where: { schoolId: user.schoolId, userId: user.id, read: false, channel: "IN_APP" },
+      where: { schoolId: user.schoolId!, userId: user.id, read: false, channel: "IN_APP" },
     }),
     prisma.notification.count({
-      where: { schoolId: user.schoolId, userId: user.id, status: "PENDING", channel: "IN_APP" },
+      where: { schoolId: user.schoolId!, userId: user.id, status: "PENDING", channel: "IN_APP" },
     }),
   ])
 

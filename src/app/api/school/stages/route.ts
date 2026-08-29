@@ -13,11 +13,11 @@ function legacyCheck(user: any) {
 
 export async function GET() {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const items = await prisma.educationStage.findMany({
-    where: { schoolId: user.schoolId },
+    where: { schoolId: user.schoolId! },
     include: { levels: { include: { streams: true }, orderBy: { order: "asc" } } },
     orderBy: { order: "asc" },
   })
@@ -26,27 +26,27 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const blocked = legacyCheck(user)
   if (blocked) return blocked
   const body = await req.json()
   const { name, order } = body
   const item = await prisma.educationStage.create({
-    data: { schoolId: user.schoolId, name, order: parseInt(order) },
+    data: { schoolId: user.schoolId!, name, order: parseInt(order) },
   })
   return NextResponse.json(item)
 }
 
 export async function PUT(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const blocked = legacyCheck(user)
   if (blocked) return blocked
   const body = await req.json()
   const { id, name, order } = body
-  const existing = await prisma.educationStage.findFirst({ where: { id, schoolId: user.schoolId } })
+  const existing = await prisma.educationStage.findFirst({ where: { id, schoolId: user.schoolId! } })
   if (!existing) return NextResponse.json({ error: "غير موجود" }, { status: 404 })
   const item = await prisma.educationStage.update({ where: { id }, data: { name, order: parseInt(order) } })
   return NextResponse.json(item)

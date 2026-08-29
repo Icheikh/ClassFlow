@@ -119,7 +119,7 @@ async function validateSchedulePayload(payload: SchedulePayload, schoolId: strin
 
 async function upsertSchedule(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!canManageSchedules(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
@@ -128,7 +128,7 @@ async function upsertSchedule(req: NextRequest) {
   if (validationError) return NextResponse.json({ error: validationError }, { status: 400 })
 
   if (payload.id) {
-    const existing = await prisma.schedule.findFirst({ where: { id: payload.id, schoolId: user.schoolId } })
+    const existing = await prisma.schedule.findFirst({ where: { id: payload.id, schoolId: user.schoolId! } })
     if (!existing) return NextResponse.json({ error: "غير موجود" }, { status: 404 })
     const updated = await prisma.schedule.update({
       where: { id: payload.id },
@@ -146,7 +146,7 @@ async function upsertSchedule(req: NextRequest) {
 
   const item = await prisma.schedule.create({
     data: {
-      schoolId: user.schoolId,
+      schoolId: user.schoolId!,
       dayOfWeek: payload.dayOfWeek,
       startTime: payload.startTime,
       endTime: payload.endTime,
@@ -160,14 +160,14 @@ async function upsertSchedule(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { searchParams } = new URL(req.url)
   const classroomId = searchParams.get("classroomId")
   const teacherId = searchParams.get("teacherId")
 
-  const where: any = { schoolId: user.schoolId }
+  const where: any = { schoolId: user.schoolId! }
   if (classroomId) where.classroomId = classroomId
   if (teacherId) where.teacherId = teacherId
 
@@ -194,7 +194,7 @@ export async function PUT(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!canManageSchedules(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
@@ -202,7 +202,7 @@ export async function DELETE(req: NextRequest) {
   const id = searchParams.get("id")
   if (!id) return NextResponse.json({ error: "id مطلوب" }, { status: 400 })
 
-  const existing = await prisma.schedule.findFirst({ where: { id, schoolId: user.schoolId } })
+  const existing = await prisma.schedule.findFirst({ where: { id, schoolId: user.schoolId! } })
   if (!existing) return NextResponse.json({ error: "غير موجود" }, { status: 404 })
 
   await prisma.schedule.delete({ where: { id } })

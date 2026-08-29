@@ -80,7 +80,7 @@ function buildDescription(scope: {
 
 export async function GET() {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const activeYear = await getActiveYear(user.schoolId)
@@ -93,7 +93,7 @@ export async function GET() {
 
   const items = await prisma.subjectCoefficient.findMany({
     where: {
-      schoolId: user.schoolId,
+      schoolId: user.schoolId!,
       academicYearId: activeYear.id,
     },
     include: {
@@ -118,7 +118,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!canManageCoefficients(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
   }
 
   const scope = await resolveScope({
-    schoolId: user.schoolId,
+    schoolId: user.schoolId!,
     levelId,
     streamId,
     classroomId,
@@ -152,13 +152,13 @@ export async function POST(req: NextRequest) {
   const existing = await prisma.subjectCoefficient.findFirst({
     where: scope.classroomId
       ? {
-          schoolId: user.schoolId,
+          schoolId: user.schoolId!,
           academicYearId: activeYear.id,
           subjectId,
           classroomId: scope.classroomId,
         }
       : {
-          schoolId: user.schoolId,
+          schoolId: user.schoolId!,
           academicYearId: activeYear.id,
           subjectId,
           levelId: scope.levelId,
@@ -175,7 +175,7 @@ export async function POST(req: NextRequest) {
 
   const resolvedEntities = await prisma.subjectCoefficient.findFirst({
     where: {
-      schoolId: user.schoolId,
+      schoolId: user.schoolId!,
       academicYearId: activeYear.id,
       subjectId,
       levelId: scope.levelId,
@@ -191,16 +191,16 @@ export async function POST(req: NextRequest) {
   })
 
   const subject = resolvedEntities?.subject || await prisma.subject.findFirst({
-    where: { id: subjectId, schoolId: user.schoolId },
+    where: { id: subjectId, schoolId: user.schoolId! },
     select: { id: true, nameAr: true },
   })
   const level = resolvedEntities?.level || await prisma.level.findFirst({
-    where: { id: scope.levelId, schoolId: user.schoolId },
+    where: { id: scope.levelId, schoolId: user.schoolId! },
     include: { stage: true },
   })
   const stream = scope.streamId
     ? resolvedEntities?.stream || await prisma.stream.findFirst({
-        where: { id: scope.streamId, schoolId: user.schoolId },
+        where: { id: scope.streamId, schoolId: user.schoolId! },
         select: { id: true, name: true },
       })
     : null
@@ -223,7 +223,7 @@ export async function POST(req: NextRequest) {
 
     await createResultAuditLog({
       prisma,
-      schoolId: user.schoolId,
+      schoolId: user.schoolId!,
       actorUserId: user.id,
       entityType: "SUBJECT_COEFFICIENT",
       entityId: updated.id,
@@ -244,7 +244,7 @@ export async function POST(req: NextRequest) {
 
   const created = await prisma.subjectCoefficient.create({
     data: {
-      schoolId: user.schoolId,
+      schoolId: user.schoolId!,
       academicYearId: activeYear.id,
       subjectId,
       levelId: scope.levelId,
@@ -262,7 +262,7 @@ export async function POST(req: NextRequest) {
 
   await createResultAuditLog({
     prisma,
-    schoolId: user.schoolId,
+    schoolId: user.schoolId!,
     actorUserId: user.id,
     entityType: "SUBJECT_COEFFICIENT",
     entityId: created.id,
@@ -283,7 +283,7 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!canManageCoefficients(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
@@ -293,7 +293,7 @@ export async function PUT(req: NextRequest) {
   if (!id) return NextResponse.json({ error: "المعرف مطلوب" }, { status: 400 })
 
   const current = await prisma.subjectCoefficient.findFirst({
-    where: { id, schoolId: user.schoolId },
+    where: { id, schoolId: user.schoolId! },
     include: {
       subject: true,
       level: { include: { stage: true } },
@@ -304,7 +304,7 @@ export async function PUT(req: NextRequest) {
   if (!current) return NextResponse.json({ error: "الضارب غير موجود" }, { status: 404 })
 
   const scope = await resolveScope({
-    schoolId: user.schoolId,
+    schoolId: user.schoolId!,
     levelId,
     streamId,
     classroomId,
@@ -325,14 +325,14 @@ export async function PUT(req: NextRequest) {
   const conflictingRule = await prisma.subjectCoefficient.findFirst({
     where: scope.classroomId
       ? {
-          schoolId: user.schoolId,
+          schoolId: user.schoolId!,
           academicYearId: current.academicYearId,
           subjectId,
           classroomId: scope.classroomId,
           id: { not: id },
         }
       : {
-          schoolId: user.schoolId,
+          schoolId: user.schoolId!,
           academicYearId: current.academicYearId,
           subjectId,
           levelId: scope.levelId,
@@ -373,7 +373,7 @@ export async function PUT(req: NextRequest) {
 
     await createResultAuditLog({
       prisma,
-      schoolId: user.schoolId,
+      schoolId: user.schoolId!,
       actorUserId: user.id,
       entityType: "SUBJECT_COEFFICIENT",
       entityId: updated.id,
@@ -411,7 +411,7 @@ export async function PUT(req: NextRequest) {
 
   await createResultAuditLog({
     prisma,
-    schoolId: user.schoolId,
+    schoolId: user.schoolId!,
     actorUserId: user.id,
     entityType: "SUBJECT_COEFFICIENT",
     entityId: updated.id,
@@ -433,7 +433,7 @@ export async function PUT(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    const user = session?.user as any
+    const user = session?.user
     if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     if (!canManageCoefficients(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
@@ -442,7 +442,7 @@ export async function DELETE(req: NextRequest) {
     if (!id) return NextResponse.json({ error: "id required" }, { status: 400 })
 
     const existing = await prisma.subjectCoefficient.findFirst({
-      where: { id, schoolId: user.schoolId },
+      where: { id, schoolId: user.schoolId! },
       include: {
         subject: true,
         level: { include: { stage: true } },
@@ -456,7 +456,7 @@ export async function DELETE(req: NextRequest) {
 
     await createResultAuditLog({
       prisma,
-      schoolId: user.schoolId,
+      schoolId: user.schoolId!,
       actorUserId: user.id,
       entityType: "SUBJECT_COEFFICIENT",
       entityId: id,

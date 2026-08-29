@@ -42,7 +42,7 @@ type SessionData = {
 
 export function TeacherRosterManager() {
   const { data: session } = useSession()
-  const user = session?.user as any
+  const user = session?.user
   const locale = useLocale()
   const t = useTranslations("teacherAttendancePage")
   const [data, setData] = useState<SessionData | null>(null)

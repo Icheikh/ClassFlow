@@ -6,17 +6,17 @@ import { addUtcDays, formatDateOnly, getWeekStartDate } from "@/lib/date"
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const url = new URL(req.url)
   const teacher = await prisma.teacher.findFirst({
-    where: { id: params.id, schoolId: user.schoolId },
+    where: { id: params.id, schoolId: user.schoolId! },
     include: { user: { select: { id: true, email: true, name: true, phone: true, isActive: true } } },
   })
   if (!teacher) return NextResponse.json({ error: "غير موجود" }, { status: 404 })
 
-  const year = await prisma.academicYear.findFirst({ where: { schoolId: user.schoolId, isActive: true } })
+  const year = await prisma.academicYear.findFirst({ where: { schoolId: user.schoolId!, isActive: true } })
   const yearId = year?.id
 
   const assignments = await prisma.teacherAssignment.findMany({

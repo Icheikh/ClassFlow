@@ -7,11 +7,11 @@ import { hasPermission, PERMISSIONS } from "@/lib/permissions"
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const student = await prisma.student.findFirst({
-    where: { id: params.id, schoolId: user.schoolId },
+    where: { id: params.id, schoolId: user.schoolId! },
     include: {
       enrollments: {
         include: { classroom: { include: { level: true, stream: true } }, academicYear: true },
@@ -29,13 +29,13 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
   if (!hasPermission(user, PERMISSIONS.MANAGE_STUDENTS) && !isLegacyRole)
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
-  const student = await prisma.student.findFirst({ where: { id: params.id, schoolId: user.schoolId } })
+  const student = await prisma.student.findFirst({ where: { id: params.id, schoolId: user.schoolId! } })
   if (!student) return NextResponse.json({ error: "غير موجود" }, { status: 404 })
 
   const body = await req.json()
@@ -43,7 +43,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
   if (studentNumber && studentNumber !== student.studentNumber) {
     const existing = await prisma.student.findFirst({
-      where: { schoolId: user.schoolId, studentNumber, id: { not: params.id } },
+      where: { schoolId: user.schoolId!, studentNumber, id: { not: params.id } },
     })
     if (existing) return NextResponse.json({ error: "رقم التسجيل موجود مسبقاً" }, { status: 400 })
   }
@@ -82,7 +82,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         }
       } else if (parentName) {
         const phoneDigits = (parentPhone || "").replace(/\D/g, "")
-        const school = await tx.school.findUnique({ where: { id: user.schoolId }, select: { slug: true } })
+        const school = await tx.school.findUnique({ where: { id: user.schoolId! }, select: { slug: true } })
         const schoolSlug = school?.slug || "school"
         const email = parentEmail || (phoneDigits ? `p${phoneDigits}@${schoolSlug}.classflow` : `parent-${params.id}@${schoolSlug}.classflow`)
         const rawPassword = phoneDigits || "parent123"
@@ -92,14 +92,14 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             phone: parentPhone || null,
             passwordHash: await bcrypt.hash(rawPassword, 10),
             mustChangePassword: false,
-            role: "PARENT", schoolId: user.schoolId,
+            role: "PARENT", schoolId: user.schoolId!,
           },
         })
         const parent = await tx.parent.create({
-          data: { schoolId: user.schoolId, userId: appUser.id, phone: parentPhone || null },
+          data: { schoolId: user.schoolId!, userId: appUser.id, phone: parentPhone || null },
         })
         await tx.studentParent.create({
-          data: { schoolId: user.schoolId, studentId: params.id, parentId: parent.id, relationship: "ولي أمر", isPrimary: true, receiveNotifications: true },
+          data: { schoolId: user.schoolId!, studentId: params.id, parentId: parent.id, relationship: "ولي أمر", isPrimary: true, receiveNotifications: true },
         })
       }
     }

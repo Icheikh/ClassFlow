@@ -21,7 +21,7 @@ function computeDuration(start: string, end: string): number {
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
 
   if (!user?.schoolId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
   }
 
   const year = await prisma.academicYear.findFirst({
-    where: { schoolId: user.schoolId, isActive: true },
+    where: { schoolId: user.schoolId!, isActive: true },
   })
 
   if (!year) {
@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
 
   const assignments = await prisma.teacherAssignment.findMany({
     where: {
-      schoolId: user.schoolId,
+      schoolId: user.schoolId!,
       academicYearId: year.id,
       isActive: true,
     },
@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
   const [scheduleAttendances, existingEntries, scheduleEntries] = await Promise.all([
     prisma.scheduleAttendance.findMany({
       where: {
-        schoolId: user.schoolId,
+        schoolId: user.schoolId!,
         date,
         schedule: {
           teacherId: { in: teacherIds },
@@ -88,7 +88,7 @@ export async function GET(req: NextRequest) {
       include: { recordedByUser: { select: { id: true, name: true } } },
     }),
     prisma.schedule.findMany({
-      where: { schoolId: user.schoolId, dayOfWeek },
+      where: { schoolId: user.schoolId!, dayOfWeek },
       select: { teacherId: true, classroomId: true, subjectId: true, startTime: true, endTime: true },
     }),
   ])
@@ -158,7 +158,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
 
   if (!user?.schoolId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -187,7 +187,7 @@ export async function POST(req: NextRequest) {
   const assignments = await prisma.teacherAssignment.findMany({
     where: {
       id: { in: assignmentIds },
-      schoolId: user.schoolId,
+      schoolId: user.schoolId!,
       isActive: true,
       academicYear: { isActive: true },
     },
@@ -239,7 +239,7 @@ export async function POST(req: NextRequest) {
         recordedByUserId: user.id,
       },
       create: {
-        schoolId: user.schoolId,
+        schoolId: user.schoolId!,
         teacherAssignmentId: entry.teacherAssignmentId,
         date,
         hoursTaught: hours,

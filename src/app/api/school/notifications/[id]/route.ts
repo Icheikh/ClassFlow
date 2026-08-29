@@ -13,7 +13,7 @@ const ALLOWED_STATUSES = new Set(["PENDING", "RESOLVED", "DISMISSED", "ACTIONED"
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!canManageNotifications(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
@@ -26,7 +26,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 
   const notification = await prisma.notification.findFirst({
-    where: { id: params.id, schoolId: user.schoolId, userId: user.id },
+    where: { id: params.id, schoolId: user.schoolId!, userId: user.id },
     select: { id: true },
   })
   if (!notification) return NextResponse.json({ error: "التنبيه غير موجود" }, { status: 404 })

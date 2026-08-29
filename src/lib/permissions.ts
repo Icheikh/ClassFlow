@@ -77,7 +77,7 @@ export async function authorize(
     schoolIdRequired?: boolean
   } = {}
 ) {
-  const user = session?.user as any
+  const user = session?.user
 
   if (!session) {
     return { authorized: false as const, response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) }

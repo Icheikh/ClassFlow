@@ -6,11 +6,11 @@ import { hasPermission, PERMISSIONS } from "@/lib/permissions"
 
 export async function GET() {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const items = await prisma.academicYear.findMany({
-    where: { schoolId: user.schoolId },
+    where: { schoolId: user.schoolId! },
     include: { terms: true },
     orderBy: { startsAt: "desc" },
   })
@@ -19,7 +19,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
   if (!hasPermission(user, PERMISSIONS.MANAGE_ACADEMIC_YEARS) && !isLegacyRole)
@@ -29,14 +29,14 @@ export async function POST(req: NextRequest) {
   const { name, startsAt, endsAt } = body
 
   const item = await prisma.academicYear.create({
-    data: { schoolId: user.schoolId, name, startsAt: new Date(startsAt), endsAt: new Date(endsAt) },
+    data: { schoolId: user.schoolId!, name, startsAt: new Date(startsAt), endsAt: new Date(endsAt) },
   })
   return NextResponse.json(item)
 }
 
 export async function PUT(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
   if (!hasPermission(user, PERMISSIONS.MANAGE_ACADEMIC_YEARS) && !isLegacyRole)
@@ -45,13 +45,13 @@ export async function PUT(req: NextRequest) {
   const body = await req.json()
   const { id, name, startsAt, endsAt, isActive } = body
 
-  const existing = await prisma.academicYear.findFirst({ where: { id, schoolId: user.schoolId } })
+  const existing = await prisma.academicYear.findFirst({ where: { id, schoolId: user.schoolId! } })
   if (!existing) return NextResponse.json({ error: "غير موجود" }, { status: 404 })
 
   // If activating this year, deactivate all others
   if (isActive) {
     await prisma.academicYear.updateMany({
-      where: { schoolId: user.schoolId, isActive: true },
+      where: { schoolId: user.schoolId!, isActive: true },
       data: { isActive: false },
     })
   }

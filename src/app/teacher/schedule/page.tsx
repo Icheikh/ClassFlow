@@ -32,7 +32,7 @@ export default function TeacherSchedulePage() {
   const locale = useLocale()
   const t = useTranslations("teacherSchedule")
   const { data: session } = useSession()
-  const user = session?.user as any
+  const user = session?.user
   const days = Array.from({ length: 7 }, (_, index) => t(`days.${index}`))
 
   const [entries, setEntries] = useState<ScheduleEntry[]>([])

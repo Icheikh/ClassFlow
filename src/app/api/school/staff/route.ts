@@ -7,13 +7,13 @@ import { sendCredentialsEmail, EmailLocale } from "@/lib/email"
 
 export async function GET() {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId || user.role !== "SCHOOL_ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   const staff = await prisma.user.findMany({
-    where: { schoolId: user.schoolId, role: "STAFF" },
+    where: { schoolId: user.schoolId!, role: "STAFF" },
     include: {
       userPermissions: {
         include: { permission: true },
@@ -37,7 +37,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId || user.role !== "SCHOOL_ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
       name,
       phone: phone || null,
       role: "STAFF",
-      schoolId: user.schoolId,
+      schoolId: user.schoolId!,
       isActive: true,
       mustChangePassword: usesDefaultPassword,
     },
@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId || user.role !== "SCHOOL_ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
@@ -125,7 +125,7 @@ export async function PUT(req: NextRequest) {
   }
 
   const target = await prisma.user.findFirst({
-    where: { id, schoolId: user.schoolId, role: "STAFF" },
+    where: { id, schoolId: user.schoolId!, role: "STAFF" },
   })
   if (!target) {
     return NextResponse.json({ error: "غير موجود" }, { status: 404 })

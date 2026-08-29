@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic"
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
-    const user = session?.user as any
+    const user = session?.user
     if (!session || !user?.schoolId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }

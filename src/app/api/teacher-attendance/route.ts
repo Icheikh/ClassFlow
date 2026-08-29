@@ -33,7 +33,7 @@ function deriveTeacherDayStatus(summary: {
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const url = new URL(req.url)
@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
   if (!teacherId && MANAGER_ROLES.includes(user.role)) {
     const schedules = await prisma.schedule.findMany({
       where: {
-        schoolId: user.schoolId,
+        schoolId: user.schoolId!,
         dayOfWeek,
         teacherId: { not: null },
       },
@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
 
     const attendances = await prisma.scheduleAttendance.findMany({
       where: {
-        schoolId: user.schoolId,
+        schoolId: user.schoolId!,
         date: { gte: start, lt: end },
         scheduleId: { in: schedules.map((schedule) => schedule.id) },
       },
@@ -105,7 +105,7 @@ export async function GET(req: NextRequest) {
 
     const schedules = await prisma.schedule.findMany({
       where: {
-        schoolId: user.schoolId,
+        schoolId: user.schoolId!,
         teacherId: teacher.id,
         dayOfWeek,
       },
@@ -115,7 +115,7 @@ export async function GET(req: NextRequest) {
     const attendances = schedules.length
       ? await prisma.scheduleAttendance.findMany({
           where: {
-            schoolId: user.schoolId,
+            schoolId: user.schoolId!,
             scheduleId: { in: schedules.map((schedule) => schedule.id) },
             date: { gte: start, lt: end },
           },
@@ -149,7 +149,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!MANAGER_ROLES.includes(user.role)) {
     return NextResponse.json({ error: "غير مصرح" }, { status: 403 })
@@ -168,7 +168,7 @@ export async function POST(req: NextRequest) {
 
   if (action === "mark" && typeof body.scheduleId === "string") {
     const schedule = await prisma.schedule.findFirst({
-      where: { id: body.scheduleId, schoolId: user.schoolId, teacherId: { not: null } },
+      where: { id: body.scheduleId, schoolId: user.schoolId!, teacherId: { not: null } },
     })
     if (!schedule) {
       return NextResponse.json({ error: "الحصة غير موجودة" }, { status: 404 })
@@ -182,7 +182,7 @@ export async function POST(req: NextRequest) {
         confirmedByUserId: user.id,
       },
       create: {
-        schoolId: user.schoolId,
+        schoolId: user.schoolId!,
         scheduleId: schedule.id,
         date,
         status,
@@ -201,7 +201,7 @@ export async function POST(req: NextRequest) {
 
     const schedules = await prisma.schedule.findMany({
       where: {
-        schoolId: user.schoolId,
+        schoolId: user.schoolId!,
         teacherId: { not: null },
         dayOfWeek: start.getUTCDay(),
         ...(scheduleIds?.length ? { id: { in: scheduleIds } } : {}),
@@ -218,7 +218,7 @@ export async function POST(req: NextRequest) {
           confirmedByUserId: user.id,
         },
         create: {
-          schoolId: user.schoolId,
+          schoolId: user.schoolId!,
           scheduleId: schedule.id,
           date,
           status,

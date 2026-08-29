@@ -33,7 +33,7 @@ function compareStudentNumbers(first?: string | null, second?: string | null) {
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!session || !user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!canViewClassroomJournal(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
@@ -43,19 +43,19 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const dayOfWeek = getDateDayOfWeek(date)
 
   const classroom = await prisma.classroom.findFirst({
-    where: { id: params.id, schoolId: user.schoolId },
+    where: { id: params.id, schoolId: user.schoolId! },
     select: { id: true, name: true },
   })
   if (!classroom) return NextResponse.json({ error: "القسم غير موجود" }, { status: 404 })
 
   const activeYear = await prisma.academicYear.findFirst({
-    where: { schoolId: user.schoolId, isActive: true },
+    where: { schoolId: user.schoolId!, isActive: true },
     select: { id: true },
   })
 
   const [schedules, enrollments] = await Promise.all([
     prisma.schedule.findMany({
-      where: { schoolId: user.schoolId, classroomId: params.id, dayOfWeek },
+      where: { schoolId: user.schoolId!, classroomId: params.id, dayOfWeek },
       include: {
         subject: { select: { id: true, nameAr: true, nameFr: true } },
         teacher: { select: { id: true, user: { select: { name: true } } } },
@@ -64,7 +64,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     }),
     prisma.enrollment.findMany({
       where: {
-        schoolId: user.schoolId,
+        schoolId: user.schoolId!,
         classroomId: params.id,
         status: "ACTIVE",
         ...(activeYear && { academicYearId: activeYear.id }),
@@ -100,7 +100,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     ? await Promise.all([
         prisma.attendance.findMany({
           where: {
-            schoolId: user.schoolId,
+            schoolId: user.schoolId!,
             classroomId: params.id,
             scheduleId: { in: scheduleIds },
             date: { gte: dayStart, lt: dayEnd },
@@ -111,7 +111,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         }),
         prisma.lesson.findMany({
           where: {
-            schoolId: user.schoolId,
+            schoolId: user.schoolId!,
             classroomId: params.id,
             scheduleId: { in: scheduleIds },
             date: { gte: dayStart, lt: dayEnd },

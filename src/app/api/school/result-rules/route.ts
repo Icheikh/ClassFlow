@@ -17,19 +17,19 @@ function canManageRules(user: any) {
 
 export async function GET() {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!canManageRules(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const publishedRule = await ensurePublishedResultRule(prisma, user.schoolId)
   const [draftRule, auditLogs] = await Promise.all([
     prisma.resultRule.findFirst({
-      where: { schoolId: user.schoolId, status: RESULT_RULE_STATUSES.DRAFT },
+      where: { schoolId: user.schoolId!, status: RESULT_RULE_STATUSES.DRAFT },
       orderBy: [{ updatedAt: "desc" }],
     }),
     prisma.resultAuditLog.findMany({
       where: {
-        schoolId: user.schoolId,
+        schoolId: user.schoolId!,
         entityType: { in: ["RESULT_RULE", "RESULT_PUBLICATION", "ASSESSMENT", "ASSESSMENT_OVERRIDE"] },
       },
       orderBy: { createdAt: "desc" },
@@ -47,7 +47,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!canManageRules(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
 
   const publishedRule = await ensurePublishedResultRule(prisma, user.schoolId)
   const existingDraft = await prisma.resultRule.findFirst({
-    where: { schoolId: user.schoolId, status: RESULT_RULE_STATUSES.DRAFT },
+    where: { schoolId: user.schoolId!, status: RESULT_RULE_STATUSES.DRAFT },
   })
 
   const draftRule = existingDraft
@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
       })
     : await prisma.resultRule.create({
         data: {
-          schoolId: user.schoolId,
+          schoolId: user.schoolId!,
           ...payload,
           status: RESULT_RULE_STATUSES.DRAFT,
           version: publishedRule.version + 1,
@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
 
   await createResultAuditLog({
     prisma,
-    schoolId: user.schoolId,
+    schoolId: user.schoolId!,
     actorUserId: user.id,
     entityType: "RESULT_RULE",
     entityId: draftRule.id,
@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!canManageRules(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
@@ -136,7 +136,7 @@ export async function PUT(req: NextRequest) {
 
   if (action === "publish") {
     const draftRule = await prisma.resultRule.findFirst({
-      where: { schoolId: user.schoolId, status: RESULT_RULE_STATUSES.DRAFT },
+      where: { schoolId: user.schoolId!, status: RESULT_RULE_STATUSES.DRAFT },
       orderBy: { updatedAt: "desc" },
     })
     if (!draftRule) {
@@ -146,7 +146,7 @@ export async function PUT(req: NextRequest) {
     const publishedRule = await ensurePublishedResultRule(prisma, user.schoolId)
     const result = await prisma.$transaction(async (tx) => {
       await tx.resultRule.updateMany({
-        where: { schoolId: user.schoolId, status: RESULT_RULE_STATUSES.PUBLISHED },
+        where: { schoolId: user.schoolId!, status: RESULT_RULE_STATUSES.PUBLISHED },
         data: { status: RESULT_RULE_STATUSES.ARCHIVED },
       })
 
@@ -161,7 +161,7 @@ export async function PUT(req: NextRequest) {
 
       await createResultAuditLog({
         prisma: tx,
-        schoolId: user.schoolId,
+        schoolId: user.schoolId!,
         actorUserId: user.id,
         entityType: "RESULT_RULE",
         entityId: published.id,
@@ -182,12 +182,12 @@ export async function PUT(req: NextRequest) {
 
 export async function DELETE() {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!canManageRules(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const draftRule = await prisma.resultRule.findFirst({
-    where: { schoolId: user.schoolId, status: RESULT_RULE_STATUSES.DRAFT },
+    where: { schoolId: user.schoolId!, status: RESULT_RULE_STATUSES.DRAFT },
     orderBy: { updatedAt: "desc" },
   })
   if (!draftRule) {
@@ -197,7 +197,7 @@ export async function DELETE() {
   await prisma.resultRule.delete({ where: { id: draftRule.id } })
   await createResultAuditLog({
     prisma,
-    schoolId: user.schoolId,
+    schoolId: user.schoolId!,
     actorUserId: user.id,
     entityType: "RESULT_RULE",
     entityId: draftRule.id,

@@ -10,7 +10,7 @@ import { importResultReportTemplateFromFile } from "@/lib/result-report-template
 
 async function getAdminSchoolId() {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId || user.role !== "SCHOOL_ADMIN") return null
   return user.schoolId as string
 }

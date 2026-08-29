@@ -28,7 +28,7 @@ async function buildReceiptNumber(tx: Prisma.TransactionClient, schoolId: string
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!canReadFinance(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
   const classroomId = url.searchParams.get("classroomId")
   const month = url.searchParams.get("month")
 
-  const where: any = { schoolId: user.schoolId }
+  const where: any = { schoolId: user.schoolId! }
   if (studentId) where.studentId = studentId
   if (classroomId) where.invoice = { classroomId }
   if (month) where.invoice = { ...where.invoice, month }
@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const user = session?.user as any
+  const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const isLegacyRole = ["SUPERVISOR", "ACCOUNTANT"].includes(user?.role)
   if (!hasPermission(user, PERMISSIONS.RECORD_PAYMENTS) && !isLegacyRole)
@@ -69,19 +69,19 @@ export async function POST(req: NextRequest) {
   if (!amount || !studentId) return NextResponse.json({ error: "المبلغ والطالب مطلوبان" }, { status: 400 })
 
   const student = await prisma.student.findFirst({
-    where: { id: studentId, schoolId: user.schoolId },
+    where: { id: studentId, schoolId: user.schoolId! },
     select: { id: true },
   })
   if (!student) return NextResponse.json({ error: "الطالب غير موجود" }, { status: 404 })
 
   if (feeId) {
-    const fee = await prisma.fee.findFirst({ where: { id: feeId, schoolId: user.schoolId }, select: { id: true } })
+    const fee = await prisma.fee.findFirst({ where: { id: feeId, schoolId: user.schoolId! }, select: { id: true } })
     if (!fee) return NextResponse.json({ error: "الرسم غير موجود" }, { status: 404 })
   }
 
   if (invoiceId) {
     const invoice = await prisma.invoice.findFirst({
-      where: { id: invoiceId, schoolId: user.schoolId },
+      where: { id: invoiceId, schoolId: user.schoolId! },
       select: { id: true },
     })
     if (!invoice) return NextResponse.json({ error: "الفاتورة غير موجودة" }, { status: 404 })
@@ -90,10 +90,10 @@ export async function POST(req: NextRequest) {
   let receiptCampaignData: ReceiptCampaignPayload | undefined
 
   const payment = await prisma.$transaction(async (tx) => {
-    const receiptNumber = await buildReceiptNumber(tx, user.schoolId)
+    const receiptNumber = await buildReceiptNumber(tx, user.schoolId!)
     const p = await tx.payment.create({
       data: {
-        schoolId: user.schoolId,
+        schoolId: user.schoolId!,
         amount: parseFloat(amount),
         date: new Date(),
         method: method || "CASH",
@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
       const invoice = await tx.invoice.findUnique({ where: { id: invoiceId } })
       if (invoice) {
         const totalPaid = await tx.payment.aggregate({
-          where: { invoiceId, schoolId: user.schoolId },
+          where: { invoiceId, schoolId: user.schoolId! },
           _sum: { amount: true },
         })
         const newStatus = (totalPaid._sum.amount || 0) >= invoice.amount ? "PAID" : "PARTIAL"
@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
     const campaignData: ReceiptCampaignPayload = receiptCampaignData
     try {
       await createNotificationCampaign({
-        schoolId: user.schoolId,
+        schoolId: user.schoolId!,
         createdByUserId: user.id,
         type: "PAYMENT_RECEIPT",
         channel: "WHATSAPP",

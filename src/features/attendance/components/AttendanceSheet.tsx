@@ -304,7 +304,7 @@ export function AttendanceSheet() {
                 {students.map((student) => {
                   const status = getStatus(student.id)
                   const absent = status === "absent"
-                  const number = (student as any).rollNumber ?? student.studentNumber ?? "?"
+                  const number = student.rollNumber ?? student.studentNumber ?? "?"
                   return (
                     <button
                       key={student.id}
