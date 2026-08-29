@@ -19,10 +19,22 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
+        const rawId = String(credentials.email).trim()
+        const phoneDigits = rawId.replace(/\D/g, "")
+        const isPhone = phoneDigits.length >= 8
+
+        let user = await prisma.user.findUnique({
+          where: { email: rawId },
           include: { school: true },
         })
+        if (!user && isPhone) {
+          user = await prisma.user.findFirst({
+            where: {
+              OR: [{ phone: rawId }, { phone: `+${phoneDigits}` }, { email: `${phoneDigits}@classflow.phone` }],
+            },
+            include: { school: true },
+          })
+        }
 
         if (!user || !user.isActive) return null
         if (user.school && !user.school.isActive) return null

@@ -81,13 +81,15 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
           }
         }
       } else if (parentName) {
-        const email = parentEmail || `${studentNumber || `parent-${params.id}`}@classflow.edu`
+        const phoneDigits = (parentPhone || "").replace(/\D/g, "")
+        const email = parentEmail || (phoneDigits ? `${phoneDigits}@classflow.phone` : `parent-${params.id}@classflow.edu`)
+        const rawPassword = phoneDigits || "parent123"
         const appUser = await tx.user.create({
           data: {
             email, name: parentName,
             phone: parentPhone || null,
-            passwordHash: await bcrypt.hash("parent123", 10),
-            mustChangePassword: true,
+            passwordHash: await bcrypt.hash(rawPassword, 10),
+            mustChangePassword: false,
             role: "PARENT", schoolId: user.schoolId,
           },
         })
