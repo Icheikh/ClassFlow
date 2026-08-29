@@ -22,6 +22,7 @@ type StudentDetail = {
   enrollments: {
     id: string
     status: string
+    rollNumber?: number | null
     classroom: { id: string; name: string; level: { name: string }; stream: { name: string } | null }
     academicYear: { id: string; name: string; isActive: boolean }
   }[]
@@ -51,7 +52,7 @@ export default function StudentDetailPage() {
   const [enrollClassroomId, setEnrollClassroomId] = useState("")
   const [enrollYearId, setEnrollYearId] = useState("")
 
-  const [form, setForm] = useState({ firstName: "", lastName: "", gender: "", birthDate: "", studentNumber: "", address: "", phone: "", parentName: "", parentPhone: "", parentEmail: "" })
+  const [form, setForm] = useState({ firstName: "", lastName: "", gender: "", birthDate: "", address: "", phone: "", parentName: "", parentPhone: "", parentEmail: "" })
   const [enrollToDelete, setEnrollToDelete] = useState<string | null>(null)
 
   const fetchStudent = useCallback(async () => {
@@ -105,7 +106,7 @@ export default function StudentDetailPage() {
   const readinessItems = [
     {
       label: t("readinessStudentFile"),
-      ready: Boolean(s.firstName && s.lastName && s.studentNumber),
+      ready: Boolean(s.firstName && s.lastName),
       hint: t("readinessStudentFileHint"),
     },
     {
@@ -148,7 +149,7 @@ export default function StudentDetailPage() {
             </h1>
             <p className="text-sm text-gray-500">
               {s.gender === "MALE" ? t("male") : s.gender === "FEMALE" ? t("female") : ""}
-              {s.studentNumber && ` • ${t("studentNumberLabel" as any) || "رقم:"} ${s.studentNumber}`}
+              {activeEnrollment?.rollNumber && ` • رقم: ${activeEnrollment.rollNumber}`}
               {activeEnrollment && ` • ${activeEnrollment.classroom.name}`}
             </p>
           </div>
@@ -161,7 +162,7 @@ export default function StudentDetailPage() {
             setForm({
               firstName: s.firstName, lastName: s.lastName,
               gender: s.gender || "", birthDate: s.birthDate ? s.birthDate.split("T")[0] : "",
-              studentNumber: s.studentNumber || "", address: s.address || "", phone: s.phone || "",
+              address: s.address || "", phone: s.phone || "",
               parentName: s.studentParents[0]?.parent.user.name || "",
               parentPhone: s.studentParents[0]?.parent.user.phone || "",
               parentEmail: s.studentParents[0]?.parent.user.email || "",
@@ -217,8 +218,8 @@ export default function StudentDetailPage() {
           <div className="space-y-3">
             <div className="flex items-center gap-3 text-sm">
               <Hash className="h-4 w-4 text-gray-400" />
-              <span className="text-gray-500">{t("studentNumber")}</span>
-              <span className="font-medium">{s.studentNumber || "—"}</span>
+              <span className="text-gray-500">رقم التلميذ في القسم</span>
+              <span className="font-medium">{activeEnrollment?.rollNumber ? `#${activeEnrollment.rollNumber}` : "— (يُعطى عند التسجيل في قسم)"}</span>
             </div>
             <div className="flex items-center gap-3 text-sm">
               <User className="h-4 w-4 text-gray-400" />
@@ -417,7 +418,7 @@ export default function StudentDetailPage() {
           </select>
           <input type="date" value={form.birthDate} onChange={(e) => setForm({ ...form, birthDate: e.target.value })}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
-          <input className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder={t("studentNumberPlaceholder")} value={form.studentNumber} onChange={(e) => setForm({ ...form, studentNumber: e.target.value })} />
+          <p className="text-xs text-gray-400">رقم التلميذ يُعطى تلقائياً عند تسجيله في القسم</p>
           <input className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder={t("addressPlaceholder")} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
           <input className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder={t("studentPhonePlaceholder")} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           <hr />

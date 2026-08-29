@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
       classroom: { include: { level: true, stream: true } },
       academicYear: true,
     },
-    orderBy: { enrolledAt: "desc" },
+    orderBy: [{ rollNumber: "asc" }, { enrolledAt: "asc" }],
   })
   return NextResponse.json(enrollments)
 }
@@ -57,13 +57,22 @@ export async function POST(req: NextRequest) {
   })
   if (existing) return NextResponse.json({ error: "الطالب مسجل بالفعل في هذه السنة الدراسية" }, { status: 400 })
 
-  const enrollment = await prisma.enrollment.create({
-    data: { schoolId: user.schoolId, studentId, classroomId, academicYearId },
-    include: {
-      student: true,
-      classroom: { include: { level: true } },
-      academicYear: true,
-    },
+  const enrollment = await prisma.$transaction(async (tx) => {
+    const last = await tx.enrollment.findFirst({
+      where: { classroomId, academicYearId, rollNumber: { not: null } },
+      orderBy: { rollNumber: "desc" },
+      select: { rollNumber: true },
+    })
+    const nextRoll = (last?.rollNumber || 0) + 1
+
+    return tx.enrollment.create({
+      data: { schoolId: user.schoolId, studentId, classroomId, academicYearId, rollNumber: nextRoll },
+      include: {
+        student: true,
+        classroom: { include: { level: true } },
+        academicYear: true,
+      },
+    })
   })
   return NextResponse.json(enrollment)
 }

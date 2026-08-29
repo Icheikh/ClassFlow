@@ -426,6 +426,7 @@ async function seedStudentsAndLinks(schoolId, academicYearId, classroomMap, _sha
           studentId: student.id,
           academicYearId,
           classroomId: classroomMap[classroomName].id,
+          rollNumber: i + 1,
           status: "ACTIVE",
         },
       })

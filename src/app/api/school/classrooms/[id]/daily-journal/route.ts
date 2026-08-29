@@ -74,20 +74,22 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
           select: { id: true, firstName: true, lastName: true, studentNumber: true },
         },
       },
+      orderBy: [{ rollNumber: "asc" }, { student: { firstName: "asc" } }],
     }),
   ])
 
   const sortedEnrollments = enrollments.sort((first, second) => {
+    if (first.rollNumber != null && second.rollNumber != null) return first.rollNumber - second.rollNumber
     const byNumber = compareStudentNumbers(first.student.studentNumber, second.student.studentNumber)
     if (byNumber !== 0) return byNumber
     return `${first.student.firstName} ${first.student.lastName}`.localeCompare(`${second.student.firstName} ${second.student.lastName}`)
   })
 
   const studentOrder = new Map(
-    sortedEnrollments.map((enrollment, index) => [
+    sortedEnrollments.map((enrollment) => [
       enrollment.student.id,
       {
-        number: enrollment.student.studentNumber || String(index + 1),
+        number: enrollment.rollNumber != null ? String(enrollment.rollNumber) : enrollment.student.studentNumber || "",
         name: `${enrollment.student.firstName} ${enrollment.student.lastName}`,
       },
     ])

@@ -35,6 +35,7 @@ type ClassroomResponse = {
   }
   enrollments: {
     id: string
+    rollNumber?: number | null
     student: {
       id: string
       firstName: string
@@ -885,7 +886,7 @@ export default function ClassroomDetailsPage() {
                           {enrollment.student.firstName} {enrollment.student.lastName}
                         </p>
                         <p className="text-sm text-gray-500">
-                          {enrollment.student.studentNumber || t("noStudentNumber")}
+                          #{enrollment.rollNumber ?? "?"} {enrollment.student.studentNumber ? `• ${enrollment.student.studentNumber}` : ""}
                         </p>
                       </div>
                       <Badge variant={enrollment.student.isActive ? "success" : "warning"}>

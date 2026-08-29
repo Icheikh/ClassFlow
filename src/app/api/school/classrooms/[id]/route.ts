@@ -24,7 +24,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const enrollments = await prisma.enrollment.findMany({
     where: { classroomId: classroom.id, academicYearId: year?.id },
     include: { student: true },
-    orderBy: { student: { lastName: "asc" } },
+    orderBy: [{ rollNumber: "asc" }, { student: { lastName: "asc" } }],
   })
 
   const teacherAssignments = await prisma.teacherAssignment.findMany({

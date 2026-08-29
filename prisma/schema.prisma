@@ -408,11 +408,14 @@ model Enrollment {
   academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
   classroomId    String
   classroom      Classroom    @relation(fields: [classroomId], references: [id])
+  rollNumber     Int?
   status         String       @default("ACTIVE")
   enrolledAt     DateTime     @default(now())
 
   @@unique([studentId, academicYearId])
+  @@unique([classroomId, academicYearId, rollNumber])
   @@index([schoolId, academicYearId])
+  @@index([classroomId, academicYearId, rollNumber])
 }
 
 model TeacherAssignment {

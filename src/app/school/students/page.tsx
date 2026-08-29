@@ -23,6 +23,7 @@ type StudentData = {
   enrollments?: {
     id: string
     status: string
+    rollNumber?: number | null
     classroom: { id: string; name: string; level: { name: string } }
     academicYear: { id: string; name: string; isActive: boolean }
   }[]
@@ -65,7 +66,7 @@ export default function StudentsPage() {
 
   const [addModal, setAddModal] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
-  const [form, setForm] = useState({ firstName: "", lastName: "", gender: "", birthDate: "", studentNumber: "", address: "", phone: "", parentName: "", parentPhone: "", parentEmail: "" })
+  const [form, setForm] = useState({ firstName: "", lastName: "", gender: "", birthDate: "", address: "", phone: "", parentName: "", parentPhone: "", parentEmail: "" })
 
   const [enrollModal, setEnrollModal] = useState(false)
   const [enrollStudentId, setEnrollStudentId] = useState("")
@@ -102,7 +103,7 @@ export default function StudentsPage() {
     setClassroomFilter(classroomIdFromQuery)
   }, [classroomIdFromQuery])
 
-  function resetForm() { setForm({ firstName: "", lastName: "", gender: "", birthDate: "", studentNumber: "", address: "", phone: "", parentName: "", parentPhone: "", parentEmail: "" }); setEditId(null) }
+  function resetForm() { setForm({ firstName: "", lastName: "", gender: "", birthDate: "", address: "", phone: "", parentName: "", parentPhone: "", parentEmail: "" }); setEditId(null) }
 
   async function saveStudent() {
     if (!form.firstName || !form.lastName) { toast.error(t("missingName")); return }
@@ -154,11 +155,11 @@ export default function StudentsPage() {
       const parts = line.split("\t")
       const firstName = parts[0]?.trim()
       const lastName = parts[1]?.trim()
-      const studentNumber = parts[2]?.trim()
+      // parts[2] is legacy studentNumber — ignored, rollNumber auto-assigned on enrollment
       const parentName = parts[3]?.trim()
       const parentPhone = parts[4]?.trim()
       if (!firstName || !lastName) { fail++; continue }
-      const { error } = await api.post("/api/school/students", { firstName, lastName, studentNumber: studentNumber || undefined, parentName: parentName || undefined, parentPhone: parentPhone || undefined })
+      const { error } = await api.post("/api/school/students", { firstName, lastName, parentName: parentName || undefined, parentPhone: parentPhone || undefined })
       if (error) fail++; else success++
     }
     setImporting(false)
@@ -292,7 +293,7 @@ export default function StudentsPage() {
           </select>
           <input type="date" value={form.birthDate} onChange={(e) => setForm({ ...form, birthDate: e.target.value })}
             className={`w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${locale === "ar" ? "text-right" : "text-left"}`} />
-          <input className={`w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${locale === "ar" ? "text-right" : "text-left"}`} placeholder={t("studentNumberPlaceholder")} value={form.studentNumber} onChange={(e) => setForm({ ...form, studentNumber: e.target.value })} />
+          <p className="text-xs text-gray-400">سيُعطى رقم التلميذ تلقائياً عند تسجيله في القسم (1، 2، 3...)</p>
           <input className={`w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${locale === "ar" ? "text-right" : "text-left"}`} placeholder={t("addressPlaceholder")} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
           <input className={`w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${locale === "ar" ? "text-right" : "text-left"}`} placeholder={t("studentPhonePlaceholder")} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
 
@@ -400,7 +401,7 @@ export default function StudentsPage() {
                       )}
                     </div>
                     <div className="flex items-center gap-4 mt-1 text-sm text-gray-500 flex-wrap">
-                      {s.studentNumber && <span className="flex items-center gap-1"><Hash className="h-3.5 w-3.5" /> {s.studentNumber}</span>}
+                      {activeEnrollment?.rollNumber && <span className="flex items-center gap-1"><Hash className="h-3.5 w-3.5" /> #{activeEnrollment.rollNumber}</span>}
                       {s.phone && <span className="flex items-center gap-1"><Phone className="h-3.5 w-3.5" /> {s.phone}</span>}
                       {s.birthDate && <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> {new Date(s.birthDate).toLocaleDateString(getDateLocale(locale))}</span>}
                       <span className="text-xs text-gray-400">{t("activeEnrollmentCount", { count: s.enrollments?.length || 0 })}</span>
@@ -424,7 +425,7 @@ export default function StudentsPage() {
                       setEditId(s.id)
                       setForm({
                         firstName: s.firstName, lastName: s.lastName, gender: s.gender || "",
-                        birthDate: s.birthDate ? s.birthDate.split("T")[0] : "", studentNumber: s.studentNumber || "",
+                        birthDate: s.birthDate ? s.birthDate.split("T")[0] : "",
                         address: s.address || "", phone: s.phone || "",
                         parentName: s.studentParents?.[0]?.parent.user.name || "",
                         parentPhone: s.studentParents?.[0]?.parent.user.phone || "",
