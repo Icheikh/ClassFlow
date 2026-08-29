@@ -58,7 +58,8 @@ export async function startWhatsApp(): Promise<any> {
 
   let makeWASocket: any, DisconnectReason: any, useMultiFileAuthState: any
   try {
-    const baileys = await import("@whiskeysockets/baileys")
+    // eslint-disable-next-line no-eval
+    const baileys = await eval('import("@whiskeysockets/baileys")')
     makeWASocket = baileys.default
     DisconnectReason = baileys.DisconnectReason
     useMultiFileAuthState = baileys.useMultiFileAuthState
