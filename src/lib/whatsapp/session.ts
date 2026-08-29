@@ -62,6 +62,7 @@ export async function startWhatsApp(): Promise<any> {
     fs.mkdirSync(SESSION_DIR, { recursive: true })
   }
 
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const { state, saveCreds } = await useMultiFileAuthState(SESSION_DIR)
 
   const sock = makeWASocket({
