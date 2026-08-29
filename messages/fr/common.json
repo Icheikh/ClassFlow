@@ -1351,6 +1351,7 @@
     "title": "Centre de notifications",
     "subtitle": "Tous les messages destinés aux parents passent d'abord par ici avant tout envoi réel via WhatsApp.",
     "externalSendingNotEnabled": "L'envoi externe n'est pas encore activé. Cette étape couvre les modèles, les campagnes et les validations.",
+    "whatsappReady": "WhatsApp est prêt pour l'envoi. Cliquez sur \"Envoyer aux parents\" pour convertir l'alerte en campagne WhatsApp.",
     "allCampaigns": "Toutes les campagnes",
     "pendingApproval": "En attente d'approbation",
     "approvedReady": "Approuvées et prêtes",

@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma"
 import { hasAnyPermission, PERMISSIONS } from "@/lib/permissions"
 import { sendWhatsAppMessage, isWhatsAppConfigured } from "@/lib/whatsapp"
 
-function canApproveNotifications(user: any) {
+function canSendNotifications(user: any) {
   return ["SCHOOL_ADMIN", "SUPERVISOR"].includes(user?.role)
     || hasAnyPermission(user, [PERMISSIONS.SEND_NOTIFICATIONS])
 }
@@ -14,43 +14,25 @@ export async function POST(_: NextRequest, { params }: { params: { id: string } 
   const session = await getServerSession(authOptions)
   const user = session?.user as any
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!canApproveNotifications(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  if (!canSendNotifications(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+
+  if (!isWhatsAppConfigured()) {
+    return NextResponse.json(
+      { error: "WhatsApp غير مُعد. أضف WHATSAPP_API_URL و WHATSAPP_API_TOKEN في ملف .env" },
+      { status: 503 }
+    )
+  }
 
   const campaign = await prisma.notificationCampaign.findFirst({
     where: { id: params.id, schoolId: user.schoolId },
   })
 
-  if (!campaign) return NextResponse.json({ error: "الحملة غير موجودة" }, { status: 404 })
-  if (campaign.status !== "PENDING_APPROVAL") {
-    return NextResponse.json({ error: "الحملة ليست بانتظار الاعتماد" }, { status: 400 })
-  }
-  if (campaign.createdByUserId === user.id && user.role !== "SCHOOL_ADMIN") {
-    return NextResponse.json({ error: "لا يمكنك اعتماد حملة أنشأتها بنفسك" }, { status: 403 })
-  }
-
-  if (campaign.scheduledFor) {
-    const updated = await prisma.notificationCampaign.update({
-      where: { id: campaign.id },
-      data: {
-        status: "SCHEDULED",
-        approvedByUserId: user.id,
-        approvedAt: new Date(),
-      },
-    })
-    return NextResponse.json(updated)
-  }
-
-  const updated = await prisma.notificationCampaign.update({
-    where: { id: campaign.id },
-    data: {
-      status: "APPROVED",
-      approvedByUserId: user.id,
-      approvedAt: new Date(),
-    },
-  })
-
-  if (!isWhatsAppConfigured()) {
-    return NextResponse.json({ ...updated, sendWarning: "WhatsApp غير مُعد" })
+  if (!campaign) return NextResponse.json({ error: "الحملة غير موجودة", }, { status: 404 })
+  if (campaign.status !== "APPROVED") {
+    return NextResponse.json(
+      { error: "الحملة يجب أن تكون معتمدة للإرسال" },
+      { status: 400 }
+    )
   }
 
   const recipients = await prisma.notificationRecipient.findMany({
@@ -58,7 +40,7 @@ export async function POST(_: NextRequest, { params }: { params: { id: string } 
   })
 
   if (recipients.length === 0) {
-    return NextResponse.json({ ...updated, sendWarning: "لا يوجد مستلمون" })
+    return NextResponse.json({ error: "لا يوجد مستلمون بانتظار الإرسال", }, { status: 400 })
   }
 
   await prisma.notificationCampaign.update({
@@ -114,10 +96,10 @@ export async function POST(_: NextRequest, { params }: { params: { id: string } 
   })
 
   return NextResponse.json({
-    ...updated,
     status: finalStatus,
     sent: sentCount,
     failed: failedCount,
     skipped: skippedCount,
+    total: recipients.length,
   })
 }

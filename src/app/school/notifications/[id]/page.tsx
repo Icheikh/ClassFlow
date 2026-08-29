@@ -65,13 +65,16 @@ export default function NotificationCampaignDetailPage() {
   const t = useTranslations("notificationsPage")
   const [loading, setLoading] = useState(true)
   const [campaign, setCampaign] = useState<CampaignDetail | null>(null)
+  const [sending, setSending] = useState(false)
   const statusLabels: Record<string, { label: string; variant: "success" | "warning" | "danger" | "default" }> = {
     DRAFT: { label: t("statusDraft"), variant: "default" },
     PENDING_APPROVAL: { label: t("statusPendingApproval"), variant: "warning" },
     APPROVED: { label: t("statusApproved"), variant: "success" },
     SCHEDULED: { label: t("statusScheduled"), variant: "warning" },
     REJECTED: { label: t("statusRejected"), variant: "danger" },
+    SENDING: { label: "جاري الإرسال", variant: "warning" },
     SENT: { label: t("statusSent"), variant: "success" },
+    PARTIAL: { label: "إرسال جزئي", variant: "warning" },
     FAILED: { label: t("statusFailed"), variant: "danger" },
   }
   const audienceTypeLabels: Record<string, string> = {
@@ -128,10 +131,32 @@ export default function NotificationCampaignDetailPage() {
     }
   }
 
+  async function sendCampaign() {
+    if (!campaign) return
+    setSending(true)
+    const { data, error } = await api.post<{ sent: number; failed: number; skipped: number }>(
+      `/api/school/notifications/campaigns/${campaign.id}/send`,
+      {}
+    )
+    if (error) {
+      toast.error(error)
+    } else if (data) {
+      const parts = []
+      if (data.sent > 0) parts.push(`${data.sent} مرسل`)
+      if (data.failed > 0) parts.push(`${data.failed} فاشل`)
+      if (data.skipped > 0) parts.push(`${data.skipped} م skipped`)
+      toast.success(`تم الإرسال: ${parts.join(" | ")}`)
+      await loadCampaign()
+    }
+    setSending(false)
+  }
+
   function getDeliveryMeta(status: string) {
     if (status === "APPROVED") return { label: t("deliveryApproved"), variant: "warning" as const }
     if (status === "SCHEDULED") return { label: t("deliveryScheduled"), variant: "warning" as const }
+    if (status === "SENDING") return { label: "جاري الإرسال", variant: "warning" as const }
     if (status === "SENT") return { label: t("deliverySent"), variant: "success" as const }
+    if (status === "PARTIAL") return { label: "إرسال جزئي", variant: "warning" as const }
     if (status === "FAILED") return { label: t("deliveryFailed"), variant: "danger" as const }
     if (status === "PENDING_APPROVAL") return { label: t("deliveryPendingApproval"), variant: "default" as const }
     return { label: t("deliveryNotStarted"), variant: "default" as const }
@@ -203,6 +228,11 @@ export default function NotificationCampaignDetailPage() {
                 <XCircle className="h-4 w-4" /> {t("reject")}
               </Button>
             </>
+          )}
+          {campaign.status === "APPROVED" && (
+            <Button onClick={() => void sendCampaign()} loading={sending}>
+              <Send className="h-4 w-4" /> إرسال الآن
+            </Button>
           )}
         </div>
       </div>

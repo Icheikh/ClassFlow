@@ -55,6 +55,7 @@ export default function InvoicesPage() {
   const limit = 25
   const [generating, setGenerating] = useState(false)
   const [sendingReminders, setSendingReminders] = useState(false)
+  const recentMonthOptions = generateRecentMonthOptions(18, locale)
   const [generateMonth, setGenerateMonth] = useState(recentMonthOptions[0]?.value || "")
   const [generateClassroomId, setGenerateClassroomId] = useState("")
   const [generateDueDate, setGenerateDueDate] = useState("")
@@ -68,7 +69,6 @@ export default function InvoicesPage() {
   const [payInvoiceId, setPayInvoiceId] = useState<string | null>(null)
   const [payAmount, setPayAmount] = useState("")
   const [payMethod, setPayMethod] = useState("CASH")
-  const recentMonthOptions = generateRecentMonthOptions(18, locale)
   const [paying, setPaying] = useState(false)
   const monthOptions = [
     { value: "", label: t("allMonths") },

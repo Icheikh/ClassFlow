@@ -125,7 +125,7 @@ export default function SchoolNotificationsPage() {
     if (error) toast.error(error)
     else {
       toast.success(t("parentDraftCreated", { count: data?.recipientsCount || 0 }))
-      await loadData()
+      window.location.href = `/school/notifications/${data?.campaignId}`
     }
     setSavingNotification(null)
   }
@@ -154,7 +154,7 @@ export default function SchoolNotificationsPage() {
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{t("operationsInboxSubtitle")}</p>
           </div>
           <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            {t("externalSendingNotEnabled")}
+            {t("whatsappReady")}
           </div>
         </div>
       </div>

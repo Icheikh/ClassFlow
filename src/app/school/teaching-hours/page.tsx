@@ -134,7 +134,7 @@ export default function TeachingHoursPage() {
     if (error) {
       toast.error(error)
     } else {
-      toast.success(t("saveSuccess")
+      toast.success(t("saveSuccess"))
       const { data: refreshed } = await api.get<TeachingHoursData>(`/api/school/teaching-hours?date=${dateStr}`)
       if (refreshed) {
         setData(refreshed)
