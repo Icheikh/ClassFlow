@@ -63,44 +63,85 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       },
     })
 
-    // Update parent info if provided
+    // Update parent info if provided — supports linking multiple children to same parent via phone
     if (parentName !== undefined || parentPhone !== undefined) {
+      const phoneDigits = (parentPhone || "").replace(/\D/g, "")
       const existingSp = await tx.studentParent.findFirst({
         where: { studentId: params.id, isPrimary: true },
         include: { parent: true },
       })
 
+      // Find existing parent by phone (if phone provided)
+      let targetParent: { id: string; userId: string } | null = null
+      if (phoneDigits) {
+        const existingUser = await tx.user.findFirst({
+          where: {
+            schoolId: user.schoolId!,
+            role: "PARENT",
+            OR: [{ phone: parentPhone }, { phone: `+${phoneDigits}` }, { email: { contains: phoneDigits } }],
+          },
+          select: { id: true },
+        })
+        if (existingUser) {
+          const parent = await tx.parent.findFirst({ where: { userId: existingUser.id }, select: { id: true, userId: true } })
+          if (parent) targetParent = parent
+        }
+      }
+
       if (existingSp) {
-        const updateData: any = {}
-        if (parentName !== undefined) updateData.name = parentName
-        if (parentPhone !== undefined) updateData.phone = parentPhone
-        if (Object.keys(updateData).length > 0) {
-          await tx.user.update({ where: { id: existingSp.parent.userId }, data: updateData })
-          if (parentPhone !== undefined) {
-            await tx.parent.update({ where: { id: existingSp.parentId }, data: { phone: parentPhone || null } })
+        // If phone points to a different existing parent, re-link instead of updating
+        if (targetParent && targetParent.id !== existingSp.parentId) {
+          await tx.studentParent.delete({ where: { id: existingSp.id } })
+          const alreadyLinked = await tx.studentParent.findFirst({ where: { studentId: params.id, parentId: targetParent.id } })
+          if (!alreadyLinked) {
+            await tx.studentParent.create({
+              data: { schoolId: user.schoolId!, studentId: params.id, parentId: targetParent.id, relationship: "ولي أمر", isPrimary: true, receiveNotifications: true },
+            })
+          }
+          if (parentName && parentName !== undefined) {
+            await tx.user.update({ where: { id: targetParent.userId }, data: { name: parentName } })
+          }
+        } else {
+          const updateData: Record<string, unknown> = {}
+          if (parentName !== undefined) updateData.name = parentName
+          if (parentPhone !== undefined) updateData.phone = parentPhone
+          if (Object.keys(updateData).length > 0) {
+            await tx.user.update({ where: { id: existingSp.parent.userId }, data: updateData })
+            if (parentPhone !== undefined) {
+              await tx.parent.update({ where: { id: existingSp.parentId }, data: { phone: parentPhone || null } })
+            }
           }
         }
       } else if (parentName) {
-        const phoneDigits = (parentPhone || "").replace(/\D/g, "")
-        const school = await tx.school.findUnique({ where: { id: user.schoolId! }, select: { slug: true } })
-        const schoolSlug = school?.slug || "school"
-        const email = parentEmail || (phoneDigits ? `p${phoneDigits}@${schoolSlug}.classflow` : `parent-${params.id}@${schoolSlug}.classflow`)
-        const rawPassword = phoneDigits || "parent123"
-        const appUser = await tx.user.create({
-          data: {
-            email, name: parentName,
-            phone: parentPhone || null,
-            passwordHash: await bcrypt.hash(rawPassword, 10),
-            mustChangePassword: false,
-            role: "PARENT", schoolId: user.schoolId!,
-          },
-        })
-        const parent = await tx.parent.create({
-          data: { schoolId: user.schoolId!, userId: appUser.id, phone: parentPhone || null },
-        })
-        await tx.studentParent.create({
-          data: { schoolId: user.schoolId!, studentId: params.id, parentId: parent.id, relationship: "ولي أمر", isPrimary: true, receiveNotifications: true },
-        })
+        if (targetParent) {
+          // Link to existing parent instead of creating duplicate
+          const alreadyLinked = await tx.studentParent.findFirst({ where: { studentId: params.id, parentId: targetParent.id } })
+          if (!alreadyLinked) {
+            await tx.studentParent.create({
+              data: { schoolId: user.schoolId!, studentId: params.id, parentId: targetParent.id, relationship: "ولي أمر", isPrimary: true, receiveNotifications: true },
+            })
+          }
+        } else {
+          const school = await tx.school.findUnique({ where: { id: user.schoolId! }, select: { slug: true } })
+          const schoolSlug = school?.slug || "school"
+          const email = parentEmail || (phoneDigits ? `p${phoneDigits}@${schoolSlug}.classflow` : `parent-${params.id}@${schoolSlug}.classflow`)
+          const rawPassword = phoneDigits || "parent123"
+          const appUser = await tx.user.create({
+            data: {
+              email, name: parentName,
+              phone: parentPhone || null,
+              passwordHash: await bcrypt.hash(rawPassword, 10),
+              mustChangePassword: false,
+              role: "PARENT", schoolId: user.schoolId!,
+            },
+          })
+          const parent = await tx.parent.create({
+            data: { schoolId: user.schoolId!, userId: appUser.id, phone: parentPhone || null },
+          })
+          await tx.studentParent.create({
+            data: { schoolId: user.schoolId!, studentId: params.id, parentId: parent.id, relationship: "ولي أمر", isPrimary: true, receiveNotifications: true },
+          })
+        }
       }
     }
 

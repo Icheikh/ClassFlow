@@ -86,34 +86,62 @@ export async function POST(req: NextRequest) {
 
     if (parentName) {
       const phoneDigits = (parentPhone || "").replace(/\D/g, "")
-      const school = await tx.school.findUnique({ where: { id: user.schoolId! }, select: { slug: true } })
-      const schoolSlug = school?.slug || "school"
-      const email = parentEmail || (phoneDigits ? `p${phoneDigits}@${schoolSlug}.classflow` : `parent-${student.id}@${schoolSlug}.classflow`)
-      const rawPassword = phoneDigits || "parent123"
-      const appUser = await tx.user.create({
-        data: {
-          email,
-          name: parentName,
-          phone: parentPhone || null,
-          passwordHash: await bcrypt.hash(rawPassword, 10),
-          mustChangePassword: false,
-          role: "PARENT",
-          schoolId: user.schoolId!,
-        },
-      })
-      const parent = await tx.parent.create({
-        data: { schoolId: user.schoolId!, userId: appUser.id, phone: parentPhone || null },
-      })
-      await tx.studentParent.create({
-        data: {
-          schoolId: user.schoolId!,
-          studentId: student.id,
-          parentId: parent.id,
-          relationship: "ولي أمر",
-          isPrimary: true,
-          receiveNotifications: true,
-        },
-      })
+      let parentId: string | null = null
+      if (phoneDigits) {
+        const existingUser = await tx.user.findFirst({
+          where: {
+            schoolId: user.schoolId!,
+            role: "PARENT",
+            OR: [{ phone: parentPhone }, { phone: `+${phoneDigits}` }, { email: { contains: phoneDigits } }],
+          },
+          select: { id: true },
+        })
+        if (existingUser) {
+          const existingParent = await tx.parent.findFirst({ where: { userId: existingUser.id }, select: { id: true } })
+          if (existingParent) parentId = existingParent.id
+        }
+      }
+      if (parentId) {
+        await tx.studentParent.create({
+          data: {
+            schoolId: user.schoolId!,
+            studentId: student.id,
+            parentId,
+            relationship: "ولي أمر",
+            isPrimary: true,
+            receiveNotifications: true,
+          },
+        })
+      } else {
+        const school = await tx.school.findUnique({ where: { id: user.schoolId! }, select: { slug: true } })
+        const schoolSlug = school?.slug || "school"
+        const email = parentEmail || (phoneDigits ? `p${phoneDigits}@${schoolSlug}.classflow` : `parent-${student.id}@${schoolSlug}.classflow`)
+        const rawPassword = phoneDigits || "parent123"
+        const appUser = await tx.user.create({
+          data: {
+            email,
+            name: parentName,
+            phone: parentPhone || null,
+            passwordHash: await bcrypt.hash(rawPassword, 10),
+            mustChangePassword: false,
+            role: "PARENT",
+            schoolId: user.schoolId!,
+          },
+        })
+        const parent = await tx.parent.create({
+          data: { schoolId: user.schoolId!, userId: appUser.id, phone: parentPhone || null },
+        })
+        await tx.studentParent.create({
+          data: {
+            schoolId: user.schoolId!,
+            studentId: student.id,
+            parentId: parent.id,
+            relationship: "ولي أمر",
+            isPrimary: true,
+            receiveNotifications: true,
+          },
+        })
+      }
     }
 
     return student
