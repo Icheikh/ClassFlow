@@ -12,12 +12,12 @@ import { LanguageSwitcher } from "@/components/ui"
 import {
   LayoutDashboard, Calendar, Layers, BookOpen, GraduationCap,
   Users, ClipboardList, Settings, LogOut, School, UserPlus, Wallet, Shield, DollarSign, Receipt, Clock3, Bell, CalendarDays,
-  UserCog, Menu, X, Phone,
+  UserCog, Menu, X,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const allowedRoles = ["SCHOOL_ADMIN", "STAFF", "SUPERVISOR", "ACCOUNTANT"]
-const adminOnlyPaths = ["/school/result-rules", "/school/staff", "/school/settings", "/school/whatsapp"]
+const adminOnlyPaths = ["/school/result-rules", "/school/staff", "/school/settings"]
 
 type NavItem = {
   href: string; labelKey: string; icon: React.ComponentType<{ className?: string }>; adminOnly?: boolean
@@ -40,7 +40,6 @@ const nav: NavItem[] = [
   { href: "/school/students", labelKey: "students", icon: Users },
   { href: "/school/results", labelKey: "results", icon: GraduationCap },
   { href: "/school/staff", labelKey: "staff", icon: Shield, adminOnly: true },
-  { href: "/school/whatsapp", labelKey: "whatsapp", icon: Phone, adminOnly: true },
   { href: "/school/settings", labelKey: "settings", icon: Settings, adminOnly: true },
 ]
 
