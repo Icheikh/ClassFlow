@@ -33,7 +33,7 @@ export default function FeesPage() {
 
   const [editModal, setEditModal] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
-  const [form, setForm] = useState({ name: "", amount: "", frequency: "MONTHLY", levelId: "", classroomId: "" })
+  const [form, setForm] = useState({ name: "", amount: "", frequency: "MONTHLY", levelId: "", classroomId: "", isActive: true })
   const [saving, setSaving] = useState(false)
 
   const [assignModal, setAssignModal] = useState(false)
@@ -60,7 +60,7 @@ export default function FeesPage() {
 
   function openAdd() {
     setEditId(null)
-    setForm({ name: "", amount: "", frequency: "MONTHLY", levelId: "", classroomId: "" })
+    setForm({ name: "", amount: "", frequency: "MONTHLY", levelId: "", classroomId: "", isActive: true })
     setEditModal(true)
   }
 
@@ -72,6 +72,7 @@ export default function FeesPage() {
       frequency: fee.frequency,
       levelId: fee.levelId || "",
       classroomId: fee.classroomId || "",
+      isActive: fee.isActive,
     })
     setEditModal(true)
   }
@@ -316,6 +317,17 @@ export default function FeesPage() {
             onChange={(value) => setForm({ ...form, classroomId: value })}
             options={[{ value: "", label: t("allClassrooms") }, ...classrooms.map((classroom) => ({ value: classroom.id, label: classroom.name }))]}
           />
+          {editId && (
+            <Select
+              label={t("status")}
+              value={form.isActive ? "active" : "inactive"}
+              onChange={(value) => setForm({ ...form, isActive: value === "active" })}
+              options={[
+                { value: "active", label: t("active") },
+                { value: "inactive", label: t("inactive") },
+              ]}
+            />
+          )}
           <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
             {t("definitionHint")}
           </div>

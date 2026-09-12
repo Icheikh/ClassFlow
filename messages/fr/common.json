@@ -90,7 +90,14 @@
     "results": "Résultats",
     "staff": "Personnel",
     "whatsapp": "WhatsApp",
-    "settings": "Paramètres"
+    "settings": "Paramètres",
+    "sectionMain": "Principal",
+    "sectionFinance": "Finances",
+    "sectionAcademic": "Pédagogie",
+    "sectionTeam": "Enseignants",
+    "sectionPeople": "Personnes",
+    "sectionComm": "Communication",
+    "sectionSystem": "Système"
   },
   "teacher": {
     "home": "Accueil",
@@ -441,6 +448,16 @@
     "importing": "Import en cours...",
     "importSuccess": "{success} élève(s) importé(s){failText}",
     "importFailSuffix": ", échec {fail}",
+    "importTitle": "Importer des élèves depuis Excel",
+    "importSubtitle": "Importer un fichier CSV contenant les données des élèves et de leurs parents",
+    "importTemplateHint": "Téléchargez le modèle d'abord puis ajoutez les données des élèves",
+    "downloadTemplate": "Télécharger le modèle",
+    "dropCsv": "Glissez un fichier CSV ici ou cliquez pour sélectionner",
+    "importStudents": "Lancer l'import",
+    "importResults": "Résultats de l'import",
+    "studentsImported": "élève(s) importé(s) avec succès",
+    "rowsFailed": "ligne(s) échouée(s)",
+    "viewStudents": "Voir les élèves",
     "title": "Élèves",
     "subtitle": "Gérer les dossiers des élèves, leur rattachement aux classes, aux parents et au suivi scolaire ({total} élève(s))",
     "import": "Importer",
@@ -486,7 +503,6 @@
     "selectAcademicYear": "Choisir l'année scolaire",
     "currentYear": "actuelle",
     "enroll": "Inscrire",
-    "importTitle": "Importer des élèves depuis Excel",
     "importHow": "Méthode d'import :",
     "importDesc1": "Copiez les données depuis Excel puis collez-les dans le champ ci-dessous.",
     "importDesc2": "Ordre requis pour chaque ligne (séparé par tabulation) :",
@@ -1274,7 +1290,8 @@
     "assignHint": "Ces frais seront liés à tous les élèves actifs de la classe choisie, puis pourront être inclus dans la génération mensuelle ou annuelle selon leur périodicité.",
     "confirmAssignment": "Confirmer l'affectation",
     "deleteTitle": "Supprimer les frais",
-    "deleteMessage": "Confirmez-vous la suppression de ces frais ?"
+    "deleteMessage": "Confirmez-vous la suppression de ces frais ?",
+    "status": "Statut"
   },
   "invoicesPage": {
     "allMonths": "Tous les mois",
@@ -1341,7 +1358,13 @@
     "cash": "Espèces",
     "bankTransfer": "Virement bancaire",
     "cheque": "Chèque",
-    "confirmPayment": "Confirmer le paiement"
+    "confirmPayment": "Confirmer le paiement",
+    "previewButton": "Aperçu",
+    "confirmGeneration": "Confirmer la génération de {count} factures",
+    "searchStudent": "Rechercher un élève",
+    "searchStudentPlaceholder": "Nom ou matricule...",
+    "bankily": "Bankily",
+    "masrvi": "Masrvi"
   },
   "resultsPage": {
     "approvedCampaignCreated": "Les résultats ont été validés et une campagne de notification a été créée pour {count} destinataires",
@@ -1662,7 +1685,20 @@
     "confirmed": "Confirmé",
     "compensation": "Compensation",
     "hours": "Heures",
-    "earning": "Montant dû"
+    "earning": "Montant dû",
+    "monthMode": "Mensuel",
+    "weekMode": "Hebdomadaire",
+    "markPaid": "Confirmer le paiement",
+    "paidBadge": "Payé",
+    "reopen": "Rouvrir",
+    "printSlip": "Bulletin de paie",
+    "unassignedTitle": "Heures sans affectation (remplaçant ?)",
+    "unassignedText": "Heures confirmées pour un enseignant sans affectation correspondante — ne seront payées à personne sans correction.",
+    "excusedNote": "Note : les séances excusées ne sont pas rémunérées.",
+    "paidOn": "Payé le",
+    "paySuccess": "Paiement enregistré",
+    "payFailed": "Échec de l’enregistrement",
+    "reopenSuccess": "Mois rouvert pour correction"
   },
   "teacherAttendancePage": {
     "bannerText": "Validez l'état de chaque cours planifié aujourd'hui. Cette page est la base de la paie, et les heures compensatoires servent uniquement aux cours exceptionnels.",
@@ -2178,5 +2214,18 @@
     "aging60": "Retard 60j",
     "aging90": "Retard 90+j",
     "agingNoDue": "Sans date d'échéance"
+  },
+  "payrollSlip": {
+    "title": "Bulletin de paie",
+    "period": "Période",
+    "teacher": "Enseignant",
+    "totalHours": "Heures totales",
+    "totalEarnings": "Net à payer",
+    "status": "Statut",
+    "paid": "Payé",
+    "pending": "Non payé",
+    "signatureDirector": "Signature de la direction",
+    "signatureTeacher": "Signature de l’enseignant",
+    "print": "Imprimer"
   }
 }

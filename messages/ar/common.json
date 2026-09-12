@@ -90,7 +90,14 @@
     "results": "النتائج",
     "staff": "الموظفون",
     "whatsapp": "واتساب",
-    "settings": "الإعدادات"
+    "settings": "الإعدادات",
+    "sectionMain": "الرئيسية",
+    "sectionFinance": "المالية",
+    "sectionAcademic": "الشؤون الدراسية",
+    "sectionTeam": "الأساتذة",
+    "sectionPeople": "الأشخاص",
+    "sectionComm": "التواصل",
+    "sectionSystem": "النظام"
   },
   "teacher": {
     "home": "الرئيسية",
@@ -441,6 +448,16 @@
     "importing": "جارٍ الاستيراد...",
     "importSuccess": "تم استيراد {success} طالب{failText}",
     "importFailSuffix": "، فشل {fail}",
+    "importTitle": "استيراد طلاب من Excel",
+    "importSubtitle": "استيراد ملف CSV يحتوي على بيانات التلاميذ وأولياء أمورهم",
+    "importTemplateHint": "حمّل النموذج أولاً ثم أضف بيانات التلاميذ",
+    "downloadTemplate": "تحميل النموذج",
+    "dropCsv": "اسحب ملف CSV هنا أو انقر للاختيار",
+    "importStudents": "بدء الاستيراد",
+    "importResults": "نتائج الاستيراد",
+    "studentsImported": "طالب تم استيراده بنجاح",
+    "rowsFailed": "سطر فشل",
+    "viewStudents": "عرض التلاميذ",
     "title": "الطلاب",
     "subtitle": "إدارة ملفات الطلاب وربطهم بالأقسام وأولياء الأمور والمتابعة الدراسية ({total} طالب)",
     "import": "استيراد",
@@ -486,7 +503,6 @@
     "selectAcademicYear": "اختر السنة الدراسية",
     "currentYear": "الحالية",
     "enroll": "تسجيل",
-    "importTitle": "استيراد طلاب من Excel",
     "importHow": "طريقة الاستيراد:",
     "importDesc1": "انسخ البيانات من Excel والصقها في الحقل أدناه.",
     "importDesc2": "الترتيب المطلوب لكل سطر (مفصول بعلامة tab):",
@@ -1274,7 +1290,8 @@
     "assignHint": "سيُربط هذا الرسم بجميع الطلاب النشطين في القسم المختار، وبعد ذلك يمكن إدخاله ضمن التوليد الشهري أو السنوي حسب دوريته.",
     "confirmAssignment": "تأكيد التعيين",
     "deleteTitle": "حذف الرسم",
-    "deleteMessage": "هل أنت متأكد من حذف هذا الرسم؟"
+    "deleteMessage": "هل أنت متأكد من حذف هذا الرسم؟",
+    "status": "الحالة"
   },
   "invoicesPage": {
     "allMonths": "كل الأشهر",
@@ -1341,7 +1358,13 @@
     "cash": "نقداً",
     "bankTransfer": "تحويل بنكي",
     "cheque": "شيك",
-    "confirmPayment": "تأكيد الدفع"
+    "confirmPayment": "تأكيد الدفع",
+    "previewButton": "معاينة",
+    "confirmGeneration": "تأكيد توليد {count} فاتورة",
+    "searchStudent": "بحث عن تلميذ",
+    "searchStudentPlaceholder": "الاسم أو رقم التسجيل...",
+    "bankily": "بنكيلي",
+    "masrvi": "مصرفي"
   },
   "resultsPage": {
     "approvedCampaignCreated": "تم اعتماد النتائج وإنشاء حملة إشعار لعدد {count} مستلمين",
@@ -1662,7 +1685,20 @@
     "confirmed": "المؤكد",
     "compensation": "تعويض",
     "hours": "الساعات",
-    "earning": "المستحق"
+    "earning": "المستحق",
+    "monthMode": "شهري",
+    "weekMode": "أسبوعي",
+    "markPaid": "تأكيد الصرف",
+    "paidBadge": "مصروف",
+    "reopen": "إعادة فتح",
+    "printSlip": "قسيمة الراتب",
+    "unassignedTitle": "ساعات بلا تكليف (معلم بديل؟)",
+    "unassignedText": "ساعات مؤكدة لمعلم ليس له تكليف مطابق — لن تُدفع لأحد ما لم تُعالج. راجع التكليفات.",
+    "excusedNote": "ملاحظة: الحصص المعذورة (بعذر) لا تدخل في المستحق.",
+    "paidOn": "صُرف بتاريخ",
+    "paySuccess": "تم تسجيل الصرف",
+    "payFailed": "تعذر تسجيل الصرف",
+    "reopenSuccess": "أُعيد فتح الشهر للتعديل"
   },
   "teacherAttendancePage": {
     "bannerText": "ثبّت حالة كل حصة مجدولة اليوم. هذه الصفحة هي المرجع الأساسي للرواتب، ثم تستخدم الساعات التعويضية فقط للحصص الاستثنائية.",
@@ -2179,5 +2215,18 @@
     "aging60": "متأخر 60 يوم",
     "aging90": "متأخر 90+ يوم",
     "agingNoDue": "بدون تاريخ استحقاق"
+  },
+  "payrollSlip": {
+    "title": "قسيمة راتب",
+    "period": "الفترة",
+    "teacher": "المعلم",
+    "totalHours": "مجموع الساعات",
+    "totalEarnings": "صافي المستحق",
+    "status": "الحالة",
+    "paid": "مصروف",
+    "pending": "غير مصروف",
+    "signatureDirector": "توقيع الإدارة",
+    "signatureTeacher": "توقيع المعلم",
+    "print": "طباعة"
   }
 }

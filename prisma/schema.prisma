@@ -1015,3 +1015,27 @@ model OtpCode {
   @@index([phoneNormalized, purpose])
   @@index([expiresAt])
 }
+
+// ============================================================
+// 10. PAYROLL PAYOUT LEDGER
+// ============================================================
+
+model PayrollRecord {
+  id            String    @id @default(cuid())
+  schoolId      String
+  teacherId     String
+  // Billing period: "YYYY-MM" (monthly close). Weekly view stays computed-live.
+  period        String
+  totalHours    Float
+  totalEarnings Float
+  // PAID = closed | PENDING = reopened for correction
+  status        String    @default("PAID")
+  paidAt        DateTime?
+  paidByUserId  String?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([schoolId, teacherId, period])
+  @@index([schoolId, period])
+}

@@ -12,7 +12,7 @@ import { LanguageSwitcher } from "@/components/ui"
 import {
   LayoutDashboard, Calendar, Layers, BookOpen, GraduationCap,
   Users, ClipboardList, Settings, LogOut, School, UserPlus, Wallet, Shield, DollarSign, Receipt, Clock3, Bell, CalendarDays,
-  UserCog, Menu, X,
+  UserCog, Menu, X, ArrowUpCircle, PieChart,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -20,34 +20,39 @@ const allowedRoles = ["SCHOOL_ADMIN", "STAFF", "SUPERVISOR", "ACCOUNTANT"]
 const adminOnlyPaths = ["/school/result-rules", "/school/staff", "/school/settings"]
 
 type NavItem = {
-  href: string; labelKey: string; icon: React.ComponentType<{ className?: string }>; adminOnly?: boolean
+  href: string; labelKey: string; icon: React.ComponentType<{ className?: string }>; adminOnly?: boolean; section: string
 }
+// Sections keep finance together: overview → money → academic → teaching team → people → communication → system.
 const nav: NavItem[] = [
-  { href: "/school", labelKey: "dashboard", icon: LayoutDashboard },
-  { href: "/school/academic-years", labelKey: "academicYears", icon: Calendar },
-  { href: "/school/levels", labelKey: "levels", icon: Layers },
-  { href: "/school/classrooms", labelKey: "classrooms", icon: School },
-  { href: "/school/schedules", labelKey: "schedules", icon: CalendarDays },
-  { href: "/school/subjects", labelKey: "subjects", icon: BookOpen },
-  { href: "/school/teachers", labelKey: "teachers", icon: UserPlus },
-  { href: "/school/teacher-attendance", labelKey: "teacherAttendance", icon: ClipboardList },
-  { href: "/school/teaching-hours", labelKey: "teachingHours", icon: Clock3 },
-  { href: "/school/result-rules", labelKey: "resultRules", icon: ClipboardList, adminOnly: true },
-  { href: "/school/payroll", labelKey: "payroll", icon: Wallet },
-  { href: "/school/fees", labelKey: "fees", icon: DollarSign },
-  { href: "/school/invoices", labelKey: "invoices", icon: Receipt },
-  { href: "/school/notifications", labelKey: "notifications", icon: Bell },
-  { href: "/school/students", labelKey: "students", icon: Users },
-  { href: "/school/results", labelKey: "results", icon: GraduationCap },
-  { href: "/school/staff", labelKey: "staff", icon: Shield, adminOnly: true },
-  { href: "/school/settings", labelKey: "settings", icon: Settings, adminOnly: true },
+  { href: "/school", labelKey: "dashboard", icon: LayoutDashboard, section: "main" },
+  { href: "/school/finance", labelKey: "financeDashboard", icon: PieChart, section: "finance" },
+  { href: "/school/payroll", labelKey: "payroll", icon: Wallet, section: "finance" },
+  { href: "/school/fees", labelKey: "fees", icon: DollarSign, section: "finance" },
+  { href: "/school/invoices", labelKey: "invoices", icon: Receipt, section: "finance" },
+  { href: "/school/academic-years", labelKey: "academicYears", icon: Calendar, section: "academic" },
+  { href: "/school/promotions", labelKey: "promotions", icon: ArrowUpCircle, section: "academic" },
+  { href: "/school/levels", labelKey: "levels", icon: Layers, section: "academic" },
+  { href: "/school/classrooms", labelKey: "classrooms", icon: School, section: "academic" },
+  { href: "/school/schedules", labelKey: "schedules", icon: CalendarDays, section: "academic" },
+  { href: "/school/subjects", labelKey: "subjects", icon: BookOpen, section: "academic" },
+  { href: "/school/result-rules", labelKey: "resultRules", icon: ClipboardList, adminOnly: true, section: "academic" },
+  { href: "/school/results", labelKey: "results", icon: GraduationCap, section: "academic" },
+  { href: "/school/teachers", labelKey: "teachers", icon: UserPlus, section: "team" },
+  { href: "/school/teacher-attendance", labelKey: "teacherAttendance", icon: ClipboardList, section: "team" },
+  { href: "/school/teaching-hours", labelKey: "teachingHours", icon: Clock3, section: "team" },
+  { href: "/school/students", labelKey: "students", icon: Users, section: "people" },
+  { href: "/school/staff", labelKey: "staff", icon: Shield, adminOnly: true, section: "people" },
+  { href: "/school/notifications", labelKey: "notifications", icon: Bell, section: "comm" },
+  { href: "/school/settings", labelKey: "settings", icon: Settings, adminOnly: true, section: "system" },
 ]
 
 const roleNavAccess: Record<string, string[]> = {
   SCHOOL_ADMIN: nav.map((item) => item.href),
   STAFF: [
     "/school",
+    "/school/finance",
     "/school/academic-years",
+    "/school/promotions",
     "/school/levels",
     "/school/classrooms",
     "/school/schedules",
@@ -72,6 +77,7 @@ const roleNavAccess: Record<string, string[]> = {
   ],
   ACCOUNTANT: [
     "/school",
+    "/school/finance",
     "/school/fees",
     "/school/invoices",
     "/school/payroll",
@@ -124,6 +130,36 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
     }
   }
 
+  function renderNavItems(onNavigate?: () => void) {
+    let lastSection = ""
+    return visibleNav.map((item) => {
+      const active = item.href === "/school" ? pathname === item.href : pathname?.startsWith(item.href)
+      const header = item.section !== lastSection ? (
+        <p key={`section-${item.section}`} className="px-3 pt-4 pb-1 text-[11px] font-semibold text-gray-400">
+          {tSchool(`section${item.section.charAt(0).toUpperCase()}${item.section.slice(1)}`)}
+        </p>
+      ) : null
+      lastSection = item.section
+      return (
+        <span key={item.href}>
+          {header}
+          <Link
+            href={item.href}
+            onClick={onNavigate}
+            className={cn(
+              "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
+              active ? "bg-blue-50 text-blue-700 font-medium" : "text-gray-600 hover:bg-gray-100"
+            )}
+            aria-current={active ? "page" : undefined}
+          >
+            <item.icon className="h-5 w-5" />
+            {tSchool(item.labelKey)}
+          </Link>
+        </span>
+      )
+    })
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex lg:flex print:block print:bg-white" dir={direction}>
       {/* Mobile header */}
@@ -141,24 +177,7 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
       {mobileOpen && (
         <div className="lg:hidden fixed inset-0 top-14 z-40 bg-white overflow-y-auto">
           <div className="p-3 space-y-1 pb-24">
-            {visibleNav.map((item) => {
-              const active = item.href === "/school" ? pathname === item.href : pathname?.startsWith(item.href)
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={closeMobile}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
-                    active ? "bg-blue-50 text-blue-700 font-medium" : "text-gray-600 hover:bg-gray-100"
-                  )}
-                  aria-current={active ? "page" : undefined}
-                >
-                  <item.icon className="h-5 w-5" />
-                  {tSchool(item.labelKey)}
-                </Link>
-              )
-            })}
+            {renderNavItems(closeMobile)}
             <Link
               href="/account"
               onClick={closeMobile}
@@ -195,23 +214,7 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {visibleNav.map((item) => {
-            const active = item.href === "/school" ? pathname === item.href : pathname?.startsWith(item.href)
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
-                  active ? "bg-blue-50 text-blue-700 font-medium" : "text-gray-600 hover:bg-gray-100"
-                )}
-                aria-current={active ? "page" : undefined}
-              >
-                <item.icon className="h-5 w-5" />
-                {tSchool(item.labelKey)}
-              </Link>
-            )
-          })}
+          {renderNavItems()}
         </nav>
 
         <div className="p-3 border-t space-y-1">
