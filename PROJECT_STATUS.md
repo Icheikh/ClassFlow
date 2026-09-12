@@ -1,9 +1,9 @@
 # 📊 ClassFlow — Project Status
 
-**Last updated:** 2026-09-12 (Session 7 — phone identity)
-**Build:** ✅ `tsc --noEmit` passes, 75 vitest tests pass
-**Database:** PostgreSQL (Supabase), 32 models (User + OtpCode added)
-**Commits:** 95 on `main`
+**Last updated:** 2026-09-12 (Session 8 — finance overhaul)
+**Build:** ✅ `tsc --noEmit` passes, 86 vitest tests pass
+**Database:** PostgreSQL (Supabase), 33 models (+PayrollRecord)
+**Commits:** 98 on `main`
 
 ---
 
