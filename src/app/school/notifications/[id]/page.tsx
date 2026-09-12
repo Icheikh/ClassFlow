@@ -8,6 +8,7 @@ import toast from "react-hot-toast"
 import { Badge, Button, Card, LoadingPage } from "@/components/ui"
 import { api } from "@/lib/api"
 import { getMonthLabel } from "@/lib/finance"
+import { describeSegments } from "@/lib/message-vars"
 import { ArrowRight, CheckCircle2, Clock3, Send, Users, XCircle } from "lucide-react"
 
 type Recipient = {
@@ -16,6 +17,8 @@ type Recipient = {
   channel: string
   status: string
   errorMessage: string | null
+  messageOverride: string | null
+  messageRendered: string | null
   user: { id: string; name: string; phone: string | null } | null
   student: { id: string; firstName: string; lastName: string; studentNumber: string | null } | null
   parent: { id: string; phone: string | null } | null
@@ -87,6 +90,9 @@ export default function NotificationCampaignDetailPage() {
   }
   const channelLabels: Record<string, string> = {
     WHATSAPP: t("whatsapp"),
+    VONAGE_SMS: "SMS (Vonage)",
+    SMS: "SMS",
+    NONE: "—",
     IN_APP: t("inApp"),
   }
   const campaignTypeLabels: Record<string, string> = {
@@ -146,6 +152,22 @@ export default function NotificationCampaignDetailPage() {
       if (data.failed > 0) parts.push(`${data.failed} فاشل`)
       if (data.skipped > 0) parts.push(`${data.skipped} م skipped`)
       toast.success(`تم الإرسال: ${parts.join(" | ")}`)
+      await loadCampaign()
+    }
+    setSending(false)
+  }
+
+  async function resendFailed() {
+    if (!campaign) return
+    setSending(true)
+    const { data, error } = await api.post<{ reset: number }>(
+      `/api/school/notifications/campaigns/${campaign.id}/resend`,
+      {}
+    )
+    if (error) {
+      toast.error(error)
+    } else {
+      toast.success(t("resendQueued", { count: (data as { reset?: number })?.reset || 0 }))
       await loadCampaign()
     }
     setSending(false)
@@ -215,9 +237,14 @@ export default function NotificationCampaignDetailPage() {
 
         <div className="flex flex-wrap gap-2">
           {(campaign.status === "DRAFT" || campaign.status === "REJECTED") && (
-            <Button onClick={() => void updateCampaignStatus("submit")}>
-              <Send className="h-4 w-4" /> {t("submitForApproval")}
-            </Button>
+            <>
+              <Button onClick={() => void sendCampaign()} loading={sending}>
+                <Send className="h-4 w-4" /> {t("sendDirectly")}
+              </Button>
+              <Button variant="secondary" onClick={() => void updateCampaignStatus("submit")}>
+                <Send className="h-4 w-4" /> {t("submitForApproval")}
+              </Button>
+            </>
           )}
           {campaign.status === "PENDING_APPROVAL" && (
             <>
@@ -234,8 +261,15 @@ export default function NotificationCampaignDetailPage() {
               <Send className="h-4 w-4" /> إرسال الآن
             </Button>
           )}
+          {failedRecipients > 0 && (
+            <Button variant="secondary" onClick={() => void resendFailed()} loading={sending}>
+              <Send className="h-4 w-4" /> {t("resendFailed", { count: failedRecipients })}
+            </Button>
+          )}
         </div>
       </div>
+
+      <SamplePreview campaignMessage={campaign.message} recipients={campaign.recipients} t={t} />
 
       <div className="grid gap-4 md:grid-cols-4">
         <Card padding="md">
@@ -374,7 +408,6 @@ export default function NotificationCampaignDetailPage() {
           <h2 className="text-lg font-semibold">{t("recipients")}</h2>
           <span className="text-sm text-gray-500">{t("recordsCount", { count: campaign.recipients.length })}</span>
         </div>
-
         {campaign.recipients.length === 0 ? (
           <div className="rounded-xl border border-dashed border-gray-200 p-8 text-center text-gray-500">
             {t("noRecipientsForCampaign")}
@@ -414,5 +447,47 @@ export default function NotificationCampaignDetailPage() {
         )}
       </Card>
     </div>
+  )
+}
+
+function SamplePreview({
+  campaignMessage,
+  recipients,
+  t,
+}: {
+  campaignMessage: string
+  recipients: Recipient[]
+  t: (key: string, vars?: Record<string, string | number>) => string
+}) {
+  const samples = recipients.slice(0, 3).map((r) => ({
+    name: r.student
+      ? `${r.student.firstName} ${r.student.lastName}`
+      : r.user?.name || "",
+    text: r.messageRendered || r.messageOverride || campaignMessage,
+  }))
+  if (samples.length === 0) return null
+  const { segments, encoding } = describeSegments(samples[0].text)
+  return (
+    <Card padding="lg">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-lg font-semibold">{t("messagePreview")}</h2>
+        <span className="text-xs text-gray-500">
+          {t("segmentsInfo", { count: segments, encoding })}
+        </span>
+      </div>
+      <div className="space-y-3">
+        {samples.map((s, i) => (
+          <div key={i} className="rounded-xl bg-gray-50 p-4 text-sm">
+            <p className="mb-1 text-xs font-medium text-gray-500">{s.name}</p>
+            <p className="leading-6 text-gray-800">{s.text}</p>
+          </div>
+        ))}
+        {recipients.length > 3 && (
+          <p className="text-xs text-gray-400">
+            {t("andMoreRecipients", { count: recipients.length - 3 })}
+          </p>
+        )}
+      </div>
+    </Card>
   )
 }

@@ -5,6 +5,7 @@ import { randomBytes } from "node:crypto"
 import { getAdminSession } from "../guard"
 import { normalizePhone } from "@/lib/phone"
 import { sendAccountInvite } from "@/lib/otp"
+import { ensureSystemTemplates } from "@/lib/notification-templates"
 
 export const dynamic = "force-dynamic"
 
@@ -142,6 +143,11 @@ export async function POST(req: NextRequest) {
 
     return { school, admin }
   })
+
+  // System notification templates so the school never starts from zero.
+  await ensureSystemTemplates(result.school.id).catch((e) =>
+    console.error("[admin] system templates seed failed:", e)
+  )
 
   if (!hasPassword) {
     sendAccountInvite({

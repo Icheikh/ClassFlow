@@ -11,11 +11,9 @@ export async function POST(req: NextRequest) {
   const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const isLegacyRole = ["SUPERVISOR", "ACCOUNTANT"].includes(user?.role)
   if (
     !hasPermission(user, PERMISSIONS.MANAGE_FEES)
     && !hasPermission(user, PERMISSIONS.SEND_NOTIFICATIONS)
-    && !isLegacyRole
   ) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
@@ -43,9 +41,15 @@ export async function POST(req: NextRequest) {
   }
 
   const studentIds = Array.from(new Set(invoices.map((invoice) => invoice.studentId)))
+  const remainingByStudent = new Map<string, number>()
+  const monthsByStudent = new Map<string, Set<string>>()
   const totalRemaining = invoices.reduce((sum, invoice) => {
     const paidAmount = invoice.payments.reduce((paid, payment) => paid + payment.amount, 0)
-    return sum + Math.max(invoice.amount - paidAmount, 0)
+    const remaining = Math.max(invoice.amount - paidAmount, 0)
+    remainingByStudent.set(invoice.studentId, (remainingByStudent.get(invoice.studentId) || 0) + remaining)
+    if (!monthsByStudent.has(invoice.studentId)) monthsByStudent.set(invoice.studentId, new Set())
+    monthsByStudent.get(invoice.studentId)!.add(invoice.month)
+    return sum + remaining
   }, 0)
 
   const feeNames = Array.from(new Set(invoices.map((invoice) => invoice.fee.name)))
@@ -55,9 +59,15 @@ export async function POST(req: NextRequest) {
     : `يرجى مراجعة الرسوم غير المسددة. عدد الرسوم المتأخرة ${invoices.length} بإجمالي متبقٍ ${totalRemaining} أوقية.`
 
   try {
+    const feeTemplate = await prisma.notificationTemplate.findFirst({
+      where: { schoolId: user.schoolId!, type: "FEE_REMINDER", isActive: true },
+      select: { id: true, messageTemplate: true },
+    })
+
     const campaign = await createNotificationCampaign({
       schoolId: user.schoolId!,
       createdByUserId: user.id,
+      templateId: feeTemplate?.id || null,
       type: "FEES",
       channel: "WHATSAPP",
       title,
@@ -69,6 +79,30 @@ export async function POST(req: NextRequest) {
       },
       status: "DRAFT",
     })
+
+    // Personalize every recipient: amount + months owed ({{variables}} fallback).
+    const school = await prisma.school.findUnique({ where: { id: user.schoolId! }, select: { name: true } })
+    const recipients = await prisma.notificationRecipient.findMany({
+      where: { campaignId: campaign.id },
+      select: { id: true, studentId: true, student: { select: { firstName: true, lastName: true } } },
+    })
+    const monthLabel = month ? getMonthLabel(month) : null
+    for (const r of recipients) {
+      if (!r.studentId) continue
+      const remaining = remainingByStudent.get(r.studentId) || 0
+      if (remaining <= 0) continue
+      const studentName = r.student ? `${r.student.firstName} ${r.student.lastName}` : ""
+      const months = monthLabel || Array.from(monthsByStudent.get(r.studentId) || []).sort().join("، ")
+      const text = feeTemplate?.messageTemplate
+        ? feeTemplate.messageTemplate
+            .replace(/\{\{\s*studentName\s*\}\}/g, studentName)
+            .replace(/\{\{\s*amount\s*\}\}/g, String(remaining))
+            .replace(/\{\{\s*month\s*\}\}/g, months)
+            .replace(/\{\{\s*schoolName\s*\}\}/g, school?.name || "")
+            .replace(/\{\{\s*[a-zA-Z]+\s*\}\}/g, "")
+        : `تذكير من ${school?.name || ""}: مستحقات ${studentName} (${months}): ${remaining} أوقية. يرجى التسديد لدى الإدارة.`
+      await prisma.notificationRecipient.update({ where: { id: r.id }, data: { messageOverride: text } })
+    }
 
     await prisma.notificationCampaign.update({
       where: { id: campaign.id },

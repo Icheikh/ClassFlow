@@ -37,6 +37,19 @@ type InternalNotificationsResponse = {
 
 type NotificationFilter = "PENDING" | "ALL" | "HANDLED"
 
+type CampaignRow = {
+  id: string
+  title: string
+  type: string
+  channel: string
+  status: string
+  recipientsCount: number
+  createdAt: string
+  statusSummary: Record<string, number>
+}
+
+type ChannelStatus = { key: string; ready: boolean }[]
+
 function getStatusVariant(status: string) {
   if (status === "PENDING") return "warning" as const
   if (status === "ACTIONED" || status === "RESOLVED") return "success" as const
@@ -73,6 +86,10 @@ export default function SchoolNotificationsPage() {
   const [notifications, setNotifications] = useState<InternalNotification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [pendingCount, setPendingCount] = useState(0)
+  const [tab, setTab] = useState<"inbox" | "campaigns">("inbox")
+  const [campaigns, setCampaigns] = useState<CampaignRow[]>([])
+  const [channels, setChannels] = useState<ChannelStatus>([])
+  const [anyChannelReady, setAnyChannelReady] = useState(false)
 
   const statusLabels: Record<string, string> = {
     PENDING: t("statusPendingInternal"),
@@ -97,6 +114,16 @@ export default function SchoolNotificationsPage() {
     setNotifications(notificationsRes.data?.notifications || [])
     setUnreadCount(notificationsRes.data?.unreadCount || 0)
     setPendingCount(notificationsRes.data?.pendingCount || 0)
+
+    const [campaignsRes, channelsRes] = await Promise.all([
+      api.get<CampaignRow[]>("/api/school/notifications/campaigns"),
+      api.get<{ channels: ChannelStatus; anyReady: boolean }>("/api/school/notifications/channel-status"),
+    ])
+    if (campaignsRes.data) setCampaigns(campaignsRes.data)
+    if (channelsRes.data) {
+      setChannels(channelsRes.data.channels)
+      setAnyChannelReady(channelsRes.data.anyReady)
+    }
     setLoading(false)
   }, [])
 
@@ -153,12 +180,38 @@ export default function SchoolNotificationsPage() {
             <h1 className="mt-2 text-3xl font-bold text-slate-950">{t("operationsInboxTitle")}</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{t("operationsInboxSubtitle")}</p>
           </div>
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            {t("whatsappReady")}
+          <div className={`rounded-2xl border px-4 py-3 text-sm ${anyChannelReady ? "border-green-200 bg-green-50 text-green-800" : "border-red-200 bg-red-50 text-red-800"}`}>
+            <p className="font-medium">{anyChannelReady ? t("channelReady") : t("channelNotReady")}</p>
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              {channels.map((c) => (
+                <span
+                  key={c.key}
+                  className={`rounded-full px-2 py-0.5 text-xs ${c.ready ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}
+                >
+                  {c.key.replace("_SMS", "")} {c.ready ? "✓" : "✕"}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
       </div>
 
+      <div className="flex gap-2">
+        {(["inbox", "campaigns"] as const).map((item) => (
+          <button
+            key={item}
+            onClick={() => setTab(item)}
+            className={`rounded-full border px-4 py-2 text-sm transition-colors ${
+              tab === item ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            {item === "inbox" ? t("tabInbox") : t("tabCampaigns")}
+          </button>
+        ))}
+      </div>
+
+      {tab === "inbox" ? (
+      <>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <SummaryCard icon={Inbox} label={t("pendingInternal")} value={pendingCount} tone="amber" />
         <SummaryCard icon={BellRing} label={t("unreadInternal")} value={unreadCount} tone="blue" />
@@ -213,6 +266,40 @@ export default function SchoolNotificationsPage() {
           </div>
         )}
       </Card>
+      </>
+      ) : (
+      <Card padding="lg">
+        <div className="mb-5">
+          <h2 className="text-xl font-semibold text-slate-950">{t("parentCampaigns")}</h2>
+          <p className="mt-1 text-sm text-slate-500">{t("parentCampaignsSubtitle")}</p>
+        </div>
+        {campaigns.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-200 p-10 text-center">
+            <Send className="mx-auto h-10 w-10 text-slate-300" />
+            <p className="mt-3 font-medium text-slate-700">{t("noCampaigns")}</p>
+            <p className="mt-1 text-sm text-slate-500">{t("noCampaignsHint")}</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {campaigns.map((c) => (
+              <a
+                key={c.id}
+                href={`/school/notifications/${c.id}`}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 p-4 hover:bg-slate-50"
+              >
+                <div>
+                  <p className="font-medium text-slate-900">{c.title}</p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    {formatDate(c.createdAt, locale)} · {c.recipientsCount} {t("recipientsWord")}
+                  </p>
+                </div>
+                <Badge variant={getStatusVariant(c.status)}>{c.status}</Badge>
+              </a>
+            ))}
+          </div>
+        )}
+      </Card>
+      )}
 
     </div>
   )

@@ -913,6 +913,8 @@ model NotificationRecipient {
   channel            String   @default("WHATSAPP")
   status             String   @default("PENDING")
   messageOverride    String?
+  // Final per-recipient text actually sent (after {{variables}} rendering).
+  messageRendered    String?
   sentAt             DateTime?
   deliveredAt        DateTime?
   failedAt           DateTime?
