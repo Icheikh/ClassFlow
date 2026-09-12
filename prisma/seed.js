@@ -315,6 +315,9 @@ async function createUsersAndTeachers(schoolId, permissionMap) {
       email: "admin@alnoor.edu",
       passwordHash,
       name: "أحمد محمد (مدير المدرسة)",
+      phone: "+22220000001",
+      phoneNormalized: "20000001",
+      status: "ACTIVE",
       role: "SCHOOL_ADMIN",
       schoolId,
     },
@@ -326,6 +329,9 @@ async function createUsersAndTeachers(schoolId, permissionMap) {
       email: "studies@alnoor.edu",
       passwordHash,
       name: "مدير الدروس",
+      phone: "+22220000002",
+      phoneNormalized: "20000002",
+      status: "ACTIVE",
       role: "STAFF",
       schoolId,
     },
@@ -344,6 +350,9 @@ async function createUsersAndTeachers(schoolId, permissionMap) {
       email: "accountant@alnoor.edu",
       passwordHash,
       name: "محمد عبد الله (محاسب)",
+      phone: "+22220000003",
+      phoneNormalized: "20000003",
+      status: "ACTIVE",
       role: "ACCOUNTANT",
       schoolId,
     },
@@ -359,6 +368,9 @@ async function createUsersAndTeachers(schoolId, permissionMap) {
       email: "supervisor@alnoor.edu",
       passwordHash,
       name: "سعيد المختار (مشرف)",
+      phone: "+22220000004",
+      phoneNormalized: "20000004",
+      status: "ACTIVE",
       role: "SUPERVISOR",
       schoolId,
     },
@@ -366,16 +378,16 @@ async function createUsersAndTeachers(schoolId, permissionMap) {
   await grantPermissions(supervisor.id, admin.id, permissionMap, ["VIEW_REPORTS"])
 
   const teacherUsers = [
-    ["teacher.math@alnoor.edu", "عبد القادر (رياضيات)"],
-    ["teacher.arabic@alnoor.edu", "مريم (عربية)"],
-    ["teacher.science@alnoor.edu", "سالم (علوم)"],
-    ["teacher.french@alnoor.edu", "فاطمة (فرنسية)"],
+    ["teacher.math@alnoor.edu", "عبد القادر (رياضيات)", "+22220000011", "20000011"],
+    ["teacher.arabic@alnoor.edu", "مريم (عربية)", "+22220000012", "20000012"],
+    ["teacher.science@alnoor.edu", "سالم (علوم)", "+22220000013", "20000013"],
+    ["teacher.french@alnoor.edu", "فاطمة (فرنسية)", "+22220000014", "20000014"],
   ]
 
   const teachers = []
-  for (const [email, name] of teacherUsers) {
+  for (const [email, name, phone, phoneNormalized] of teacherUsers) {
     const user = await prisma.user.create({
-      data: { email, passwordHash, name, role: "TEACHER", schoolId },
+      data: { email, passwordHash, name, phone, phoneNormalized, status: "ACTIVE", role: "TEACHER", schoolId },
     })
     const teacher = await prisma.teacher.create({
       data: { userId: user.id, schoolId, status: "ACTIVE" },
@@ -388,6 +400,9 @@ async function createUsersAndTeachers(schoolId, permissionMap) {
       email: "parent@alnoor.edu",
       passwordHash,
       name: "ولي أمر تجريبي",
+      phone: "+22220000021",
+      phoneNormalized: "20000021",
+      status: "ACTIVE",
       role: "PARENT",
       schoolId,
     },
@@ -433,18 +448,22 @@ async function seedStudentsAndLinks(schoolId, academicYearId, classroomMap, _sha
 
       if (counter <= 10) {
         const parentIndex = counter
+        const parentPhone = `+2223000000${String(parentIndex).padStart(2, "0")}`
+        const parentNormalized = `2223000000${String(parentIndex).padStart(2, "0")}`
         const parentUser = await prisma.user.create({
           data: {
             email: `parent${parentIndex}@alnoor.edu`,
             passwordHash: parentPasswordHash,
             name: `ولي أمر ${parentIndex}`,
-            phone: `+2223000000${String(parentIndex).padStart(2, "0")}`,
+            phone: parentPhone,
+            phoneNormalized: parentNormalized,
+            status: "ACTIVE",
             role: "PARENT",
             schoolId,
           },
         })
         const parent = await prisma.parent.create({
-          data: { schoolId, userId: parentUser.id, phone: `+2223000000${String(parentIndex).padStart(2, "0")}` },
+          data: { schoolId, userId: parentUser.id, phone: parentPhone },
         })
         await prisma.studentParent.create({
           data: {
@@ -691,6 +710,9 @@ async function createSecondSchool(permissionMap) {
       email: "admin@alfath.edu",
       passwordHash,
       name: "عمر سعيد (مدير)",
+      phone: "+22220000101",
+      phoneNormalized: "20000101",
+      status: "ACTIVE",
       role: "SCHOOL_ADMIN",
       schoolId: school.id,
     },
@@ -702,6 +724,9 @@ async function createSecondSchool(permissionMap) {
       email: "teacher@alfath.edu",
       passwordHash,
       name: "فاطمة بنت محمد (أستاذة)",
+      phone: "+22220000111",
+      phoneNormalized: "20000111",
+      status: "ACTIVE",
       role: "TEACHER",
       schoolId: school.id,
     },
@@ -758,6 +783,9 @@ async function main() {
       email: "superadmin@classflow.com",
       passwordHash: superAdminPassword,
       name: "مدير المنصة",
+      phone: "+22220000000",
+      phoneNormalized: "20000000",
+      status: "ACTIVE",
       role: "SUPER_ADMIN",
     },
   })
@@ -765,19 +793,12 @@ async function main() {
   await createSecondSchool(permissionMap)
 
   console.log("Seed complete.")
-  console.log("Accounts:")
-  console.log("  admin@alnoor.edu / password123")
-  console.log("  studies@alnoor.edu / password123")
-  console.log("  accountant@alnoor.edu / password123")
-  console.log("  supervisor@alnoor.edu / password123")
-  console.log("  teacher.math@alnoor.edu / password123")
-  console.log("  teacher.arabic@alnoor.edu / password123")
-  console.log("  teacher.science@alnoor.edu / password123")
-  console.log("  teacher.french@alnoor.edu / password123")
-  console.log("  parent@alnoor.edu / password123")
-  console.log("  admin@alfath.edu / password123")
-  console.log("  teacher@alfath.edu / password123")
-  console.log("  superadmin@classflow.com / password123")
+  console.log("Accounts (login with PHONE + password123):")
+  console.log("  20000001 (مدير النور) / password123")
+  console.log("  20000011 (أستاذ رياضيات) / password123")
+  console.log("  20000021 (ولي أمر) / password123")
+  console.log("  20000101 (مدير الفتح) / password123")
+  console.log("  20000000 (مدير المنصة) / password123")
 }
 
 main()

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { hasAnyPermission, PERMISSIONS } from "@/lib/permissions"
+import { canAccessPortal } from "@/lib/user-accounts"
 
 const legacyRoles = ["TEACHER", "SCHOOL_ADMIN", "SUPERVISOR"]
 
@@ -12,7 +13,7 @@ export async function GET() {
   if (!session || !user?.schoolId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
-  const isLegacy = legacyRoles.includes(user?.role)
+  const isLegacy = legacyRoles.includes(user?.role) || canAccessPortal(user, "TEACHER")
   const hasPerms = hasAnyPermission(user, [PERMISSIONS.VIEW_REPORTS, PERMISSIONS.REVIEW_LESSONS, PERMISSIONS.MANAGE_TEACHERS])
   if (!isLegacy && !hasPerms) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
@@ -26,7 +27,7 @@ export async function GET() {
     return NextResponse.json([])
   }
 
-  if (user.role === "TEACHER") {
+  if (user.role === "TEACHER" || (user.role !== "SCHOOL_ADMIN" && user.role !== "SUPERVISOR" && !hasPerms)) {
     const teacher = await prisma.teacher.findUnique({
       where: { userId: user.id },
     })

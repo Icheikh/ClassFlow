@@ -8,7 +8,6 @@ import { PermissionPresets } from "./PermissionPresets"
 
 interface StaffFormData {
   name: string
-  email: string
   phone: string
   password: string
 }
@@ -25,13 +24,13 @@ export function StaffFormModal({ open, onClose, onSave, initial, title }: StaffF
   const t = useTranslations("staffForm")
   const tCommon = useTranslations("common")
   const [form, setForm] = useState<StaffFormData>(
-    initial || { name: "", email: "", phone: "", password: "" }
+    initial || { name: "", phone: "", password: "" }
   )
   const [permissions, setPermissions] = useState<string[]>(initial?.permissions || [])
   const [saving, setSaving] = useState(false)
 
   function reset() {
-    setForm(initial || { name: "", email: "", phone: "", password: "" })
+    setForm(initial || { name: "", phone: "", password: "" })
     setPermissions(initial?.permissions || [])
   }
 
@@ -55,25 +54,14 @@ export function StaffFormModal({ open, onClose, onSave, initial, title }: StaffF
           placeholder={t("namePlaceholder")}
         />
         <Input
-          label={t("emailLabel")}
-          type="email"
-          value={form.email}
-          onChange={(e) => setForm({ ...form, email: e.target.value })}
-          placeholder="staff@school.edu"
-        />
-        <Input
           label={t("phoneLabel")}
+          type="tel"
           value={form.phone}
           onChange={(e) => setForm({ ...form, phone: e.target.value })}
           placeholder={t("phonePlaceholder")}
         />
         {!initial?.id && (
-          <Input
-            label={t("passwordLabel")}
-            type="password"
-            value={form.password}
-            onChange={(e) => setForm({ ...form, password: e.target.value })}
-          />
+          <p className="text-xs text-gray-500">{t("inviteHint")}</p>
         )}
 
         <div className="border-t pt-4">

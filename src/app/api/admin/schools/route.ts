@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
+import { randomBytes } from "node:crypto"
 import { getAdminSession } from "../guard"
+import { normalizePhone } from "@/lib/phone"
+import { sendAccountInvite } from "@/lib/otp"
 
 export const dynamic = "force-dynamic"
 
@@ -21,7 +24,7 @@ export async function GET() {
       },
       users: {
         where: { role: "SCHOOL_ADMIN" },
-        select: { id: true, email: true, name: true, isActive: true },
+        select: { id: true, name: true, phone: true, isActive: true, status: true },
         take: 1,
       },
     },
@@ -43,7 +46,7 @@ export async function GET() {
       studentCount: school._count.students,
       teacherCount: school._count.teachers,
       admin: school.users[0]
-        ? { email: school.users[0].email, name: school.users[0].name, isActive: school.users[0].isActive }
+        ? { phone: school.users[0].phone, name: school.users[0].name, isActive: school.users[0].isActive, status: (school.users[0] as { status?: string }).status || "ACTIVE" }
         : null,
     }))
   )
@@ -74,21 +77,31 @@ export async function POST(req: NextRequest) {
   if ("error" in auth) return auth.error
 
   const body = await req.json()
-  const { name, slug, address, phone, email, adminName, adminEmail, password, subscriptionStatus } = body
+  const { name, slug, address, phone, email, adminName, adminEmail, adminPhone, password, subscriptionStatus } = body
 
-  if (!name || !adminEmail || !adminName) {
-    return NextResponse.json({ error: "اسم المدرسة، اسم المدير والبريد الإلكتروني مطلوبون" }, { status: 400 })
+  if (!name || !adminName) {
+    return NextResponse.json({ error: "اسم المدرسة واسم المدير مطلوبان" }, { status: 400 })
+  }
+  const adminPhoneNormalized = normalizePhone(adminPhone || "")
+  if (!adminPhoneNormalized) {
+    return NextResponse.json({ error: "رقم هاتف المدير مطلوب وغير صالح" }, { status: 400 })
   }
 
   const baseSlug = slugify(slug || name)
   const uniqueSlug = await makeUniqueSlug(baseSlug)
 
-  const existingEmail = await prisma.user.findUnique({ where: { email: adminEmail } })
-  if (existingEmail) {
-    return NextResponse.json({ error: "البريد الإلكتروني لمدير المدرسة موجود مسبقاً" }, { status: 400 })
+  if (adminEmail) {
+    const existingEmail = await prisma.user.findUnique({ where: { email: adminEmail } })
+    if (existingEmail) {
+      return NextResponse.json({ error: "البريد الإلكتروني لمدير المدرسة موجود مسبقاً" }, { status: 400 })
+    }
   }
 
-  const passwordHash = await bcrypt.hash(password || "password123", 10)
+  const hasPassword = password && password.trim()
+  const passwordHash = await bcrypt.hash(
+    hasPassword ? password : randomBytes(24).toString("hex"),
+    10
+  )
 
   const result = await prisma.$transaction(async (tx) => {
     const school = await tx.school.create({
@@ -105,12 +118,16 @@ export async function POST(req: NextRequest) {
 
     const admin = await tx.user.create({
       data: {
-        email: adminEmail,
+        email: adminEmail || null,
         passwordHash,
         name: adminName,
+        phone: String(adminPhone).trim(),
+        phoneNormalized: adminPhoneNormalized,
+        // بكلمة مرور من المنصة = نشط فوراً، وبدونها = دعوة تفعيل عبر الهاتف.
+        status: hasPassword ? "ACTIVE" : "INVITED",
         role: "SCHOOL_ADMIN",
         schoolId: school.id,
-        mustChangePassword: !password || !password.trim(),
+        mustChangePassword: !hasPassword,
       },
     })
 
@@ -126,12 +143,22 @@ export async function POST(req: NextRequest) {
     return { school, admin }
   })
 
+  if (!hasPassword) {
+    sendAccountInvite({
+      toPhone: String(adminPhone).trim(),
+      name: adminName,
+      schoolName: name,
+      role: "SCHOOL_ADMIN",
+    }).catch((e) => console.error("[admin] director invite failed:", e))
+  }
+
   return NextResponse.json(
     {
       id: result.school.id,
       name: result.school.name,
       slug: result.school.slug,
-      adminEmail: result.admin.email,
+      adminPhone: result.admin.phone,
+      invited: !hasPassword,
     },
     { status: 201 }
   )

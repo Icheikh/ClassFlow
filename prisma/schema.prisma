@@ -84,6 +84,7 @@ model School {
   notificationTemplates NotificationTemplate[]
   notificationCampaigns NotificationCampaign[]
   notificationRecipients NotificationRecipient[]
+  auditLogs         AuditLog[]
 }
 
 model ResultReportTemplate {
@@ -292,10 +293,15 @@ model SubjectCoefficient {
 
 model User {
   id            String    @id @default(cuid())
-  email         String    @unique
+  // الهوية الأساسية هي رقم الهاتف. البريد legacy اختياري (للمديرين القدامى فقط).
+  email         String?   @unique
   passwordHash  String
   name          String
   phone         String?
+  // الرقم المطبّع (8 أرقام وطنية لموريتانيا أو الأرقام الكاملة لغيرها). مع schoolId يكوّن الهوية الفريدة.
+  phoneNormalized String?
+  // INVITED = أنشأه المدير ولم يفعّل بعد | ACTIVE = مفعّل | SUSPENDED = موقوف
+  status        String    @default("ACTIVE")
   role          String    @default("TEACHER")
   schoolId      String?
   school        School?   @relation(fields: [schoolId], references: [id])
@@ -321,7 +327,12 @@ model User {
   createdResultRules ResultRule[]        @relation("ResultRuleCreatedBy")
   updatedResultRules ResultRule[]        @relation("ResultRuleUpdatedBy")
   resultAuditLogs    ResultAuditLog[]    @relation("ResultAuditActor")
+  auditActorLogs     AuditLog[]          @relation("AuditActor")
   userPermissions    UserPermission[]
+
+  @@unique([schoolId, phoneNormalized])
+  @@index([phoneNormalized])
+  @@index([schoolId, status])
 }
 
 model Teacher {
@@ -657,6 +668,26 @@ model ResultAuditLog {
   @@index([entityType, entityId])
 }
 
+model AuditLog {
+  id          String   @id @default(cuid())
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id])
+  actorUserId String?
+  actorUser   User?    @relation("AuditActor", fields: [actorUserId], references: [id])
+  entityType  String
+  entityId    String?
+  action      String
+  description String?
+  beforeJson  String?
+  afterJson   String?
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  @@index([schoolId, createdAt])
+  @@index([entityType, entityId])
+  @@index([actorUserId])
+}
+
 // ============================================================
 // 6. FINANCE
 // ============================================================
@@ -962,4 +993,25 @@ model UserPermission {
 
   @@unique([userId, permissionId])
   @@index([userId])
+}
+
+// ============================================================
+// 9. PHONE AUTH (OTP)
+// ============================================================
+
+model OtpCode {
+  id              String    @id @default(cuid())
+  phoneNormalized String
+  phone           String?
+  schoolId        String?
+  // ACTIVATION = تفعيل أول مرة | RESET = استعادة كلمة المرور
+  purpose         String    @default("ACTIVATION")
+  codeHash        String
+  expiresAt       DateTime
+  attempts        Int       @default(0)
+  consumedAt      DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@index([phoneNormalized, purpose])
+  @@index([expiresAt])
 }

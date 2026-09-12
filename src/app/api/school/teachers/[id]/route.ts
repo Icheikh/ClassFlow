@@ -12,7 +12,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const url = new URL(req.url)
   const teacher = await prisma.teacher.findFirst({
     where: { id: params.id, schoolId: user.schoolId! },
-    include: { user: { select: { id: true, email: true, name: true, phone: true, isActive: true } } },
+    include: { user: { select: { id: true, name: true, phone: true, isActive: true, status: true } } },
   })
   if (!teacher) return NextResponse.json({ error: "غير موجود" }, { status: 404 })
 

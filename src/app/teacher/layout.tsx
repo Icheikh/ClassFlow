@@ -56,7 +56,8 @@ function TeacherLayoutContent({ children }: { children: React.ReactNode }) {
     redirect("/auth/login")
   }
 
-  if (!allowedRoles.includes(user?.role)) {
+  const roles: string[] = [user?.role, ...((user?.extraRoles as string[]) || [])]
+  if (!roles.includes("TEACHER")) {
     if (pathname === "/teacher/roster") {
       redirect("/school/teacher-attendance")
     }

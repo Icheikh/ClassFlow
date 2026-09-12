@@ -12,7 +12,6 @@ import {
   School,
   Calendar,
   Phone,
-  Mail,
   ChevronRight,
   Wallet,
   Clock,
@@ -29,7 +28,7 @@ import toast from "react-hot-toast"
 import { getDateLocale, getLocalizedSubjectName } from "@/lib/locale"
 
 type DetailData = {
-  teacher: { id: string; phone: string | null; user: { id: string; email: string; name: string; phone: string | null; isActive: boolean } }
+  teacher: { id: string; phone: string | null; user: { id: string; name: string; phone: string | null; isActive: boolean } }
   assignments: { id: string; subject: { nameAr: string; nameFr?: string | null; code: string | null }; classroom: { id: string; name: string; level: { name: string } }; hourlyRate: number | null; weeklyHours: number | null }[]
   recentLessons: { id: string; title: string; date: string; status: string; subject: { nameAr: string; nameFr?: string | null }; classroom: { name: string } }[]
   stats: { assignments: number; lessonsThisMonth: number; totalStudents: number }
@@ -175,8 +174,7 @@ export default function TeacherDetailPage() {
               </Badge>
             </h1>
             <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
-              <span className="flex items-center gap-1"><Mail className="h-4 w-4" /> {t.user.email}</span>
-              {t.user.phone && <span className="flex items-center gap-1"><Phone className="h-4 w-4" /> {t.user.phone}</span>}
+              {t.user.phone && <span className="flex items-center gap-1" dir="ltr"><Phone className="h-4 w-4" /> {t.user.phone}</span>}
             </div>
           </div>
         </div>

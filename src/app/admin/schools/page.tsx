@@ -21,7 +21,7 @@ type SchoolRow = {
   userCount: number
   studentCount: number
   teacherCount: number
-  admin: { id?: string; email: string; name: string; isActive: boolean } | null
+  admin: { id?: string; phone: string | null; name: string; isActive: boolean } | null
 }
 
 const SUBSCRIPTION_OPTIONS = ["TRIAL", "ACTIVE", "EXPIRED", "CANCELLED"]
@@ -41,7 +41,7 @@ export default function AdminSchoolsPage() {
     phone: "",
     email: "",
     adminName: "",
-    adminEmail: "",
+    adminPhone: "",
     password: "",
     subscriptionStatus: "TRIAL",
   })
@@ -56,7 +56,7 @@ export default function AdminSchoolsPage() {
     subscriptionStatus: "TRIAL",
     billingStudentCount: "0",
     adminName: "",
-    adminEmail: "",
+    adminPhone: "",
     adminPassword: "",
   })
   const [editModal, setEditModal] = useState(false)
@@ -86,7 +86,7 @@ export default function AdminSchoolsPage() {
       phone: "",
       email: "",
       adminName: "",
-      adminEmail: "",
+      adminPhone: "",
       password: "",
       subscriptionStatus: "TRIAL",
     })
@@ -94,7 +94,7 @@ export default function AdminSchoolsPage() {
   }
 
   async function createSchool() {
-    if (!form.name || !form.adminName || !form.adminEmail) {
+    if (!form.name || !form.adminName || !form.adminPhone) {
       toast.error(t("createRequired"))
       return
     }
@@ -121,7 +121,7 @@ export default function AdminSchoolsPage() {
       subscriptionStatus: school.subscriptionStatus,
       billingStudentCount: String(school.billingStudentCount),
       adminName: school.admin?.name || "",
-      adminEmail: school.admin?.email || "",
+      adminPhone: school.admin?.phone || "",
       adminPassword: "",
     })
     setEditModal(true)
@@ -140,7 +140,7 @@ export default function AdminSchoolsPage() {
       admin: {
         userId: selectedSchool?.admin?.id,
         name: editForm.adminName,
-        email: editForm.adminEmail,
+        phone: editForm.adminPhone,
         password: editForm.adminPassword || undefined,
       },
     })
@@ -241,7 +241,7 @@ export default function AdminSchoolsPage() {
                     </td>
                     <td className="py-3 pr-4">
                       <p className="text-gray-700">{school.admin?.name || "—"}</p>
-                      <p className="text-xs text-gray-400">{school.admin?.email || "—"}</p>
+                      <p className="text-xs text-gray-400" dir="ltr">{school.admin?.phone || "—"}</p>
                     </td>
                     <td className="py-3 pr-4 text-gray-700">
                       {school.studentCount} ({school.teacherCount} {t("teachers")})
@@ -300,7 +300,7 @@ export default function AdminSchoolsPage() {
             {t("adminSectionHint")}
           </div>
           <Input label={t("adminName")} value={form.adminName} onChange={(e) => setForm({ ...form, adminName: e.target.value })} />
-          <Input label={t("adminEmail")} type="email" value={form.adminEmail} onChange={(e) => setForm({ ...form, adminEmail: e.target.value })} />
+          <Input label={t("adminPhone")} type="tel" value={form.adminPhone} onChange={(e) => setForm({ ...form, adminPhone: e.target.value })} />
           <Input
             label={t("adminPassword")}
             value={form.password}
@@ -351,7 +351,7 @@ export default function AdminSchoolsPage() {
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <Input label={t("adminName")} value={editForm.adminName} onChange={(e) => setEditForm({ ...editForm, adminName: e.target.value })} />
-              <Input label={t("adminEmail")} type="email" value={editForm.adminEmail} onChange={(e) => setEditForm({ ...editForm, adminEmail: e.target.value })} />
+              <Input label={t("adminPhone")} type="tel" value={editForm.adminPhone} onChange={(e) => setEditForm({ ...editForm, adminPhone: e.target.value })} />
             </div>
             <div className="mt-3">
               <Input

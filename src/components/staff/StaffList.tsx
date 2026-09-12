@@ -1,13 +1,12 @@
 "use client"
 
 import { Badge, Button, Card } from "@/components/ui"
-import { Mail, Phone, Shield, ChevronDown, ChevronUp, Trash2, Settings } from "lucide-react"
+import { Phone, Shield, ChevronDown, ChevronUp, Trash2, Settings } from "lucide-react"
 import { useState } from "react"
 import { useTranslations } from "next-intl"
 
 interface StaffMember {
   id: string
-  email: string
   name: string
   phone: string | null
   isActive: boolean
@@ -59,8 +58,7 @@ export function StaffList({ items, onEdit, onManagePermissions, onToggleActive }
                 </span>
               </div>
               <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
-                <span className="flex items-center gap-1"><Mail className="h-3.5 w-3.5" /> {member.email}</span>
-                {member.phone && <span className="flex items-center gap-1"><Phone className="h-3.5 w-3.5" /> {member.phone}</span>}
+                {member.phone && <span className="flex items-center gap-1" dir="ltr"><Phone className="h-3.5 w-3.5" /> {member.phone}</span>}
                 <span className="text-xs text-gray-400">{t("permissionsCount", { count: member.permissions.length })}</span>
               </div>
             </div>

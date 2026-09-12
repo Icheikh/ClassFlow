@@ -4,14 +4,14 @@ import { useEffect, useState } from "react"
 import { useLocale, useTranslations } from "next-intl"
 import { api } from "@/lib/api"
 import { Button, Card, Modal, Input, Badge, LoadingPage, ConfirmModal, Pagination } from "@/components/ui"
-import { Plus, UserPlus, BookOpen, Trash2, X, ChevronDown, ChevronUp, Mail, Phone, Shield, RotateCcw } from "lucide-react"
+import { Plus, UserPlus, BookOpen, Trash2, X, ChevronDown, ChevronUp, Phone, Shield, RotateCcw } from "lucide-react"
 import Link from "next/link"
 import toast from "react-hot-toast"
 import { getLocalizedSubjectName } from "@/lib/locale"
 
 type TeacherData = {
   id: string; phone: string | null; status: string
-  user: { id: string; email: string; name: string; phone: string | null; isActive: boolean }
+  user: { id: string; name: string; phone: string | null; isActive: boolean; status?: string }
   teacherAssignments: AssignmentData[]
 }
 type AssignmentData = {
@@ -39,7 +39,7 @@ export default function TeachersPage() {
   const [addModal, setAddModal] = useState(false)
   const [assignModal, setAssignModal] = useState(false)
   const [assignTeacherId, setAssignTeacherId] = useState<string>("")
-  const [form, setForm] = useState({ name: "", email: "", phone: "", password: "" })
+  const [form, setForm] = useState({ name: "", phone: "" })
   const [editId, setEditId] = useState<string | null>(null)
   const [assignSubj, setAssignSubj] = useState("")
   const [assignClass, setAssignClass] = useState("")
@@ -60,11 +60,11 @@ export default function TeachersPage() {
   useEffect(() => { fetchData() }, [statusFilter])
   useEffect(() => { setPage(1) }, [search])
 
-  function resetForm() { setForm({ name: "", email: "", phone: "", password: "" }); setEditId(null) }
+  function resetForm() { setForm({ name: "", phone: "" }); setEditId(null) }
 
   async function saveTeacher() {
-    if (!form.name || !form.email) { toast.error(t("missingNameEmail")); return }
-    const payload = editId ? { id: editId, name: form.name, email: form.email, phone: form.phone } : form
+    if (!form.name.trim() || !form.phone.trim()) { toast.error(t("missingNamePhone")); return }
+    const payload = editId ? { id: editId, name: form.name.trim(), phone: form.phone.trim() } : { name: form.name.trim(), phone: form.phone.trim() }
     const { error } = editId
       ? await api.put("/api/school/teachers", payload)
       : await api.post("/api/school/teachers", payload)
@@ -100,7 +100,7 @@ export default function TeachersPage() {
   }
 
   const filtered = teachers.filter((t) =>
-    t.user.name.includes(search) || t.user.email.includes(search)
+    t.user.name.includes(search) || (t.user.phone || "").includes(search)
   )
   const paginatedTeachers = filtered.slice((page - 1) * limit, page * limit)
   useEffect(() => {
@@ -156,9 +156,8 @@ export default function TeachersPage() {
       <Modal open={addModal} onClose={() => setAddModal(false)} title={editId ? t("editTeacher") : t("addTeacherTitle")}>
         <div className="space-y-4">
           <Input label={t("fullName")} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={t("teacherNamePlaceholder")} />
-          <Input label={tCommon("email")} type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="teacher@school.edu" />
-          <Input label={t("phone")} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+222 12 34 56 78" />
-          {!editId && <Input label={t("password")} type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />}
+          <Input label={t("phone")} type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+222 12 34 56 78" />
+          {!editId && <p className="text-xs text-gray-500">{t("inviteHint")}</p>}
           <Button fullWidth onClick={saveTeacher}>{t("save")}</Button>
         </div>
       </Modal>
@@ -218,8 +217,10 @@ export default function TeachersPage() {
                       </span>
                     </div>
                     <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
-                      <span className="flex items-center gap-1"><Mail className="h-3.5 w-3.5" /> {teacher.user.email}</span>
-                      {teacher.phone && <span className="flex items-center gap-1"><Phone className="h-3.5 w-3.5" /> {teacher.phone}</span>}
+                      {teacher.user.phone && <span className="flex items-center gap-1" dir="ltr"><Phone className="h-3.5 w-3.5" /> {teacher.user.phone}</span>}
+                      {(teacher.user.status || (teacher.user.isActive ? "ACTIVE" : "SUSPENDED")) === "INVITED" && (
+                        <span className="text-xs px-2 py-0.5 bg-amber-50 text-amber-700 rounded-full">{t("invitedBadge")}</span>
+                      )}
                       <span className="text-xs text-gray-400">{t("assignmentCount", { count: teacher.teacherAssignments.length })}</span>
                     </div>
                   </div>
@@ -230,7 +231,7 @@ export default function TeachersPage() {
                   <Button variant="secondary" size="sm" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setAssignTeacherId(teacher.id); setAssignSubj(""); setAssignClass(""); setAssignModal(true) }}>
                     <BookOpen className="h-4 w-4" /> {t("assign")}
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={(e) => { e.preventDefault(); setEditId(teacher.id); setForm({ name: teacher.user.name, email: teacher.user.email, phone: teacher.user.phone || "", password: "" }); setAddModal(true) }}>
+                  <Button variant="ghost" size="sm" onClick={(e) => { e.preventDefault(); setEditId(teacher.id); setForm({ name: teacher.user.name, phone: teacher.user.phone || "" }); setAddModal(true) }}>
                     {t("edit")}
                   </Button>
                   {teacher.user.isActive ? (

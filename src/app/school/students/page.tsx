@@ -66,7 +66,7 @@ export default function StudentsPage() {
 
   const [addModal, setAddModal] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
-  const [form, setForm] = useState({ firstName: "", lastName: "", gender: "", birthDate: "", address: "", phone: "", parentName: "", parentPhone: "", parentEmail: "" })
+  const [form, setForm] = useState({ firstName: "", lastName: "", gender: "", birthDate: "", address: "", phone: "", parentName: "", parentPhone: "" })
 
   const [enrollModal, setEnrollModal] = useState(false)
   const [enrollStudentId, setEnrollStudentId] = useState("")
@@ -103,7 +103,7 @@ export default function StudentsPage() {
     setClassroomFilter(classroomIdFromQuery)
   }, [classroomIdFromQuery])
 
-  function resetForm() { setForm({ firstName: "", lastName: "", gender: "", birthDate: "", address: "", phone: "", parentName: "", parentPhone: "", parentEmail: "" }); setEditId(null) }
+  function resetForm() { setForm({ firstName: "", lastName: "", gender: "", birthDate: "", address: "", phone: "", parentName: "", parentPhone: "" }); setEditId(null) }
 
   async function saveStudent() {
     if (!form.firstName || !form.lastName) { toast.error(t("missingName")); return }
@@ -301,7 +301,6 @@ export default function StudentsPage() {
           <p className="text-sm font-medium text-gray-700">{t("parentSection")}</p>
           <input className={`w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${locale === "ar" ? "text-right" : "text-left"}`} placeholder={t("parentNamePlaceholder")} value={form.parentName} onChange={(e) => setForm({ ...form, parentName: e.target.value })} />
           <input className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" dir="ltr" placeholder={t("parentPhonePlaceholder")} value={form.parentPhone} onChange={(e) => setForm({ ...form, parentPhone: e.target.value })} />
-          <input className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" dir="ltr" placeholder={t("parentEmailPlaceholder")} type="email" value={form.parentEmail} onChange={(e) => setForm({ ...form, parentEmail: e.target.value })} />
           <Button fullWidth onClick={saveStudent}>{editId ? t("saveChanges") : t("addStudentCta")}</Button>
         </div>
       </Modal>
@@ -429,7 +428,6 @@ export default function StudentsPage() {
                         address: s.address || "", phone: s.phone || "",
                         parentName: s.studentParents?.[0]?.parent.user.name || "",
                         parentPhone: s.studentParents?.[0]?.parent.user.phone || "",
-                        parentEmail: s.studentParents?.[0]?.parent.user.email || "",
                       })
                       setAddModal(true)
                     }}>

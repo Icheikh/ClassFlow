@@ -14,7 +14,7 @@ export default function LoginPage() {
   const tAuth = useTranslations("auth")
   const tCommon = useTranslations("common")
   const router = useRouter()
-  const [email, setEmail] = useState("")
+  const [phone, setPhone] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
 
@@ -24,7 +24,7 @@ export default function LoginPage() {
 
     try {
       const result = await signIn("credentials", {
-        email,
+        phone: phone.trim(),
         password,
         redirect: false,
       })
@@ -68,14 +68,17 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              {tCommon("email")}
+              {tCommon("phone")}
             </label>
             <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder={tAuth("emailPlaceholder")}
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              dir="ltr"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-left"
+              placeholder={tAuth("phonePlaceholder")}
               required
             />
           </div>
@@ -102,12 +105,18 @@ export default function LoginPage() {
             {loading ? tAuth("loggingIn") : tCommon("login")}
           </button>
 
-          <div className="text-center pt-1">
+          <div className="flex items-center justify-between pt-1 text-sm">
             <Link
               href="/auth/forgot-password"
-              className="text-sm font-medium text-blue-600 hover:text-blue-700"
+              className="font-medium text-blue-600 hover:text-blue-700"
             >
               {tAuth("forgotPassword")}
+            </Link>
+            <Link
+              href="/auth/activate"
+              className="font-medium text-blue-600 hover:text-blue-700"
+            >
+              {tAuth("activateAccount")}
             </Link>
           </div>
         </form>

@@ -52,7 +52,7 @@ export default function StudentDetailPage() {
   const [enrollClassroomId, setEnrollClassroomId] = useState("")
   const [enrollYearId, setEnrollYearId] = useState("")
 
-  const [form, setForm] = useState({ firstName: "", lastName: "", gender: "", birthDate: "", address: "", phone: "", parentName: "", parentPhone: "", parentEmail: "" })
+  const [form, setForm] = useState({ firstName: "", lastName: "", gender: "", birthDate: "", address: "", phone: "", parentName: "", parentPhone: "" })
   const [enrollToDelete, setEnrollToDelete] = useState<string | null>(null)
 
   const fetchStudent = useCallback(async () => {
@@ -165,7 +165,6 @@ export default function StudentDetailPage() {
               address: s.address || "", phone: s.phone || "",
               parentName: s.studentParents[0]?.parent.user.name || "",
               parentPhone: s.studentParents[0]?.parent.user.phone || "",
-              parentEmail: s.studentParents[0]?.parent.user.email || "",
             })
             setEditModal(true)
           }}>
@@ -278,7 +277,6 @@ export default function StudentDetailPage() {
                 <div key={sp.id} className="p-3 bg-gray-50 rounded-lg">
                   <p className="font-medium">{sp.parent.user.name}</p>
                   <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
-                    <span>{sp.parent.user.email}</span>
                     {sp.parent.user.phone && <span dir="ltr">{sp.parent.user.phone}</span>}
                   </div>
                   <div className="flex items-center gap-2 mt-1">
@@ -425,7 +423,6 @@ export default function StudentDetailPage() {
           <p className="text-sm font-medium text-gray-700">{t("parentSection")}</p>
           <input className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder={t("parentNamePlaceholder")} value={form.parentName} onChange={(e) => setForm({ ...form, parentName: e.target.value })} />
            <input className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder={t("parentPhonePlaceholder")} value={form.parentPhone} onChange={(e) => setForm({ ...form, parentPhone: e.target.value })} />
-          <input className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" dir="ltr" placeholder={t("parentEmailPlaceholder")} type="email" value={form.parentEmail} onChange={(e) => setForm({ ...form, parentEmail: e.target.value })} />
           <Button fullWidth onClick={saveStudent}>{t("saveChanges")}</Button>
         </div>
       </Modal>

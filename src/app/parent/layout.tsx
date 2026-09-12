@@ -30,7 +30,7 @@ function ParentLayoutContent({ children }: { children: React.ReactNode }) {
   const isRtl = direction === "rtl"
   const { data: session, status } = useSession()
   const pathname = usePathname()
-  const user = session?.user as { id: string; name: string; role: string } | undefined
+  const user = session?.user as { id: string; name: string; role: string; extraRoles?: string[] } | undefined
   const [mobileOpen, setMobileOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const closeMobile = () => setMobileOpen(false)
@@ -52,7 +52,7 @@ function ParentLayoutContent({ children }: { children: React.ReactNode }) {
     )
   }
 
-  if (!session || user?.role !== "PARENT") {
+  if (!session || (user?.role !== "PARENT" && !user?.extraRoles?.includes("PARENT"))) {
     redirect("/auth/login")
   }
 

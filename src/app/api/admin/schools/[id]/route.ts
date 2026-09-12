@@ -37,10 +37,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
   // إدارة مدير المدرسة (تعديل البيانات / تغيير كلمة المرور / إعادة تفعيل)
   const admin = body.admin as
-    | { userId?: string; name?: string; email?: string; password?: string; isActive?: boolean }
+    | { userId?: string; name?: string; email?: string; phone?: string; password?: string; isActive?: boolean }
     | undefined
 
-  let adminResult: { id: string; email: string; name: string; isActive: boolean } | null = null
+  let adminResult: { id: string; phone: string | null; name: string; isActive: boolean } | null = null
 
   if (admin && typeof admin === "object") {
     if (admin.userId) {
@@ -48,12 +48,32 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       if (user && user.schoolId === school.id) {
         const userData: any = {}
         if (typeof admin.name === "string" && admin.name.trim()) userData.name = admin.name.trim()
-        if (typeof admin.email === "string" && admin.email.trim()) {
-          const exists = await prisma.user.findUnique({ where: { email: admin.email.trim() } })
-          if (exists && exists.id !== user.id) {
-            return NextResponse.json({ error: "البريد الإلكتروني للمدير مستخدم من قبل" }, { status: 400 })
+        if (typeof admin.email === "string") {
+          const trimmed = admin.email.trim()
+          if (trimmed) {
+            const exists = await prisma.user.findUnique({ where: { email: trimmed } })
+            if (exists && exists.id !== user.id) {
+              return NextResponse.json({ error: "البريد الإلكتروني للمدير مستخدم من قبل" }, { status: 400 })
+            }
+            userData.email = trimmed
+          } else {
+            userData.email = null
           }
-          userData.email = admin.email.trim()
+        }
+        if (typeof admin.phone === "string" && admin.phone.trim()) {
+          const { normalizePhone: normPhone } = await import("@/lib/phone")
+          const normalized = normPhone(admin.phone)
+          if (!normalized) {
+            return NextResponse.json({ error: "رقم هاتف المدير غير صالح" }, { status: 400 })
+          }
+          const clash = await prisma.user.findUnique({
+            where: { schoolId_phoneNormalized: { schoolId: school.id, phoneNormalized: normalized } },
+          })
+          if (clash && clash.id !== user.id) {
+            return NextResponse.json({ error: "رقم هاتف المدير مستخدم من قبل" }, { status: 400 })
+          }
+          userData.phone = admin.phone.trim()
+          userData.phoneNormalized = normalized
         }
         if (typeof admin.password === "string" && admin.password.trim()) {
           if (admin.password.trim().length < 8) {
@@ -68,7 +88,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         }
         const updated = await prisma.user.findUnique({ where: { id: user.id } })
         adminResult = updated
-          ? { id: updated.id, email: updated.email, name: updated.name, isActive: updated.isActive }
+          ? { id: updated.id, phone: updated.phone, name: updated.name, isActive: updated.isActive }
           : null
       }
     }
@@ -81,7 +101,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       _count: { select: { users: true, students: true, teachers: true } },
       users: {
         where: { role: "SCHOOL_ADMIN" },
-        select: { id: true, email: true, name: true, isActive: true },
+        select: { id: true, phone: true, name: true, isActive: true },
         take: 1,
       },
     },
@@ -104,7 +124,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     admin: adminResult || updated.users[0]
       ? {
           id: (adminResult || updated.users[0])?.id,
-          email: (adminResult || updated.users[0])?.email,
+          phone: (adminResult || updated.users[0])?.phone,
           name: (adminResult || updated.users[0])?.name,
           isActive: (adminResult || updated.users[0])?.isActive,
         }

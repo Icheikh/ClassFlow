@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import bcrypt from "bcryptjs"
 import { hasPermission, PERMISSIONS } from "@/lib/permissions"
-import { sendCredentialsEmail, EmailLocale } from "@/lib/email"
+import { normalizePhone } from "@/lib/phone"
+import { ensureSchoolUser } from "@/lib/user-accounts"
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
           : { user: { isActive: true } }),
     },
     include: {
-      user: { select: { id: true, email: true, name: true, phone: true, isActive: true } },
+      user: { select: { id: true, name: true, phone: true, isActive: true, status: true } },
       teacherAssignments: {
         include: { subject: true, classroom: { include: { level: true } } },
         where: { academicYear: { isActive: true } },
@@ -39,57 +39,49 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
-  if (!hasPermission(user, PERMISSIONS.MANAGE_TEACHERS) && !isLegacyRole)
+  if (!hasPermission(user, PERMISSIONS.MANAGE_TEACHERS))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const body = await req.json()
-  const { email, name, phone, password } = body
-  if (!email || !name) return NextResponse.json({ error: "البريد الإلكتروني والاسم مطلوبان" }, { status: 400 })
+  // الهاتف هو الهوية الوحيدة — لا إيميل، لا كلمة مرور من المدير.
+  const { name, phone } = body
+  if (!name?.trim() || !phone?.trim())
+    return NextResponse.json({ error: "الاسم ورقم الهاتف مطلوبان" }, { status: 400 })
+  if (!normalizePhone(phone))
+    return NextResponse.json({ error: "رقم الهاتف غير صالح" }, { status: 400 })
 
-  const existing = await prisma.user.findUnique({ where: { email } })
-  if (existing) return NextResponse.json({ error: "البريد الإلكتروني موجود مسبقاً" }, { status: 400 })
-
-  const usesDefaultPassword = !password || !password.trim()
-  const passwordHash = await bcrypt.hash(password || "password123", 10)
-  const appUser = await prisma.user.create({
-    data: {
-      email,
-      passwordHash,
-      name,
-      phone,
-      role: "TEACHER",
-      schoolId: user.schoolId!,
-      mustChangePassword: usesDefaultPassword,
-    },
-  })
-  const teacher = await prisma.teacher.create({
-    data: { schoolId: user.schoolId!, userId: appUser.id, phone },
-    include: {
-      user: { select: { id: true, email: true, name: true, phone: true, isActive: true } },
-    },
-  })
-
-  const effectivePassword = password || "password123"
   const school = await prisma.school.findUnique({ where: { id: user.schoolId } })
-  sendCredentialsEmail({
-    to: appUser.email,
-    name: appUser.name,
-    email: appUser.email,
-    password: effectivePassword,
-    locale: ((body.locale as string) === "fr" ? "fr" : "ar") as EmailLocale,
-    schoolName: school?.name || undefined,
-  }).catch((e) => console.error("[teachers] credential email failed:", e))
+  let account: Awaited<ReturnType<typeof ensureSchoolUser>>
+  try {
+    account = await ensureSchoolUser({
+      schoolId: user.schoolId!,
+      phone: phone.trim(),
+      name: name.trim(),
+      role: "TEACHER",
+      schoolName: school?.name,
+      locale: (body.locale as string) === "fr" ? "fr" : "ar",
+    })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : ""
+    if (msg === "INVALID_PHONE") return NextResponse.json({ error: "رقم الهاتف غير صالح" }, { status: 400 })
+    throw e
+  }
 
-  return NextResponse.json(teacher)
+  const teacher = await prisma.teacher.findFirst({
+    where: { userId: account.user.id },
+    include: {
+      user: { select: { id: true, name: true, phone: true, isActive: true, status: true } },
+    },
+  })
+
+  return NextResponse.json({ ...teacher, invited: account.createdUser })
 }
 
 export async function PUT(req: NextRequest) {
   const session = await getServerSession(authOptions)
   const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
-  if (!hasPermission(user, PERMISSIONS.MANAGE_TEACHERS) && !isLegacyRole)
+  if (!hasPermission(user, PERMISSIONS.MANAGE_TEACHERS))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const body = await req.json()
@@ -98,9 +90,27 @@ export async function PUT(req: NextRequest) {
   const teacher = await prisma.teacher.findFirst({ where: { id, schoolId: user.schoolId! } })
   if (!teacher) return NextResponse.json({ error: "غير موجود" }, { status: 404 })
 
+  let phoneNormalized: string | undefined
+  if (phone !== undefined && phone !== null && String(phone).trim() !== "") {
+    const normalized = normalizePhone(phone)
+    if (!normalized) return NextResponse.json({ error: "رقم الهاتف غير صالح" }, { status: 400 })
+    const clash = await prisma.user.findUnique({
+      where: { schoolId_phoneNormalized: { schoolId: user.schoolId!, phoneNormalized: normalized } },
+    })
+    if (clash && clash.id !== teacher.userId)
+      return NextResponse.json({ error: "رقم الهاتف مستخدم لحساب آخر" }, { status: 400 })
+    phoneNormalized = normalized
+  }
+
   await prisma.user.update({
     where: { id: teacher.userId },
-    data: { name, phone, isActive: isActive !== undefined ? isActive : undefined },
+    data: {
+      name,
+      phone: phone !== undefined ? phone || null : undefined,
+      phoneNormalized: phoneNormalized !== undefined ? phoneNormalized : undefined,
+      isActive: isActive !== undefined ? isActive : undefined,
+      status: isActive === false ? "SUSPENDED" : isActive === true ? "ACTIVE" : undefined,
+    },
   })
   await prisma.teacher.update({
     where: { id },
@@ -109,7 +119,7 @@ export async function PUT(req: NextRequest) {
 
   const updated = await prisma.teacher.findUnique({
     where: { id },
-    include: { user: { select: { id: true, email: true, name: true, phone: true, isActive: true } } },
+    include: { user: { select: { id: true, name: true, phone: true, isActive: true, status: true } } },
   })
   return NextResponse.json(updated)
 }
@@ -119,8 +129,7 @@ export async function DELETE(req: NextRequest) {
     const session = await getServerSession(authOptions)
     const user = session?.user
     if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
-    if (!hasPermission(user, PERMISSIONS.MANAGE_TEACHERS) && !isLegacyRole)
+    if (!hasPermission(user, PERMISSIONS.MANAGE_TEACHERS))
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     const url = new URL(req.url)
     const id = url.searchParams.get("id")

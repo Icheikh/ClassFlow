@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import bcrypt from "bcryptjs"
-import { sendCredentialsEmail, EmailLocale } from "@/lib/email"
+import { normalizePhone } from "@/lib/phone"
+import { ensureSchoolUser } from "@/lib/user-accounts"
 
 export async function GET() {
   const session = await getServerSession(authOptions)
@@ -24,9 +24,9 @@ export async function GET() {
 
   const result = staff.map((s) => ({
     id: s.id,
-    email: s.email,
     name: s.name,
     phone: s.phone,
+    status: (s as { status?: string }).status || "ACTIVE",
     isActive: s.isActive,
     permissions: s.userPermissions.map((up) => up.permission.code),
     createdAt: s.createdAt,
@@ -43,31 +43,33 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { email, name, phone, password, permissions } = body
-  if (!email || !name) {
-    return NextResponse.json({ error: "البريد الإلكتروني والاسم مطلوبان" }, { status: 400 })
+  // الهاتف هو الهوية الوحيدة — لا إيميل، لا كلمة مرور من المدير.
+  const { name, phone, permissions } = body
+  if (!name?.trim() || !phone?.trim()) {
+    return NextResponse.json({ error: "الاسم ورقم الهاتف مطلوبان" }, { status: 400 })
+  }
+  if (!normalizePhone(phone)) {
+    return NextResponse.json({ error: "رقم الهاتف غير صالح" }, { status: 400 })
   }
 
-  const existing = await prisma.user.findUnique({ where: { email } })
-  if (existing) {
-    return NextResponse.json({ error: "البريد الإلكتروني موجود مسبقاً" }, { status: 400 })
-  }
-
-  const usesDefaultPassword = !password || !password.trim()
-  const passwordHash = await bcrypt.hash(password || "password123", 10)
-
-  const staffUser = await prisma.user.create({
-    data: {
-      email,
-      passwordHash,
-      name,
-      phone: phone || null,
-      role: "STAFF",
+  const school = await prisma.school.findUnique({ where: { id: user.schoolId } })
+  let account: Awaited<ReturnType<typeof ensureSchoolUser>>
+  try {
+    account = await ensureSchoolUser({
       schoolId: user.schoolId!,
-      isActive: true,
-      mustChangePassword: usesDefaultPassword,
-    },
-  })
+      phone: phone.trim(),
+      name: name.trim(),
+      role: "STAFF",
+      schoolName: school?.name,
+      locale: (body.locale as string) === "fr" ? "fr" : "ar",
+    })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : ""
+    if (msg === "INVALID_PHONE") return NextResponse.json({ error: "رقم الهاتف غير صالح" }, { status: 400 })
+    throw e
+  }
+  const staffUser = await prisma.user.findUnique({ where: { id: account.user.id } })
+  if (!staffUser) return NextResponse.json({ error: "فشل إنشاء الحساب" }, { status: 500 })
 
   if (permissions && Array.isArray(permissions) && permissions.length > 0) {
     const permissionRecords = await prisma.permission.findMany({
@@ -83,28 +85,19 @@ export async function POST(req: NextRequest) {
   }
 
   const created = await prisma.user.findUnique({
-    where: { id: staffUser.id },
+    where: { id: staffUser!.id },
     include: {
       userPermissions: { include: { permission: true } },
     },
   })
 
-  const school = await prisma.school.findUnique({ where: { id: user.schoolId } })
-  sendCredentialsEmail({
-    to: staffUser.email,
-    name: staffUser.name,
-    email: staffUser.email,
-    password: password || "password123",
-    locale: ((body.locale as string) === "fr" ? "fr" : "ar") as EmailLocale,
-    schoolName: school?.name || undefined,
-  }).catch((e) => console.error("[staff] credential email failed:", e))
-
   return NextResponse.json({
     id: created!.id,
-    email: created!.email,
     name: created!.name,
     phone: created!.phone,
+    status: (created as unknown as { status?: string })?.status || "ACTIVE",
     isActive: created!.isActive,
+    invited: account.createdUser,
     permissions: created!.userPermissions.map((up) => up.permission.code),
     createdAt: created!.createdAt,
   })
@@ -135,12 +128,23 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "لا يمكن تعديل حسابك الخاص" }, { status: 403 })
   }
 
+  if (phone !== undefined && phone && !normalizePhone(phone)) {
+    return NextResponse.json({ error: "رقم الهاتف غير صالح" }, { status: 400 })
+  }
+
   await prisma.user.update({
     where: { id },
     data: {
       name: name ?? undefined,
-      phone: phone !== undefined ? phone : undefined,
+      phone: phone !== undefined ? phone || null : undefined,
+      phoneNormalized:
+        phone !== undefined && phone
+          ? (normalizePhone(phone) ?? undefined)
+          : phone === ""
+            ? null
+            : undefined,
       isActive: isActive !== undefined ? isActive : undefined,
+      status: isActive === false ? "SUSPENDED" : isActive === true ? "ACTIVE" : undefined,
     },
   })
 
@@ -153,9 +157,9 @@ export async function PUT(req: NextRequest) {
 
   return NextResponse.json({
     id: updated!.id,
-    email: updated!.email,
     name: updated!.name,
     phone: updated!.phone,
+    status: (updated as unknown as { status?: string })?.status || "ACTIVE",
     isActive: updated!.isActive,
     permissions: updated!.userPermissions.map((up) => up.permission.code),
     createdAt: updated!.createdAt,

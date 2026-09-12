@@ -14,7 +14,6 @@ import { getLocaleDirection } from "@/i18n/config"
 
 interface StaffMember {
   id: string
-  email: string
   name: string
   phone: string | null
   isActive: boolean
@@ -66,7 +65,7 @@ export default function StaffPage() {
   }, [fetchStaff, router, user.role])
   useEffect(() => { setPage(1) }, [search])
 
-  async function handleCreate(data: { name: string; email: string; phone: string; password: string; permissions: string[] }) {
+  async function handleCreate(data: { name: string; phone: string; password: string; permissions: string[] }) {
     const { error } = await api.post("/api/school/staff", data)
     if (error) { toast.error(error); return }
     toast.success(t("createSuccess"))
@@ -74,7 +73,7 @@ export default function StaffPage() {
     fetchStaff()
   }
 
-  async function handleEdit(data: { name: string; email: string; phone: string; password: string; permissions: string[] }) {
+  async function handleEdit(data: { name: string; phone: string; password: string; permissions: string[] }) {
     if (!editTarget) return
     const { error } = await api.put("/api/school/staff", { id: editTarget.id, name: data.name, phone: data.phone })
     if (error) { toast.error(error); return }
@@ -118,7 +117,7 @@ export default function StaffPage() {
   }
 
   const filtered = staff.filter(
-    (s) => s.name.includes(search) || s.email.includes(search)
+    (s) => s.name.includes(search) || (s.phone || "").includes(search)
   )
   const paginatedStaff = filtered.slice((page - 1) * limit, page * limit)
 
@@ -178,7 +177,6 @@ export default function StaffPage() {
           initial={{
             id: editTarget.id,
             name: editTarget.name,
-            email: editTarget.email,
             phone: editTarget.phone || "",
             password: "",
             permissions: editTarget.permissions,

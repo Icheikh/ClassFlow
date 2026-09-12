@@ -2,16 +2,21 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import { signIn, getSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useTranslations, useLocale } from "next-intl"
 import toast from "react-hot-toast"
+import { roleRoutes } from "@/lib/roles"
 import { LanguageSwitcher } from "@/components/ui"
 import { api } from "@/lib/api"
 
-type Step = "phone" | "code" | "done"
+type Step = "phone" | "code" | "password" | "done"
 
-/** Password recovery via phone: phone → OTP → new password. */
-export default function ForgotPasswordPage() {
+/**
+ * First-time activation (one page):
+ * phone → OTP (WhatsApp/SMS) → verify (shows stored name) → new password → active.
+ */
+export default function ActivatePage() {
   const tApp = useTranslations("app")
   const tAuth = useTranslations("auth")
   const tCommon = useTranslations("common")
@@ -21,6 +26,7 @@ export default function ForgotPasswordPage() {
   const [step, setStep] = useState<Step>("phone")
   const [phone, setPhone] = useState("")
   const [code, setCode] = useState("")
+  const [accountName, setAccountName] = useState<string | null>(null)
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [loading, setLoading] = useState(false)
@@ -30,26 +36,50 @@ export default function ForgotPasswordPage() {
     if (!phone.trim()) return
     setLoading(true)
     try {
-      const { data, error } = await api.post("/api/auth/forgot-password", {
+      const { data, error } = await api.post("/api/auth/request-otp", {
         phone: phone.trim(),
+        purpose: "ACTIVATION",
         locale,
       })
       if (error) {
-        toast.error(tAuth("forgotRequestFailed"))
+        toast.error(tAuth("otpRequestFailed"))
         return
       }
+      // Dev/test convenience: provider not configured → code returned directly.
       const devCode = (data as { devCode?: string } | null)?.devCode
       if (devCode) setCode(devCode)
       setStep("code")
       toast.success(tAuth("otpSent"))
     } catch {
-      toast.error(tAuth("forgotRequestFailed"))
+      toast.error(tAuth("otpRequestFailed"))
     } finally {
       setLoading(false)
     }
   }
 
-  async function resetPassword(e: React.FormEvent) {
+  async function verifyCode(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+    try {
+      const { data, error } = await api.post("/api/auth/verify-otp", {
+        phone: phone.trim(),
+        code: code.trim(),
+        purpose: "ACTIVATION",
+      })
+      if (error) {
+        toast.error(mapOtpError(error, tAuth))
+        return
+      }
+      setAccountName((data as { name?: string | null } | null)?.name || null)
+      setStep("password")
+    } catch {
+      toast.error(tAuth("otpVerifyFailed"))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function activate(e: React.FormEvent) {
     e.preventDefault()
     if (password.length < 8) {
       toast.error(tAuth("newPasswordRequired"))
@@ -61,24 +91,34 @@ export default function ForgotPasswordPage() {
     }
     setLoading(true)
     try {
-      const { error } = await api.post("/api/auth/reset-password", {
+      const { error } = await api.post("/api/auth/activate", {
         phone: phone.trim(),
         code: code.trim(),
         password,
       })
       if (error) {
-        if (error === "SameAsCurrent") toast.error(tAuth("sameAsCurrent"))
-        else if (error === "PasswordTooShort") toast.error(tAuth("newPasswordRequired"))
-        else if (error === "INVALID_CODE") toast.error(tAuth("otpInvalid"))
-        else if (error === "EXPIRED_OR_NOT_FOUND") toast.error(tAuth("otpExpired"))
-        else toast.error(tAuth("resetFailed"))
+        toast.error(mapOtpError(error, tAuth))
+        if (error === "EXPIRED_OR_NOT_FOUND") setStep("phone")
         return
       }
-      toast.success(tAuth("passwordChanged"))
+      // Auto login with the new password.
+      const result = await signIn("credentials", {
+        phone: phone.trim(),
+        password,
+        redirect: false,
+      })
+      if (result?.error) {
+        router.replace("/auth/login")
+        return
+      }
+      const session = await getSession()
+      const role = session?.user?.role || "TEACHER"
+      toast.success(tAuth("accountActivated"))
       setStep("done")
-      setTimeout(() => router.replace("/auth/login"), 1500)
+      router.replace(roleRoutes[role] || "/teacher")
+      router.refresh()
     } catch {
-      toast.error(tAuth("resetFailed"))
+      toast.error(tAuth("activationFailed"))
     } finally {
       setLoading(false)
     }
@@ -92,11 +132,12 @@ export default function ForgotPasswordPage() {
       <div className="mx-auto w-full max-w-md rounded-2xl bg-white p-8 shadow-lg">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900">{tApp("name")}</h1>
-          <p className="text-gray-500 mt-2">{tAuth("forgotPasswordTitle")}</p>
+          <p className="text-gray-500 mt-2">{tAuth("activateTitle")}</p>
         </div>
 
         {step === "phone" && (
           <form onSubmit={requestCode} className="space-y-4">
+            <p className="text-sm text-gray-500">{tAuth("activateHint")}</p>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 {tCommon("phone")}
@@ -120,19 +161,12 @@ export default function ForgotPasswordPage() {
             >
               {loading ? tAuth("sending") : tAuth("sendCode")}
             </button>
-            <div className="text-center">
-              <Link
-                href="/auth/login"
-                className="text-sm font-medium text-blue-600 hover:text-blue-700"
-              >
-                {tAuth("backToLogin")}
-              </Link>
-            </div>
+            <BackToLogin />
           </form>
         )}
 
         {step === "code" && (
-          <form onSubmit={resetPassword} className="space-y-4">
+          <form onSubmit={verifyCode} className="space-y-4">
             <p className="text-sm text-gray-500">{tAuth("otpHint")}</p>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -151,6 +185,31 @@ export default function ForgotPasswordPage() {
                 maxLength={6}
               />
             </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium"
+            >
+              {loading ? tAuth("sending") : tAuth("verifyCode")}
+            </button>
+            <button
+              type="button"
+              onClick={() => requestCode()}
+              disabled={loading}
+              className="w-full text-sm font-medium text-blue-600 hover:text-blue-700"
+            >
+              {tAuth("resendCode")}
+            </button>
+          </form>
+        )}
+
+        {step === "password" && (
+          <form onSubmit={activate} className="space-y-4">
+            {accountName && (
+              <div className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-800">
+                {tAuth("welcomeName", { name: accountName })}
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 {tAuth("newPassword")}
@@ -163,6 +222,7 @@ export default function ForgotPasswordPage() {
                 placeholder={tAuth("newPasswordPlaceholder")}
                 required
                 minLength={8}
+                autoFocus
               />
             </div>
             <div>
@@ -183,36 +243,35 @@ export default function ForgotPasswordPage() {
               disabled={loading}
               className="w-full py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium"
             >
-              {loading ? tAuth("sending") : tAuth("changePassword")}
-            </button>
-            <button
-              type="button"
-              onClick={() => requestCode()}
-              disabled={loading}
-              className="w-full text-sm font-medium text-blue-600 hover:text-blue-700"
-            >
-              {tAuth("resendCode")}
+              {loading ? tAuth("sending") : tAuth("activateSubmit")}
             </button>
           </form>
         )}
 
         {step === "done" && (
-          <div className="text-center py-6 space-y-4">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-100">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <p className="text-gray-700">{tAuth("resetSuccess")}</p>
-            <Link
-              href="/auth/login"
-              className="inline-block text-sm font-medium text-blue-600 hover:text-blue-700"
-            >
-              {tAuth("backToLogin")}
-            </Link>
-          </div>
+          <p className="text-center text-gray-700">{tAuth("accountActivated")}</p>
         )}
       </div>
     </div>
   )
+}
+
+function BackToLogin() {
+  const tAuth = useTranslations("auth")
+  return (
+    <div className="text-center">
+      <Link href="/auth/login" className="text-sm font-medium text-blue-600 hover:text-blue-700">
+        {tAuth("backToLogin")}
+      </Link>
+    </div>
+  )
+}
+
+function mapOtpError(error: string, tAuth: (key: string) => string): string {
+  if (error === "INVALID_CODE") return tAuth("otpInvalid")
+  if (error === "EXPIRED_OR_NOT_FOUND") return tAuth("otpExpired")
+  if (error === "TOO_MANY_ATTEMPTS") return tAuth("otpTooMany")
+  if (error === "NO_INVITED_ACCOUNT") return tAuth("noInvitedAccount")
+  if (error === "PasswordTooShort") return tAuth("newPasswordRequired")
+  return tAuth("otpVerifyFailed")
 }

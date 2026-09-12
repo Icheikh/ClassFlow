@@ -2,11 +2,12 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { canAccessPortal } from "@/lib/user-accounts"
 
 export async function GET() {
   const session = await getServerSession(authOptions)
   const user = session?.user
-  if (!user?.id || user?.role !== "PARENT") {
+  if (!user?.id || !canAccessPortal(user, "PARENT")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
