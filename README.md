@@ -19,7 +19,7 @@ npx prisma db seed
 npm run dev
 ```
 
-**Login:** `admin@alnoor.edu` / `password123`
+**Login (phone + password):** `20000001` / `password123` (school admin — see `prisma/seed.js` for all demo phones)
 
 ---
 

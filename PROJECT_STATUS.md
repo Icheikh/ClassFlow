@@ -1,15 +1,25 @@
 # 📊 ClassFlow — Project Status
 
-**Last updated:** 2026-06-24 (Session 5)  
-**Build:** ⏳ Pending (`tsc --noEmit`)  
-**Database:** SQLite (local), 26 models  
-**Commits:** 11 on `main`
+**Last updated:** 2026-09-12 (Session 7 — phone identity)
+**Build:** ✅ `tsc --noEmit` passes, 75 vitest tests pass
+**Database:** PostgreSQL (Supabase), 32 models (User + OtpCode added)
+**Commits:** 95 on `main`
 
 ---
 
 ## ✅ Completed Features
 
-### Authentication & Authorization
+### Authentication & Authorization (phone-based — no email login)
+- Phone number is the primary identity: `@@unique([schoolId, phoneNormalized])`
+- No self-registration. Directors create INVITED accounts (name + phone only)
+- Activation flow: `/auth/activate` — phone → OTP (6 digits, 10 min, 5 attempts, single-use) → stored name shown → password → ACTIVE
+- Login: phone + password only (`src/lib/auth.ts` rejects `@` inputs)
+- Password recovery: phone → RESET OTP → new password (same page)
+- Account states: INVITED / ACTIVE / SUSPENDED (`status` + legacy `isActive` kept in sync)
+- One user per phone per school; same person can hold Teacher + Parent profiles (`extraRoles` in session unlock both portals)
+- No student accounts (students are records only, linked to parents via `StudentParent`)
+- OTP delivery chain: WhatsApp → Vonage SMS → MoorSyl SMS → dev fallback (devCode in non-production only)
+- Vonage channel integrated (`src/lib/vonage.ts` + `/api/webhooks/vonage-dlr`) BUT delivery to Mauritania FAILED in live test (carrier reject err 24, $0.00 billed) — provider decision PAUSED, see below
 - NextAuth with JWT strategy
 - 7 roles: SUPER_ADMIN, SCHOOL_ADMIN, STAFF, ACCOUNTANT, SUPERVISOR, TEACHER, PARENT
 - 15 fine-grained permissions (Permission + UserPermission models)
@@ -161,6 +171,7 @@ School, User, Teacher, Parent, Student, StudentParent, Enrollment, EducationStag
 - [ ] WhatsApp integration
 - [ ] Notification queue
 - [ ] Absence → parent notification pipeline (DB layer done)
+- [ ] **Messaging provider UNDECIDED (paused 2026-09-12):** Vonage live-tested to +222 — accepted (status 0) but carrier-rejected (DLR err 24, not billed). Vonage €0.30/segment ≈ 8× local rates. Verified MR rates: Twilio $0.3618, Plivo $0.2059, eSMS $0.0388. Candidates: MoorSyl key or Plivo test ($10 free credit)
 
 ### Platform
 - [ ] SUPER_ADMIN panel (`/admin`)
