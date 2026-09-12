@@ -5,6 +5,10 @@ import { prisma } from "@/lib/prisma"
 import { hasAnyPermission, hasPermission, PERMISSIONS } from "@/lib/permissions"
 import { Prisma } from "@prisma/client"
 import { createNotificationCampaign } from "@/lib/notifications"
+import { checkRateLimit, rateLimitHeaders } from "@/lib/rate-limit"
+import { createAuditLog } from "@/lib/audit"
+import { getClientIp } from "@/lib/rate-limit"
+import { invoiceRemaining, invoiceStatusAfterPayment, parsePositiveAmount } from "@/lib/finance"
 
 type ReceiptCampaignPayload = {
   title: string
@@ -21,9 +25,14 @@ function canReadFinance(user: any) {
 }
 
 async function buildReceiptNumber(tx: Prisma.TransactionClient, schoolId: string) {
-  const count = await tx.payment.count({ where: { schoolId } })
   const today = new Date().toISOString().slice(0, 10).replace(/-/g, "")
-  return `RCPT-${today}-${String(count + 1).padStart(4, "0")}`
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
+  const todayCount = await tx.payment.count({
+    where: { schoolId, createdAt: { gte: todayStart } },
+  })
+  const randomSuffix = Math.random().toString(36).slice(2, 6).toUpperCase()
+  return `RCPT-${today}-${String(todayCount + 1).padStart(4, "0")}-${randomSuffix}`
 }
 
 export async function GET(req: NextRequest) {
@@ -60,13 +69,18 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  const isLegacyRole = ["SUPERVISOR", "ACCOUNTANT"].includes(user?.role)
-  if (!hasPermission(user, PERMISSIONS.RECORD_PAYMENTS) && !isLegacyRole)
+  if (!hasPermission(user, PERMISSIONS.RECORD_PAYMENTS))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
+  const rl = checkRateLimit(user.id, { namespace: "payments", max: 10, windowSeconds: 60 })
+  if (!rl.allowed) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429, headers: rateLimitHeaders(rl) })
+  }
+
   const body = await req.json()
-  const { amount, method, notes, studentId, feeId, invoiceId } = body
-  if (!amount || !studentId) return NextResponse.json({ error: "المبلغ والطالب مطلوبان" }, { status: 400 })
+  const { amount: rawAmount, method, notes, studentId, feeId, invoiceId } = body
+  const amount = parsePositiveAmount(rawAmount)
+  if (amount == null || !studentId) return NextResponse.json({ error: "مبلغ صالح والطالب مطلوبان" }, { status: 400 })
 
   const student = await prisma.student.findFirst({
     where: { id: studentId, schoolId: user.schoolId! },
@@ -82,9 +96,23 @@ export async function POST(req: NextRequest) {
   if (invoiceId) {
     const invoice = await prisma.invoice.findFirst({
       where: { id: invoiceId, schoolId: user.schoolId! },
-      select: { id: true },
+      select: { id: true, amount: true, status: true },
     })
     if (!invoice) return NextResponse.json({ error: "الفاتورة غير موجودة" }, { status: 404 })
+    if (invoice.status === "PAID") {
+      return NextResponse.json({ error: "الفاتورة مسددة بالكامل" }, { status: 400 })
+    }
+    const paidAgg = await prisma.payment.aggregate({
+      where: { invoiceId, schoolId: user.schoolId! },
+      _sum: { amount: true },
+    })
+    const remaining = invoiceRemaining(invoice.amount, paidAgg._sum.amount || 0)
+    if (amount > remaining) {
+      return NextResponse.json(
+        { error: `المبلغ يتجاوز المتبقي (${remaining} MRU)`, remaining },
+        { status: 400 }
+      )
+    }
   }
 
   let receiptCampaignData: ReceiptCampaignPayload | undefined
@@ -94,7 +122,7 @@ export async function POST(req: NextRequest) {
     const p = await tx.payment.create({
       data: {
         schoolId: user.schoolId!,
-        amount: parseFloat(amount),
+        amount,
         date: new Date(),
         method: method || "CASH",
         receiptNumber,
@@ -113,7 +141,7 @@ export async function POST(req: NextRequest) {
           where: { invoiceId, schoolId: user.schoolId! },
           _sum: { amount: true },
         })
-        const newStatus = (totalPaid._sum.amount || 0) >= invoice.amount ? "PAID" : "PARTIAL"
+        const newStatus = invoiceStatusAfterPayment(invoice.amount, totalPaid._sum.amount || 0)
         await tx.invoice.update({ where: { id: invoiceId }, data: { status: newStatus } })
       }
     }
@@ -158,6 +186,17 @@ export async function POST(req: NextRequest) {
       console.error("Receipt campaign creation failed:", error)
     }
   }
+
+  await createAuditLog({
+    schoolId: user.schoolId!,
+    actorUserId: user.id,
+    entityType: "PAYMENT",
+    entityId: payment.id,
+    action: "CREATE",
+    description: `تسجيل دفعة ${amount} أوقية للطالب ${studentId}`,
+    after: { id: payment.id, amount: payment.amount, method: payment.method, receiptNumber: payment.receiptNumber, studentId, invoiceId },
+    ipAddress: getClientIp(req),
+  })
 
   return NextResponse.json(payment)
 }

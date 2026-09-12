@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { hasPermission, PERMISSIONS } from "@/lib/permissions"
+import { parsePositiveAmount } from "@/lib/finance"
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
@@ -30,19 +31,30 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  const isLegacyRole = ["SUPERVISOR", "ACCOUNTANT"].includes(user?.role)
-  if (!hasPermission(user, PERMISSIONS.MANAGE_FEES) && !isLegacyRole)
+  if (!hasPermission(user, PERMISSIONS.MANAGE_FEES))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const body = await req.json()
-  const { name, amount, frequency, levelId, classroomId } = body
-  if (!name || amount == null) return NextResponse.json({ error: "الاسم والمبلغ مطلوبان" }, { status: 400 })
+  const { name, amount: rawAmount, frequency, levelId, classroomId } = body
+  const amount = parsePositiveAmount(rawAmount)
+  if (!name?.trim() || amount == null)
+    return NextResponse.json({ error: "اسم صالح ومبلغ أكبر من صفر مطلوبان" }, { status: 400 })
+
+  // levelId/classroomId must belong to this school (tenant isolation).
+  if (levelId) {
+    const level = await prisma.level.findFirst({ where: { id: levelId, schoolId: user.schoolId! }, select: { id: true } })
+    if (!level) return NextResponse.json({ error: "المستوى غير موجود في هذه المدرسة" }, { status: 400 })
+  }
+  if (classroomId) {
+    const classroom = await prisma.classroom.findFirst({ where: { id: classroomId, schoolId: user.schoolId! }, select: { id: true } })
+    if (!classroom) return NextResponse.json({ error: "القسم غير موجود في هذه المدرسة" }, { status: 400 })
+  }
 
   const fee = await prisma.fee.create({
     data: {
       schoolId: user.schoolId!,
-      name,
-      amount: parseFloat(amount),
+      name: name.trim(),
+      amount,
       frequency: frequency || "MONTHLY",
       levelId: levelId || null,
       classroomId: classroomId || null,

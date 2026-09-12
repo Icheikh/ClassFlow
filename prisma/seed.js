@@ -3,6 +3,82 @@ const bcrypt = require("bcryptjs")
 
 const prisma = new PrismaClient()
 
+/**
+ * Demo finance dataset for FRESH installs only (never run against a live school —
+ * main() wipes the whole database first). Covers: MONTHLY + YEARLY + ONE_TIME fees,
+ * paid / partial / pending invoices, and receipted payments.
+ */
+async function seedFinanceDemo(schoolId, classroomMap) {
+  const demoClassrooms = ["1AS1", "1AS2"].map((n) => classroomMap[n]).filter(Boolean)
+  if (demoClassrooms.length === 0) return
+
+  const monthly = await prisma.fee.create({
+    data: { schoolId, name: "الرسوم الشهرية", amount: 2500, frequency: "MONTHLY", isActive: true },
+  })
+  const yearly = await prisma.fee.create({
+    data: { schoolId, name: "رسوم التسجيل", amount: 5000, frequency: "YEARLY", isActive: true },
+  })
+  const oneTime = await prisma.fee.create({
+    data: { schoolId, name: "الأنشطة", amount: 1500, frequency: "ONE_TIME", isActive: true },
+  })
+
+  const students = await prisma.student.findMany({
+    where: {
+      schoolId,
+      isActive: true,
+      enrollments: { some: { classroomId: { in: demoClassrooms.map((c) => c.id) }, status: "ACTIVE" } },
+    },
+    include: { enrollments: { where: { status: "ACTIVE" }, take: 1 } },
+    take: 10,
+  })
+
+  const now = new Date()
+  const cur = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+  const prevD = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  const prev = `${prevD.getFullYear()}-${String(prevD.getMonth() + 1).padStart(2, "0")}`
+
+  let receiptSeq = 1
+  const receipt = () => `RCPT-DEMO-${String(receiptSeq++).padStart(4, "0")}`
+
+  for (const [i, student] of students.entries()) {
+    const classroomId = student.enrollments[0]?.classroomId
+    if (!classroomId) continue
+    const mode = i % 3 // 0 = paid, 1 = partial, 2 = pending
+    for (const fee of [monthly, yearly, oneTime]) {
+      const sf = await prisma.studentFee.create({
+        data: { schoolId, studentId: student.id, feeId: fee.id, classroomId, isActive: true },
+      })
+      const months = fee.frequency === "MONTHLY" ? [prev, cur] : [cur]
+      for (const month of months) {
+        const invoice = await prisma.invoice.create({
+          data: {
+            schoolId, studentId: student.id, feeId: fee.id, studentFeeId: sf.id,
+            classroomId, month, amount: fee.amount, status: "PENDING",
+          },
+        })
+        if (mode === 0) {
+          await prisma.payment.create({
+            data: {
+              schoolId, amount: fee.amount, date: new Date(), method: "CASH",
+              receiptNumber: receipt(), studentId: student.id, feeId: fee.id, invoiceId: invoice.id,
+            },
+          })
+          await prisma.invoice.update({ where: { id: invoice.id }, data: { status: "PAID" } })
+        } else if (mode === 1 && fee.frequency === "MONTHLY" && month === cur) {
+          const half = Math.floor(fee.amount / 2)
+          await prisma.payment.create({
+            data: {
+              schoolId, amount: half, date: new Date(), method: "BANKILY",
+              receiptNumber: receipt(), studentId: student.id, feeId: fee.id, invoiceId: invoice.id,
+            },
+          })
+          await prisma.invoice.update({ where: { id: invoice.id }, data: { status: "PARTIAL" } })
+        }
+      }
+    }
+  }
+}
+
 async function clearDatabase() {
   await prisma.payment.deleteMany()
   await prisma.invoice.deleteMany()
@@ -774,6 +850,7 @@ async function main() {
 
   const { admin, teachers, parent } = await createUsersAndTeachers(school1.id, permissionMap)
   const students = await seedStudentsAndLinks(school1.id, year.id, classroomMap, parent.id)
+  await seedFinanceDemo(school1.id, classroomMap)
   await seedTeacherAssignments(school1.id, year.id, teachers, classroomMap, subjectMap)
   await seedSampleLessonsAndAssessments(school1.id, year.id, term1.id, students, classroomMap, subjectMap, teachers)
 

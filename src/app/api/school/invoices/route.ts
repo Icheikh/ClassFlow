@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { hasAnyPermission, hasPermission, PERMISSIONS } from "@/lib/permissions"
+import { hasAnyPermission, PERMISSIONS } from "@/lib/permissions"
 
 function canReadFinance(user: any) {
   return hasAnyPermission(user, [
@@ -22,11 +22,21 @@ export async function GET(req: NextRequest) {
   const classroomId = url.searchParams.get("classroomId")
   const month = url.searchParams.get("month")
   const status = url.searchParams.get("status")
+  const search = (url.searchParams.get("search") || "").trim()
 
   const where: any = { schoolId: user.schoolId! }
   if (classroomId) where.classroomId = classroomId
   if (month) where.month = month
   if (status) where.status = status
+  if (search) {
+    where.student = {
+      OR: [
+        { firstName: { contains: search } },
+        { lastName: { contains: search } },
+        { studentNumber: { contains: search } },
+      ],
+    }
+  }
 
   const invoices = await prisma.invoice.findMany({
     where,
@@ -42,45 +52,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(invoices)
 }
 
-export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions)
-  const user = session?.user
-  if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  const isLegacyRole = ["SUPERVISOR", "ACCOUNTANT"].includes(user?.role)
-  if (!hasPermission(user, PERMISSIONS.MANAGE_FEES) && !isLegacyRole)
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-
-  const body = await req.json()
-  const { feeId, classroomId, month, amount, dueDate } = body
-  if (!feeId || !classroomId || !month) return NextResponse.json({ error: "الرسم والقسم والشهر مطلوبون" }, { status: 400 })
-
-  const fee = await prisma.fee.findFirst({ where: { id: feeId, schoolId: user.schoolId! } })
-  if (!fee) return NextResponse.json({ error: "الرسم غير موجود" }, { status: 404 })
-
-  const studentFees = await prisma.studentFee.findMany({
-    where: { feeId, classroomId, isActive: true, schoolId: user.schoolId! },
-  })
-
-  let created = 0
-  for (const sf of studentFees) {
-    const existing = await prisma.invoice.findUnique({
-      where: { studentFeeId_month: { studentFeeId: sf.id, month } },
-    })
-    if (existing) continue
-    await prisma.invoice.create({
-      data: {
-        schoolId: user.schoolId!,
-        studentId: sf.studentId,
-        feeId,
-        studentFeeId: sf.id,
-        classroomId,
-        month,
-        amount: amount ?? fee.amount,
-        dueDate: dueDate ? new Date(dueDate) : null,
-      },
-    })
-    created++
-  }
-
-  return NextResponse.json({ created })
-}
+// NOTE: monthly generation lives in POST /api/school/invoices/generate
+// (frequency-aware: MONTHLY / YEARLY-per-academic-year / TERM / ONE_TIME).
+// A legacy frequency-blind generator used to live here and was removed
+// because it could double-bill YEARLY and ONE_TIME fees.
