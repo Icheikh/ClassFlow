@@ -8,7 +8,7 @@ import { useLocale, useTranslations } from "next-intl"
 import { getRoleLabel } from "@/lib/roles"
 import { getLocaleDirection } from "@/i18n/config"
 import { LanguageSwitcher } from "@/components/ui"
-import { LayoutDashboard, Building2, LogOut, Home, UserCog, Menu, X } from "lucide-react"
+import { LayoutDashboard, Building2, LogOut, Home, UserCog, Menu, X, History } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const allowedRoles = ["SUPER_ADMIN"]
@@ -22,6 +22,7 @@ type NavItem = {
 const nav: NavItem[] = [
   { href: "/admin", labelKey: "dashboard", icon: LayoutDashboard },
   { href: "/admin/schools", labelKey: "schools", icon: Building2 },
+  { href: "/admin/audit", labelKey: "auditLog", icon: History },
 ]
 
 function AdminLayoutContent({ children }: { children: React.ReactNode }) {

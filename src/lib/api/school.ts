@@ -20,7 +20,7 @@ export const termsApi = {
   list: () => api.get<any[]>("/api/school/terms"),
   create: (data: { academicYearId: string; name: string; startsAt: string; endsAt: string; order: string }) =>
     api.post("/api/school/terms", data),
-  update: (data: { id: string; name: string; startsAt: string; endsAt: string; order: string; isActive?: boolean }) =>
+  update: (data: { id: string; name?: string; startsAt?: string; endsAt?: string; order?: string; isActive?: boolean }) =>
     api.put("/api/school/terms", data),
   delete: (id: string) => api.delete(`/api/school/terms?id=${id}`),
 }

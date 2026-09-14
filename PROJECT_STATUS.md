@@ -18,8 +18,8 @@
 - Account states: INVITED / ACTIVE / SUSPENDED (`status` + legacy `isActive` kept in sync)
 - One user per phone per school; same person can hold Teacher + Parent profiles (`extraRoles` in session unlock both portals)
 - No student accounts (students are records only, linked to parents via `StudentParent`)
-- OTP delivery chain: WhatsApp → Vonage SMS → MoorSyl SMS → dev fallback (devCode in non-production only)
-- Vonage channel integrated (`src/lib/vonage.ts` + `/api/webhooks/vonage-dlr`) BUT delivery to Mauritania FAILED in live test (carrier reject err 24, $0.00 billed) — provider decision PAUSED, see below
+- OTP delivery chain: WhatsApp via Wasender ONLY → dev fallback (devCode in non-production only). Vonage/MoorSyl DISABLED (see messaging decision below)
+- Vonage/MoorSyl disabled — Wasender is now the sole messaging provider (`src/lib/whatsapp.ts` + `src/lib/campaign-sender.ts` + `src/lib/otp.ts`)
 - NextAuth with JWT strategy
 - 7 roles: SUPER_ADMIN, SCHOOL_ADMIN, STAFF, ACCOUNTANT, SUPERVISOR, TEACHER, PARENT
 - 15 fine-grained permissions (Permission + UserPermission models)
@@ -171,7 +171,7 @@ School, User, Teacher, Parent, Student, StudentParent, Enrollment, EducationStag
 - [ ] WhatsApp integration
 - [ ] Notification queue
 - [ ] Absence → parent notification pipeline (DB layer done)
-- [ ] **Messaging provider UNDECIDED (paused 2026-09-12):** Vonage live-tested to +222 — accepted (status 0) but carrier-rejected (DLR err 24, not billed). Vonage €0.30/segment ≈ 8× local rates. Verified MR rates: Twilio $0.3618, Plivo $0.2059, eSMS $0.0388. Candidates: MoorSyl key or Plivo test ($10 free credit)
+- [x] **Messaging provider DECIDED: Wasender only.** Vonage/MoorSyl code paths disabled (`isVonageConfigured()`/`isMoorsylConfigured()` → false, `deliver()` → WhatsApp only, OTP/invites → WhatsApp only). Old Vonage DLR webhook kept as no-op. MoorSyl sender request draft in `docs/moorsyl-sender-request.txt` obsolete unless SMS fallback is re-enabled later.
 
 ### Platform
 - [ ] SUPER_ADMIN panel (`/admin`)

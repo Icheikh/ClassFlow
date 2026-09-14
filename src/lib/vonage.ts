@@ -1,11 +1,10 @@
 /**
- * Vonage SMS service for ClassFlow — PRIMARY messaging channel.
- * Used for OTP codes (activation / password reset) and account invites.
- *
- * Docs: https://developer.vonage.com/en/api/sms
- * Credentials live in .env (server-only): VONAGE_API_KEY / VONAGE_API_SECRET.
- * Sender ID (VONAGE_SENDER_ID, up to 11 Latin chars) may be replaced by
- * Mauritanian carriers with a short code — verify on real handsets.
+ * Vonage SMS — DISABLED.
+ * القرار: المزود المعتمد الوحيد الآن هو Wasender (واتساب).
+ * هذا الملف مُبقى فقط لتفادي كسر الاستيرادات القديمة:
+ * - isVonageConfigured() ترجع دائماً false
+ * - sendVonageSMS() ترفض دائماً برسالة تعطيل
+ * دوال التنسيق البحتة (formatVonagePhone/vonageMessageType) مُبقاة للاختبارات فقط.
  */
 
 const VONAGE_API_KEY = process.env.VONAGE_API_KEY || ""
@@ -19,7 +18,10 @@ export type VonageSendResult = {
 }
 
 export function isVonageConfigured(): boolean {
-  return Boolean(VONAGE_API_KEY && VONAGE_API_SECRET)
+  void VONAGE_API_KEY
+  void VONAGE_API_SECRET
+  void VONAGE_SENDER_ID
+  return false
 }
 
 /** Vonage expects E.164 digits without the leading "+". */
@@ -37,71 +39,13 @@ export function vonageMessageType(text: string): "text" | "unicode" {
   return /[^\x00-\x7F]/.test(text) ? "unicode" : "text"
 }
 
-type VonageSmsResponse = {
-  "message-count"?: string
-  messages?: { status?: string; "message-id"?: string; error?: string; "error-text"?: string }[]
-}
-
 export async function sendVonageSMS(to: string, text: string): Promise<VonageSendResult> {
-  if (!isVonageConfigured()) {
-    return { success: false, error: "Vonage غير مُعد — أضف VONAGE_API_KEY/SECRET في .env" }
-  }
-
-  const formatted = formatVonagePhone(to)
-  if (!formatted) {
-    return { success: false, error: `رقم الهاتف غير صالح: ${to}` }
-  }
-  if (!text.trim()) {
-    return { success: false, error: "نص الرسالة فارغ" }
-  }
-
-  try {
-    const payload: Record<string, unknown> = {
-      to: formatted,
-      from: VONAGE_SENDER_ID,
-      text: text.trim(),
-      type: vonageMessageType(text),
-    }
-    // Per-message DLR callback (needs a PUBLIC https URL — Vonage can't reach localhost).
-    if (process.env.VONAGE_DLR_CALLBACK) {
-      payload.callback = process.env.VONAGE_DLR_CALLBACK
-    }
-    const res = await fetch("https://rest.nexmo.com/sms/json", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Basic ${Buffer.from(`${VONAGE_API_KEY}:${VONAGE_API_SECRET}`).toString("base64")}`,
-      },
-      body: JSON.stringify(payload),
-    })
-
-    const data = (await res.json().catch(() => ({}))) as VonageSmsResponse
-    const first = data.messages?.[0]
-    if (first?.status === "0") {
-      return { success: true, messageId: first["message-id"] }
-    }
-    return {
-      success: false,
-      error: first?.["error-text"] || first?.error || `Vonage status ${first?.status ?? res.status}`,
-    }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    return { success: false, error: `خطأ شبكة: ${message}` }
-  }
+  void to
+  void text
+  return { success: false, error: "Vonage معطل — المزود المعتمد الآن Wasender فقط" }
 }
 
-/** Balance check (EUR) — validates credentials without spending on an SMS. */
+/** Balance check — DISABLED (كان يتحقق من رصيد Vonage). */
 export async function getVonageBalance(): Promise<{ ok: boolean; balance?: number; error?: string }> {
-  if (!isVonageConfigured()) return { ok: false, error: "Vonage غير مُعد" }
-  try {
-    const res = await fetch(
-      `https://rest.nexmo.com/account/get-balance?api_key=${VONAGE_API_KEY}&api_secret=${VONAGE_API_SECRET}`
-    )
-    const data = (await res.json().catch(() => ({}))) as { value?: number; error?: string }
-    if (typeof data.value === "number") return { ok: true, balance: data.value }
-    return { ok: false, error: (data as { error?: string }).error || `HTTP ${res.status}` }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    return { ok: false, error: `خطأ شبكة: ${message}` }
-  }
+  return { ok: false, error: "Vonage معطل — المزود المعتمد الآن Wasender فقط" }
 }

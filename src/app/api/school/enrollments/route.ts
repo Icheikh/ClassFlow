@@ -36,8 +36,7 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
-  if (!hasPermission(user, PERMISSIONS.MANAGE_STUDENTS) && !isLegacyRole)
+  if (!hasPermission(user, PERMISSIONS.MANAGE_STUDENTS))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const body = await req.json()
@@ -83,8 +82,7 @@ export async function DELETE(req: NextRequest) {
     const session = await getServerSession(authOptions)
     const user = session?.user
     if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
-    if (!hasPermission(user, PERMISSIONS.MANAGE_STUDENTS) && !isLegacyRole)
+    if (!hasPermission(user, PERMISSIONS.MANAGE_STUDENTS))
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
     const url = new URL(req.url)
@@ -93,6 +91,25 @@ export async function DELETE(req: NextRequest) {
 
     const enrollment = await prisma.enrollment.findFirst({ where: { id, schoolId: user.schoolId! } })
     if (!enrollment) return NextResponse.json({ error: "غير موجود" }, { status: 404 })
+
+    const [attendanceCount, gradeCount, lessonCount] = await Promise.all([
+      prisma.attendance.count({
+        where: { studentId: enrollment.studentId, classroomId: enrollment.classroomId, academicYearId: enrollment.academicYearId },
+      }),
+      prisma.grade.count({
+        where: { studentId: enrollment.studentId, classroomId: enrollment.classroomId, academicYearId: enrollment.academicYearId },
+      }),
+      prisma.lesson.count({
+        where: { classroomId: enrollment.classroomId, academicYearId: enrollment.academicYearId },
+      }),
+    ])
+
+    if (attendanceCount > 0 || gradeCount > 0) {
+      return NextResponse.json(
+        { error: `لا يمكن حذف هذا التسجيل — الطالب لديه ${attendanceCount} سجل حضور و ${gradeCount} درجة. غيّر حالة التسجيل إلى "غير نشط" بدلاً من الحذف.` },
+        { status: 400 }
+      )
+    }
 
     await prisma.enrollment.delete({ where: { id } })
     return NextResponse.json({ success: true })

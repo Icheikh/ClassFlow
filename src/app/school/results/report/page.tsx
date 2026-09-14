@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { useTranslations } from "next-intl"
-import { ArrowLeft, Printer } from "lucide-react"
+import { ArrowLeft, Printer, Download } from "lucide-react"
 import toast from "react-hot-toast"
 import { Badge, Button, Card, LoadingPage } from "@/components/ui"
 import { api } from "@/lib/api"
@@ -134,9 +134,20 @@ export default function ResultsReportPage() {
             <ArrowLeft className="h-4 w-4" /> {isPreview ? t("backToSettings") : t("backToResults")}
           </Button>
         </Link>
-        <Button onClick={() => window.print()}>
-          <Printer className="h-4 w-4" /> {t("print")}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="secondary"
+            onClick={() => {
+              const params = new URLSearchParams({ classroomId, termId })
+              window.open(`/api/school/results/report-pdf?${params}`, "_blank")
+            }}
+          >
+            <Download className="h-4 w-4" /> PDF
+          </Button>
+          <Button onClick={() => window.print()}>
+            <Printer className="h-4 w-4" /> {t("print")}
+          </Button>
+        </div>
       </div>
 
       <Card className="print:shadow-none print:border-0 print:p-0">

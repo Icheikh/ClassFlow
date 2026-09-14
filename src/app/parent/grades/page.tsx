@@ -26,10 +26,12 @@ export default function ParentGradesPage() {
   const [selectedChild, setSelectedChild] = useState("")
   const [gradesData, setGradesData] = useState<ChildGrades | null>(null)
   const [termName, setTermName] = useState("")
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
-      const { data } = await api.get<{ children: Child[] }>("/api/parent/children")
+      const { data, error: apiError } = await api.get<{ children: Child[] }>("/api/parent/children")
+      if (apiError) { setError(apiError); setLoading(false); return }
       if (data?.children) {
         setChildren(data.children)
         if (data.children[0]) setSelectedChild(data.children[0].id)
@@ -55,18 +57,19 @@ export default function ParentGradesPage() {
   }, [selectedChild])
 
   if (loading) return <LoadingPage />
+  if (error) return <div className="text-center py-12"><p className="text-red-500">{error}</p></div>
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">النتائج الدراسية</h1>
-        <p className="text-sm text-gray-500">معدلات أبنائك وتفاصيل نتائجهم{termName ? ` — ${termName}` : ""}</p>
+        <h1 className="text-2xl font-bold">{t("resultsHeading")}</h1>
+        <p className="text-sm text-gray-500">{t("resultsSubtitle", { term: termName ? ` — ${termName}` : "" })}</p>
       </div>
 
       {children.length > 1 && (
         <Card padding="md">
           <Select
-            label="اختر الابن"
+            label={t("selectChild")}
             value={selectedChild}
             onChange={setSelectedChild}
             options={children.map((c) => ({ value: c.id, label: `${c.firstName} ${c.lastName}` }))}
@@ -82,7 +85,7 @@ export default function ParentGradesPage() {
                 <TrendingUp className="h-6 w-6 text-blue-600" />
               </div>
               <div>
-                <p className="text-sm text-gray-500">المعدل العام</p>
+                <p className="text-sm text-gray-500">{t("overallAverage")}</p>
                 <p className="text-3xl font-bold text-blue-700">
                   {gradesData.average != null ? gradesData.average.toFixed(2) : "—"}
                 </p>
@@ -93,10 +96,10 @@ export default function ParentGradesPage() {
           <Card padding="lg">
             <div className="mb-4 flex items-center gap-2">
               <GraduationCap className="h-5 w-5 text-blue-600" />
-              <h2 className="text-lg font-semibold">النتائج حسب المادة</h2>
+              <h2 className="text-lg font-semibold">{t("resultsBySubject")}</h2>
             </div>
             {gradesData.subjects.length === 0 ? (
-              <p className="text-sm text-gray-500 py-8 text-center">لا توجد نتائج مسجلة بعد</p>
+              <p className="text-sm text-gray-500 py-8 text-center">{t("noResultsYet")}</p>
             ) : (
               <div className="space-y-3">
                 {gradesData.subjects.map((subject) => (
@@ -104,7 +107,7 @@ export default function ParentGradesPage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="font-semibold">{subject.subjectName}</p>
-                        <p className="text-sm text-gray-500">{subject.grades.length} نتيجة مسجلة</p>
+                        <p className="text-sm text-gray-500">{t("resultsRecorded", { count: subject.grades.length })}</p>
                       </div>
                       <div className="text-left">
                         {subject.average != null ? (
@@ -123,7 +126,7 @@ export default function ParentGradesPage() {
                             <div>
                               <span className="font-medium">{grade.label}</span>
                               <span className="mr-2 text-gray-400">
-                                {grade.assessmentType === "TEST" ? "فرض" : "امتحان"}
+                                {grade.assessmentType === "TEST" ? t("test") : t("exam")}
                               </span>
                             </div>
                             <span className={`font-semibold ${grade.score >= grade.maxScore * 0.5 ? "text-green-700" : "text-red-700"}`}>

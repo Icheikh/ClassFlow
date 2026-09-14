@@ -2,12 +2,10 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { isWhatsAppConfigured } from "@/lib/whatsapp"
-import { isVonageConfigured } from "@/lib/vonage"
-import { isMoorsylConfigured } from "@/lib/moorsyl"
 
 export const dynamic = "force-dynamic"
 
-/** Real channel readiness (no secrets) for the director's status indicator. */
+/** Real channel readiness (no secrets) for the director's status indicator. Wasender only. */
 export async function GET() {
   const session = await getServerSession(authOptions)
   const user = session?.user
@@ -15,8 +13,6 @@ export async function GET() {
 
   const channels = [
     { key: "WHATSAPP", ready: isWhatsAppConfigured() },
-    { key: "VONAGE_SMS", ready: isVonageConfigured() },
-    { key: "MOORSYL_SMS", ready: isMoorsylConfigured() },
   ]
   return NextResponse.json({ channels, anyReady: channels.some((c) => c.ready) })
 }

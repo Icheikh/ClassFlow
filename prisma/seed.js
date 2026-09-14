@@ -759,7 +759,7 @@ async function seedSampleLessonsAndAssessments(schoolId, academicYearId, termId,
 }
 
 async function createSecondSchool(permissionMap) {
-  const passwordHash = await bcrypt.hash("password123", 10)
+  const passwordHash = await bcrypt.hash("pass1234", 10)
 
   const school = await prisma.school.create({
     data: {
@@ -786,8 +786,8 @@ async function createSecondSchool(permissionMap) {
       email: "admin@alfath.edu",
       passwordHash,
       name: "عمر سعيد (مدير)",
-      phone: "+22220000101",
-      phoneNormalized: "20000101",
+      phone: "+22250505001",
+      phoneNormalized: "50505001",
       status: "ACTIVE",
       role: "SCHOOL_ADMIN",
       schoolId: school.id,
@@ -800,8 +800,8 @@ async function createSecondSchool(permissionMap) {
       email: "teacher@alfath.edu",
       passwordHash,
       name: "فاطمة بنت محمد (أستاذة)",
-      phone: "+22220000111",
-      phoneNormalized: "20000111",
+      phone: "+22250505002",
+      phoneNormalized: "50505002",
       status: "ACTIVE",
       role: "TEACHER",
       schoolId: school.id,
@@ -874,7 +874,8 @@ async function main() {
   console.log("  20000001 (مدير النور) / password123")
   console.log("  20000011 (أستاذ رياضيات) / password123")
   console.log("  20000021 (ولي أمر) / password123")
-  console.log("  20000101 (مدير الفتح) / password123")
+  console.log("  50505001 (مدير الفتح) / pass1234")
+  console.log("  50505002 (أستاذة الفتح) / pass1234")
   console.log("  20000000 (مدير المنصة) / password123")
 }
 

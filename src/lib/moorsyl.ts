@@ -1,7 +1,11 @@
 /**
- * MoorSyl SMS service for ClassFlow
- * Mauritanian SMS provider — used for critical absence notifications
- * Docs: https://docs.moorsyl.com
+ * MoorSyl SMS — DISABLED.
+ * القرار: المزود المعتمد الوحيد الآن هو Wasender (واتساب).
+ * هذا الملف مُبقى فقط لتفادي كسر الاستيرادات القديمة:
+ * - isMoorsylConfigured() ترجع دائماً false
+ * - sendMoorsylSMS() ترفض دائماً برسالة تعطيل
+ * الدوال البحتة (formatMauritanianPhone/buildAbsenceSMS) مُبقاة لأنها
+ * تُستخدم لبناء النصوص فقط ولا تُرسل شيئاً.
  */
 
 const MOORSYL_API_URL = process.env.MOORSYL_API_URL || "https://api.moorsyl.com/api/sms"
@@ -15,7 +19,10 @@ export type MoorsylSendResult = {
 }
 
 export function isMoorsylConfigured(): boolean {
-  return Boolean(MOORSYL_API_KEY)
+  void MOORSYL_API_URL
+  void MOORSYL_API_KEY
+  void MOORSYL_SENDER_ID
+  return false
 }
 
 export function formatMauritanianPhone(phone: string): string | null {
@@ -29,53 +36,9 @@ export function formatMauritanianPhone(phone: string): string | null {
 }
 
 export async function sendMoorsylSMS(to: string, body: string): Promise<MoorsylSendResult> {
-  if (!isMoorsylConfigured()) {
-    return { success: false, error: "MoorSyl غير مُعد — أضف MOORSYL_API_KEY في .env" }
-  }
-
-  const formatted = formatMauritanianPhone(to)
-  if (!formatted) {
-    return { success: false, error: `رقم الهاتف غير صالح: ${to}` }
-  }
-
-  if (!body.trim()) {
-    return { success: false, error: "نص الرسالة فارغ" }
-  }
-
-  try {
-    const res = await fetch(MOORSYL_API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": MOORSYL_API_KEY,
-      },
-      body: JSON.stringify({
-        to: formatted,
-        from: MOORSYL_SENDER_ID,
-        body: body.trim(),
-      }),
-    })
-
-    const data = (await res.json().catch(() => ({}))) as {
-      accepted?: boolean
-      messageId?: string
-      error?: string
-      message?: string
-    }
-
-    if (!res.ok) {
-      return { success: false, error: data.error || data.message || `HTTP ${res.status}` }
-    }
-
-    if (data.accepted === true || data.messageId) {
-      return { success: true, messageId: data.messageId }
-    }
-
-    return { success: false, error: data.error || "فشل الإرسال — استجابة غير متوقعة" }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    return { success: false, error: `خطأ شبكة: ${message}` }
-  }
+  void to
+  void body
+  return { success: false, error: "MoorSyl معطل — المزود المعتمد الآن Wasender فقط" }
 }
 
 export function buildAbsenceSMS(params: {

@@ -3,12 +3,9 @@ import { NextResponse } from "next/server"
 export const dynamic = "force-dynamic"
 
 /**
- * Vonage SMS Delivery Receipt (DLR) webhook.
- * Vonage calls this when the carrier reports delivered/failed/expired/etc.
- * Configure per-message via VONAGE_DLR_CALLBACK (must be a PUBLIC https URL —
- * Vonage cannot reach localhost), or set it once in the Vonage dashboard.
- *
- * Docs: https://developer.vonage.com/en/messaging/sms/guides/delivery-receipts
+ * Vonage SMS Delivery Receipt (DLR) webhook — DISABLED.
+ * Vonage معطل (المزود المعتمد الوحيد Wasender)، هذا المسار يُبقي
+ * استقبال أي callbacks قديمة متأخرة دون كسر، ولا يُستخدم في الإرسال.
  */
 async function handleDlr(req: Request) {
   const url = new URL(req.url)

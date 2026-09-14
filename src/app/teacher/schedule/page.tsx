@@ -90,27 +90,37 @@ export default function TeacherSchedulePage() {
                   const cellEntries = entries.filter(
                     (e) => e.dayOfWeek === dayIdx && e.startTime === time
                   )
+                  const isCovered = entries.some(
+                    (e) => e.dayOfWeek === dayIdx && e.startTime < time && e.endTime > time
+                  )
+                  if (isCovered) return <div key={dayIdx} className="bg-white min-h-[60px] p-1" />
                   return (
                     <div key={dayIdx} className="bg-white min-h-[60px] p-1">
-                      {cellEntries.map((entry) => (
-                        <div
-                          key={entry.id}
-                          className="bg-green-50 border border-green-200 rounded p-1.5 text-xs"
-                        >
-                          <div className="flex items-center gap-1 text-green-700 font-medium">
-                            <BookOpen className="h-3 w-3" />
-                            {getLocalizedSubjectName(entry.subject, locale)}
+                      {cellEntries.map((entry) => {
+                        const startIdx = TIME_SLOTS.indexOf(entry.startTime)
+                        const endIdx = TIME_SLOTS.indexOf(entry.endTime)
+                        const span = Math.max(1, endIdx - startIdx)
+                        return (
+                          <div
+                            key={entry.id}
+                            className="bg-green-50 border border-green-200 rounded p-1.5 text-xs"
+                            style={{ height: `${span * 60 - 4}px` }}
+                          >
+                            <div className="flex items-center gap-1 text-green-700 font-medium">
+                              <BookOpen className="h-3 w-3" />
+                              {getLocalizedSubjectName(entry.subject, locale)}
+                            </div>
+                            <div className="flex items-center gap-1 text-gray-500 mt-0.5">
+                              <School className="h-2.5 w-2.5" />
+                              {entry.classroom.name}
+                            </div>
+                            <div className="flex items-center gap-1 text-gray-400 mt-0.5">
+                              <Clock className="h-2.5 w-2.5" />
+                              {entry.startTime}-{entry.endTime}
+                            </div>
                           </div>
-                          <div className="flex items-center gap-1 text-gray-500 mt-0.5">
-                            <School className="h-2.5 w-2.5" />
-                            {entry.classroom.name}
-                          </div>
-                          <div className="flex items-center gap-1 text-gray-400 mt-0.5">
-                            <Clock className="h-2.5 w-2.5" />
-                            {entry.startTime}-{entry.endTime}
-                          </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   )
                 })}

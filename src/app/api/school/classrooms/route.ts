@@ -21,8 +21,7 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
-  if (!hasPermission(user, PERMISSIONS.MANAGE_CLASSROOMS) && !isLegacyRole)
+  if (!hasPermission(user, PERMISSIONS.MANAGE_CLASSROOMS))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   const body = await req.json()
   const { levelId, streamId, name, capacity } = body
@@ -45,8 +44,7 @@ export async function PUT(req: NextRequest) {
   const session = await getServerSession(authOptions)
   const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
-  if (!hasPermission(user, PERMISSIONS.MANAGE_CLASSROOMS) && !isLegacyRole)
+  if (!hasPermission(user, PERMISSIONS.MANAGE_CLASSROOMS))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   const body = await req.json()
   const { id, levelId, streamId, name, capacity } = body
@@ -75,8 +73,7 @@ export async function DELETE(req: NextRequest) {
     const session = await getServerSession(authOptions)
     const user = session?.user
     if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
-    if (!hasPermission(user, PERMISSIONS.MANAGE_CLASSROOMS) && !isLegacyRole)
+    if (!hasPermission(user, PERMISSIONS.MANAGE_CLASSROOMS))
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     const url = new URL(req.url)
     const id = url.searchParams.get("id")

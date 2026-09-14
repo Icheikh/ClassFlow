@@ -10,7 +10,7 @@
 import { randomBytes } from "node:crypto"
 import bcrypt from "bcryptjs"
 import { prisma } from "./prisma"
-import { normalizePhone } from "./phone"
+import { normalizePhone, maskPhone } from "./phone"
 import { sendAccountInvite } from "./otp"
 
 export type CreatableRole = "TEACHER" | "PARENT" | "STAFF"
@@ -55,6 +55,7 @@ export async function ensureSchoolUser(input: {
   schoolName?: string
   locale?: string
   sendInvite?: boolean
+  studentName?: string
 }): Promise<{ user: { id: string; status: string }; createdUser: boolean; createdProfile: boolean }> {
   const phoneNormalized = normalizePhone(input.phone)
   if (!phoneNormalized) throw new Error("INVALID_PHONE")
@@ -105,12 +106,21 @@ export async function ensureSchoolUser(input: {
 
   if (input.sendInvite !== false && (createdUser || status === "INVITED")) {
     const schoolName = input.schoolName || user.school?.name || ""
+    // Fire-and-forget BUT logged: registration must never fail on SMS,
+    // yet silent failures are undebuggable — always log the outcome.
     sendAccountInvite({
       toPhone: input.phone.trim(),
       name: user.name || name,
       schoolName,
       role: input.role,
       locale: input.locale,
+      studentName: input.studentName,
+    }).then((r) => {
+      if (r.sent) {
+        console.log(`[accounts] invite sent to ${maskPhone(input.phone.trim())} via ${r.channel}`)
+      } else {
+        console.error(`[accounts] invite NOT sent to ${maskPhone(input.phone.trim())} via ${r.channel}:`, r.error)
+      }
     }).catch((e) => console.error("[accounts] invite failed:", e))
   }
 

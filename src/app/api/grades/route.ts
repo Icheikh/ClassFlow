@@ -14,6 +14,7 @@ import {
 } from "@/lib/results"
 import { createResultAuditLog, ensurePublishedResultRule, serializeRule } from "@/lib/result-rules"
 import { notifySchoolManagers } from "@/lib/operational-notifications"
+import { checkRateLimit, rateLimitHeaders } from "@/lib/rate-limit"
 
 function getAllowedAssessmentError(termName: string, termOrder: number) {
   return `في ${termName} يسمح فقط بالاختبارات و${termOrder === 1 ? "الامتحان الأول" : termOrder === 2 ? "الامتحان الثاني" : "الامتحان الأخير"}`
@@ -179,6 +180,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
+  const rl = checkRateLimit(user.id, { namespace: "grades", max: 20, windowSeconds: 60 })
+  if (!rl.allowed) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429, headers: rateLimitHeaders(rl) })
+  }
+
   const body = await req.json()
   const {
     scores,
@@ -338,6 +344,11 @@ export async function PUT(req: NextRequest) {
   const user = session?.user
   if (!session || !user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!canAccessGrades(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+
+  const rl = checkRateLimit(user.id, { namespace: "grades", max: 20, windowSeconds: 60 })
+  if (!rl.allowed) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429, headers: rateLimitHeaders(rl) })
+  }
 
   const body = await req.json()
   const { id, title, assessmentType, maxScore, date, scores } = body

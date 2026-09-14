@@ -90,8 +90,8 @@ export default function NotificationCampaignDetailPage() {
   }
   const channelLabels: Record<string, string> = {
     WHATSAPP: t("whatsapp"),
-    VONAGE_SMS: "SMS (Vonage)",
-    SMS: "SMS",
+    VONAGE_SMS: "SMS (Vonage — معطل)",
+    SMS: "SMS (معطل)",
     NONE: "—",
     IN_APP: t("inApp"),
   }
@@ -140,21 +140,46 @@ export default function NotificationCampaignDetailPage() {
   async function sendCampaign() {
     if (!campaign) return
     setSending(true)
-    const { data, error } = await api.post<{ sent: number; failed: number; skipped: number }>(
-      `/api/school/notifications/campaigns/${campaign.id}/send`,
-      {}
-    )
-    if (error) {
-      toast.error(error)
-    } else if (data) {
-      const parts = []
-      if (data.sent > 0) parts.push(`${data.sent} مرسل`)
-      if (data.failed > 0) parts.push(`${data.failed} فاشل`)
-      if (data.skipped > 0) parts.push(`${data.skipped} م skipped`)
-      toast.success(`تم الإرسال: ${parts.join(" | ")}`)
+    try {
+      let totalSent = 0
+      let totalFailed = 0
+      let totalSkipped = 0
+      // 1) بدء الإرسال (الدفعة الأولى)
+      let res = await api.post<{
+        sent: number; failed: number; skipped: number
+        pendingRemaining: number; done: boolean; error?: string
+      }>(`/api/school/notifications/campaigns/${campaign.id}/send`, {})
+      if (res.error) {
+        toast.error(res.error)
+        return
+      }
+      totalSent += res.data?.sent || 0
+      totalFailed += res.data?.failed || 0
+      totalSkipped += res.data?.skipped || 0
+      let remaining = res.data?.pendingRemaining ?? 0
+      let done = res.data?.done ?? true
+      // 2) إكمال الدفعات تلقائياً — أبقِ الصفحة مفتوحة
+      while (!done && remaining > 0) {
+        toast(`متبقٍ ${remaining}... لا تغلق الصفحة`, { icon: "⏳" })
+        const next = await api.post<{
+          sent: number; failed: number; skipped: number
+          pendingRemaining: number; done: boolean; error?: string
+        }>(`/api/school/notifications/campaigns/${campaign.id}/process`, {})
+        if (next.error) {
+          toast.error(next.error)
+          break
+        }
+        totalSent += next.data?.sent || 0
+        totalFailed += next.data?.failed || 0
+        totalSkipped += next.data?.skipped || 0
+        remaining = next.data?.pendingRemaining ?? 0
+        done = next.data?.done ?? true
+      }
+      toast.success(`اكتمل الإرسال: ${totalSent} مرسل | ${totalFailed} فاشل | ${totalSkipped} متخطى`)
       await loadCampaign()
+    } finally {
+      setSending(false)
     }
-    setSending(false)
   }
 
   async function resendFailed() {

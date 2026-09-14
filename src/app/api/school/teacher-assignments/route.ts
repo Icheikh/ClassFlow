@@ -26,8 +26,7 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
-  if (!hasPermission(user, PERMISSIONS.MANAGE_TEACHERS) && !isLegacyRole)
+  if (!hasPermission(user, PERMISSIONS.MANAGE_TEACHERS))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const body = await req.json()
@@ -71,8 +70,7 @@ export async function PUT(req: NextRequest) {
   const session = await getServerSession(authOptions)
   const user = session?.user
   if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
-  if (!hasPermission(user, PERMISSIONS.MANAGE_TEACHERS) && !isLegacyRole)
+  if (!hasPermission(user, PERMISSIONS.MANAGE_TEACHERS))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const body = await req.json()
@@ -101,8 +99,7 @@ export async function DELETE(req: NextRequest) {
     const session = await getServerSession(authOptions)
     const user = session?.user
     if (!user?.schoolId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
-    if (!hasPermission(user, PERMISSIONS.MANAGE_TEACHERS) && !isLegacyRole)
+    if (!hasPermission(user, PERMISSIONS.MANAGE_TEACHERS))
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     const url = new URL(req.url)
     const id = url.searchParams.get("id")

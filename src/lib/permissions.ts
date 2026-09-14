@@ -36,6 +36,30 @@ export const PERMISSION_CATEGORIES: Record<string, PermissionCode[]> = {
 
 export const ALL_PERMISSIONS: PermissionCode[] = Object.values(PERMISSIONS)
 
+const ROLE_DEFAULTS: Record<string, string[]> = {
+  SUPER_ADMIN: Object.values(PERMISSIONS),
+  SCHOOL_ADMIN: Object.values(PERMISSIONS),
+  SUPERVISOR: [
+    PERMISSIONS.MANAGE_STUDENTS,
+    PERMISSIONS.MANAGE_TEACHERS,
+    PERMISSIONS.MANAGE_SUBJECTS,
+    PERMISSIONS.MANAGE_COEFFICIENTS,
+    PERMISSIONS.MANAGE_ACADEMIC_YEARS,
+    PERMISSIONS.MANAGE_CLASSROOMS,
+    PERMISSIONS.REVIEW_LESSONS,
+    PERMISSIONS.APPROVE_GRADES,
+    PERMISSIONS.LOCK_GRADES,
+    PERMISSIONS.VIEW_REPORTS,
+    PERMISSIONS.SEND_NOTIFICATIONS,
+  ],
+  ACCOUNTANT: [
+    PERMISSIONS.MANAGE_FEES,
+    PERMISSIONS.RECORD_PAYMENTS,
+    PERMISSIONS.VIEW_FINANCE_REPORTS,
+    PERMISSIONS.VIEW_REPORTS,
+  ],
+}
+
 export function hasPermission(
   user: { role: string; permissions?: string[] } | null | undefined,
   permission: string
@@ -43,6 +67,8 @@ export function hasPermission(
   if (!user) return false
   if (user.role === "SUPER_ADMIN") return true
   if (user.role === "SCHOOL_ADMIN") return true
+  const defaults = ROLE_DEFAULTS[user.role]
+  if (defaults && defaults.includes(permission)) return true
   if (!user.permissions) return false
   return user.permissions.includes(permission)
 }

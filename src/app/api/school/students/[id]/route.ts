@@ -90,6 +90,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
     if (!targetParent && parentName && String(parentName).trim() !== "") {
       const school = await prisma.school.findUnique({ where: { id: user.schoolId! } })
+      const studentFullName = `${updated.firstName} ${updated.lastName}`
       const account = await ensureSchoolUser({
         schoolId: user.schoolId!,
         phone: String(parentPhone).trim(),
@@ -97,6 +98,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         role: "PARENT",
         schoolName: school?.name,
         locale: (body.locale as string) === "fr" ? "fr" : "ar",
+        studentName: studentFullName,
       })
       targetParent = await prisma.parent.findFirst({
         where: { userId: account.user.id },

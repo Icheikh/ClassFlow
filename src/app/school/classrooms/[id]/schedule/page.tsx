@@ -180,6 +180,10 @@ export default function ClassroomSchedulePage() {
                 const cellEntries = entries.filter(
                   (e) => e.dayOfWeek === dayIdx && e.startTime === time
                 )
+                const isCovered = entries.some(
+                  (e) => e.dayOfWeek === dayIdx && e.startTime < time && e.endTime > time
+                )
+                if (isCovered) return <div key={dayIdx} className="bg-white min-h-[60px] p-1" />
                 return (
                   <div key={dayIdx} className="bg-white min-h-[60px] p-1 relative">
                     {cellEntries.map((entry) => {
@@ -188,7 +192,7 @@ export default function ClassroomSchedulePage() {
                         <div
                           key={entry.id}
                           className="bg-blue-50 border border-blue-200 rounded p-1.5 text-xs cursor-pointer hover:bg-blue-100 transition-colors group"
-                          style={span > 1 ? { gridRow: `span ${span}` } : undefined}
+                          style={{ height: `${span * 60 - 4}px` }}
                           onClick={() => openEdit(entry)}
                         >
                           <div className="flex items-center gap-1 text-blue-700 font-medium">

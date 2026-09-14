@@ -47,7 +47,7 @@
     "accountActivated": "Votre compte a été activé avec succès",
     "sendCode": "Envoyer le code",
     "otpSent": "Code de vérification envoyé",
-    "otpHint": "Entrez le code à 6 chiffres reçu par WhatsApp ou SMS.",
+    "otpHint": "Entrez le code à 6 chiffres reçu par WhatsApp.",
     "otpCode": "Code de vérification",
     "verifyCode": "Vérifier le code",
     "resendCode": "Renvoyer le code",

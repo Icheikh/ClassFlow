@@ -5,14 +5,13 @@
  * - ACTIVATION: first-time account activation (INVITED users)
  * - RESET: password recovery (ACTIVE users)
  *
- * Channel priority: WhatsApp → MoorSyl SMS → dev fallback (console log).
+ * Channel priority: WhatsApp via Wasender ONLY → dev fallback (console log).
  * Codes are stored hashed (sha256), expire after 10 minutes, max 5 attempts.
  */
-import { createHash, randomInt, timingSafeEqual } from "node:crypto"
+import { createHash, randomInt, timingSafeEqual, randomBytes } from "node:crypto"
+import bcrypt from "bcryptjs"
 import { prisma } from "./prisma"
 import { sendWhatsAppMessage } from "./whatsapp"
-import { sendVonageSMS, isVonageConfigured } from "./vonage"
-import { sendMoorsylSMS, isMoorsylConfigured } from "./moorsyl"
 import { toInternationalFormat, maskPhone } from "./phone"
 
 export const OTP_TTL_MINUTES = 10
@@ -22,6 +21,27 @@ export type OtpPurpose = "ACTIVATION" | "RESET"
 
 export function generateOtpCode(): string {
   return String(randomInt(100000, 1000000))
+}
+
+/**
+ * Generate a random temporary password (8 characters: uppercase + lowercase + digits).
+ * The user must change it on first login.
+ */
+export function generateTemporaryPassword(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789"
+  let password = ""
+  const bytes = randomBytes(8)
+  for (let i = 0; i < 8; i++) {
+    password += chars[bytes[i] % chars.length]
+  }
+  return password
+}
+
+/**
+ * Hash a password using bcrypt.
+ */
+export async function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, 10)
 }
 
 export function hashOtp(code: string): string {
@@ -103,23 +123,7 @@ export async function requestOtpAndSend(input: {
   }))
   if (wa.success) return { sent: true, channel: "WHATSAPP", expiresAt }
 
-  if (isVonageConfigured()) {
-    const vonage = await sendVonageSMS(to, message).catch((e) => ({
-      success: false as const,
-      error: e instanceof Error ? e.message : String(e),
-    }))
-    if (vonage.success) return { sent: true, channel: "VONAGE_SMS", expiresAt }
-    console.error(`[otp] send failed to ${maskPhone(input.phoneNormalized)} via Vonage:`, vonage.error)
-  }
-
-  if (isMoorsylConfigured()) {
-    const sms = await sendMoorsylSMS(to, message).catch((e) => ({
-      success: false as const,
-      error: e instanceof Error ? e.message : String(e),
-    }))
-    if (sms.success) return { sent: true, channel: "SMS", expiresAt }
-    console.error(`[otp] send failed to ${maskPhone(input.phoneNormalized)} via SMS:`, sms.error)
-  }
+  console.error(`[otp] send failed to ${maskPhone(input.phoneNormalized)} via Wasender:`, wa.error)
 
   console.log(
     `[otp:${input.purpose}] to=${maskPhone(input.phoneNormalized)} code=${code} (no provider configured)`
@@ -189,16 +193,27 @@ export async function sendAccountInvite(input: {
   schoolName: string
   role: string
   locale?: string
+  studentName?: string
 }): Promise<{ sent: boolean; channel: string; error?: string }> {
   const baseUrl = (process.env.NEXTAUTH_URL || "http://localhost:3000").replace(/\/$/, "")
-  const link = `${baseUrl}/auth/activate`
+  const activateUrl = `${baseUrl}/auth/activate`
   const isFr = input.locale === "fr"
-  const roleLabel =
-    input.role === "TEACHER" ? (isFr ? "enseignant(e)" : "أستاذًا") : isFr ? "parent" : "ولي أمر"
 
-  const message = isFr
-    ? `Bonjour ${input.name}, vous avez été inscrit(e) comme ${roleLabel} à ${input.schoolName}. Activez votre compte ClassFlow ici : ${link}`
-    : `مرحباً ${input.name}، تم تسجيلك ${roleLabel} في ${input.schoolName}. فعّل حسابك في ClassFlow عبر الرابط: ${link}`
+  let message: string
+
+  if (input.role === "PARENT" && input.studentName) {
+    // Parent invitation — includes student name
+    message = isFr
+      ? `Bonjour ${input.name} 👋\nVous êtes inscrit(e) comme parent de ${input.studentName} à ${input.schoolName} via ClassFlow.\n\nVous pouvez maintenant suivre les résultats, la présence, les annonces et les informations scolaires depuis la plateforme.\n\n🔐 Pour activer votre compte, cliquez sur le lien suivant :\n${activateUrl}\n\n— ${input.schoolName} via ClassFlow, système de gestion scolaire`
+      : `مرحباً ${input.name} 👋\nتمت إضافتك كولي أمر للطالب ${input.studentName} في ${input.schoolName} عبر ClassFlow.\n\nيمكنك الآن متابعة الحضور، النتائج، الإعلانات والمعلومات المدرسية من خلال المنصة.\n\n🔐 لتفعيل حسابك، اضغط على الرابط التالي:\n${activateUrl}\n\n— ${input.schoolName} عبر ClassFlow نظام إدارة المدارس`
+  } else {
+    // Teacher / Staff invitation
+    const roleLabel =
+      input.role === "TEACHER" ? (isFr ? "enseignant(e)" : "أستاذًا") : (isFr ? "membre du personnel" : "موظفًا")
+    message = isFr
+      ? `Bonjour ${input.name} 👋\nVous êtes inscrit(e) comme ${roleLabel} à ${input.schoolName} via ClassFlow.\n\n🔐 Pour activer votre compte, cliquez sur le lien suivant :\n${activateUrl}\n\n— ${input.schoolName} via ClassFlow, système de gestion scolaire`
+      : `مرحباً ${input.name} 👋\nتم تسجيلك ${roleLabel} في ${input.schoolName} عبر ClassFlow.\n\n🔐 لتفعيل حسابك، اضغط على الرابط التالي:\n${activateUrl}\n\n— ${input.schoolName} عبر ClassFlow نظام إدارة المدارس`
+  }
 
   const to = toInternationalFormat(input.toPhone) || input.toPhone
   const wa = await sendWhatsAppMessage(to, message).catch((e) => ({
@@ -207,24 +222,6 @@ export async function sendAccountInvite(input: {
   }))
   if (wa.success) return { sent: true, channel: "WHATSAPP" }
 
-  if (isVonageConfigured()) {
-    const vonage = await sendVonageSMS(to, message).catch((e) => ({
-      success: false as const,
-      error: e instanceof Error ? e.message : String(e),
-    }))
-    if (vonage.success) return { sent: true, channel: "VONAGE_SMS" }
-    return { sent: false, channel: "VONAGE_SMS", error: vonage.error }
-  }
-
-  if (isMoorsylConfigured()) {
-    const sms = await sendMoorsylSMS(to, message).catch((e) => ({
-      success: false as const,
-      error: e instanceof Error ? e.message : String(e),
-    }))
-    if (sms.success) return { sent: true, channel: "SMS" }
-    return { sent: false, channel: "SMS", error: sms.error }
-  }
-
-  console.log(`[invite] to=${maskPhone(input.toPhone)} link=${link} (no provider configured)`)
-  return { sent: false, channel: "DEV_LOG", error: wa.error || "No messaging provider configured" }
+  console.log(`[invite] to=${maskPhone(input.toPhone)} link=${activateUrl} (wasender failed: ${wa.error})`)
+  return { sent: false, channel: "WHATSAPP", error: wa.error || "No messaging provider configured" }
 }

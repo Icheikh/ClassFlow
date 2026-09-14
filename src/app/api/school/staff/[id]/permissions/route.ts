@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { createAuditLog } from "@/lib/audit"
+import { getClientIp } from "@/lib/rate-limit"
 
 export async function GET(
   _req: NextRequest,
@@ -69,6 +71,12 @@ export async function PUT(
     return NextResponse.json({ error: "permissions must be an array" }, { status: 400 })
   }
 
+  const oldPermissions = await prisma.userPermission.findMany({
+    where: { userId: params.id },
+    include: { permission: { select: { code: true } } },
+  })
+  const oldCodes = oldPermissions.map((up) => up.permission.code).sort()
+
   const permissionRecords = await prisma.permission.findMany({
     where: { code: { in: permissions } },
   })
@@ -85,6 +93,21 @@ export async function PUT(
       })
     }
   })
+
+  const newCodes = [...permissions].sort()
+  if (JSON.stringify(oldCodes) !== JSON.stringify(newCodes)) {
+    await createAuditLog({
+      schoolId: user.schoolId!,
+      actorUserId: user.id,
+      entityType: "STAFF_PERMISSIONS",
+      entityId: params.id,
+      action: "UPDATE",
+      description: `تحديث صلاحيات الموظف ${target.name}`,
+      before: { permissions: oldCodes },
+      after: { permissions: newCodes },
+      ipAddress: getClientIp(req),
+    })
+  }
 
   return NextResponse.json({ success: true })
 }

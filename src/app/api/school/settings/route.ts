@@ -7,6 +7,8 @@ import {
   serializeResultReportTemplate,
   updateResultReportTemplate,
 } from "@/lib/result-report-templates"
+import { createAuditLog } from "@/lib/audit"
+import { getClientIp } from "@/lib/rate-limit"
 
 async function getAdminSchoolId() {
   const session = await getServerSession(authOptions)
@@ -69,6 +71,13 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "القالب النشط مطلوب" }, { status: 400 })
   }
 
+  const beforeSchool = await prisma.school.findUnique({
+    where: { id: schoolId },
+    select: { name: true, phone: true, email: true, address: true },
+  })
+
+  const session = await getServerSession(authOptions)
+
   const [school, updatedTemplate] = await Promise.all([
     prisma.school.update({
       where: { id: schoolId },
@@ -81,6 +90,18 @@ export async function PUT(req: NextRequest) {
     }),
     updateResultReportTemplate(schoolId, activeTemplateId, template || {}),
   ])
+
+  await createAuditLog({
+    schoolId,
+    actorUserId: session?.user?.id,
+    entityType: "SCHOOL_SETTINGS",
+    entityId: schoolId,
+    action: "UPDATE",
+    description: "تحديث إعدادات المدرسة",
+    before: beforeSchool,
+    after: { name, phone, email, address },
+    ipAddress: getClientIp(req),
+  })
 
   const templatesData = await listSchoolResultReportTemplates(schoolId)
 

@@ -17,8 +17,7 @@ type SchedulePayload = {
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/
 
 function canManageSchedules(user: any) {
-  const isLegacyRole = ["SUPERVISOR"].includes(user?.role)
-  return hasPermission(user, PERMISSIONS.MANAGE_CLASSROOMS) || isLegacyRole
+  return hasPermission(user, PERMISSIONS.MANAGE_CLASSROOMS)
 }
 
 function normalizePayload(body: any): SchedulePayload {

@@ -4,8 +4,10 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { hasAnyPermission, PERMISSIONS } from "@/lib/permissions"
 import { notifySchoolManagers } from "@/lib/operational-notifications"
-import { buildAbsenceSMS, isMoorsylConfigured, sendMoorsylSMS } from "@/lib/moorsyl"
+import { buildAbsenceSMS } from "@/lib/moorsyl"
+import { sendWhatsAppMessage } from "@/lib/whatsapp"
 import { parseOrError, saveAttendanceSchema } from "@/lib/validation"
+import { checkRateLimit, rateLimitHeaders } from "@/lib/rate-limit"
 
 const legacyRoles = ["TEACHER", "SCHOOL_ADMIN", "SUPERVISOR"]
 
@@ -21,6 +23,11 @@ export async function POST(req: NextRequest) {
   }
   if (!canAccessAttendance(user)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
+  const rl = checkRateLimit(user.id, { namespace: "attendance", max: 30, windowSeconds: 60 })
+  if (!rl.allowed) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429, headers: rateLimitHeaders(rl) })
   }
 
   const body = await req.json()
@@ -171,7 +178,7 @@ export async function POST(req: NextRequest) {
       console.error("Attendance manager notification creation failed:", error)
     }
 
-    // --- MoorSyl SMS + in-app notification for parents (critical absence) ---
+    // --- Wasender WhatsApp + in-app notification for parents (critical absence) ---
     try {
       const school = await prisma.school.findUnique({
         where: { id: user.schoolId },
@@ -217,11 +224,11 @@ export async function POST(req: NextRequest) {
           },
         })
 
-        // SMS via MoorSyl (only if configured and phone exists)
-        if (parentPhone && isMoorsylConfigured()) {
-          const smsResult = await sendMoorsylSMS(parentPhone, smsBody)
-          if (!smsResult.success) {
-            console.warn(`[attendance] MoorSyl SMS failed for ${studentName} (${parentPhone}):`, smsResult.error)
+        // WhatsApp via Wasender (المزود المعتمد الوحيد) — only if phone exists
+        if (parentPhone) {
+          const waResult = await sendWhatsAppMessage(parentPhone, smsBody)
+          if (!waResult.success) {
+            console.warn(`[attendance] Wasender WhatsApp failed for ${studentName} (${parentPhone}):`, waResult.error)
           }
         }
       }

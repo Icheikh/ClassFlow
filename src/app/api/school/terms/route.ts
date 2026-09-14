@@ -55,9 +55,23 @@ export async function PUT(req: NextRequest) {
   const existing = await prisma.term.findFirst({ where: { id, schoolId: user.schoolId! } })
   if (!existing) return NextResponse.json({ error: "غير موجود" }, { status: 404 })
 
+  // If activating this term, deactivate all other terms in the same academic year
+  if (isActive && !existing.isActive) {
+    await prisma.term.updateMany({
+      where: { academicYearId: existing.academicYearId, isActive: true, id: { not: id } },
+      data: { isActive: false },
+    })
+  }
+
   const item = await prisma.term.update({
     where: { id },
-    data: { name, startsAt: new Date(startsAt), endsAt: new Date(endsAt), order: parseInt(order), isActive },
+    data: {
+      name: name ?? existing.name,
+      startsAt: startsAt ? new Date(startsAt) : existing.startsAt,
+      endsAt: endsAt ? new Date(endsAt) : existing.endsAt,
+      order: order != null ? parseInt(order) : existing.order,
+      isActive: isActive !== undefined ? isActive : existing.isActive,
+    },
   })
   return NextResponse.json(item)
 }

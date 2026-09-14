@@ -1,0 +1,18 @@
+Subject: Alpha Sender ID Request - Classflow
+
+Dear Moorsyl Support Team,
+
+I would like to request an Alpha Sender ID for my organization.
+
+Organization Name: [اسم منظمتك على Moorsyl]
+Requested Sender ID: Classflow
+Use Case: School management platform - sending attendance, results, and fee notifications to parents via SMS.
+
+I have already registered on Moorsyl and am currently integrating the SMS API into our system. Having a branded sender ID will help parents easily identify notifications from our platform.
+
+Please let me know if you need any additional information.
+
+Best regards,
+[اسمك]
+[بريدك الإلكتروني]
+[رقم هاتفك]

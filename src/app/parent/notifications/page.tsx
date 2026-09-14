@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useTranslations } from "next-intl"
 import { api } from "@/lib/api"
 import { Badge, Button, Card, LoadingPage } from "@/components/ui"
 import { Bell, CheckCheck, Clock } from "lucide-react"
@@ -15,19 +16,27 @@ type Notification = {
 }
 
 export default function ParentNotificationsPage() {
+  const t = useTranslations("parentPage")
   const [loading, setLoading] = useState(true)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
+  const [error, setError] = useState<string | null>(null)
 
   async function load() {
-    const { data } = await api.get<{ notifications: Notification[]; unreadCount: number }>(
-      "/api/parent/notifications"
-    )
-    if (data) {
-      setNotifications(data.notifications)
-      setUnreadCount(data.unreadCount)
+    try {
+      const { data, error: apiError } = await api.get<{ notifications: Notification[]; unreadCount: number }>(
+        "/api/parent/notifications"
+      )
+      if (apiError) { setError(apiError); setLoading(false); return }
+      if (data) {
+        setNotifications(data.notifications)
+        setUnreadCount(data.unreadCount)
+      }
+    } catch {
+      setError("Failed to load")
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   useEffect(() => {
@@ -45,6 +54,7 @@ export default function ParentNotificationsPage() {
   }
 
   if (loading) return <LoadingPage />
+  if (error) return <div className="text-center py-12"><p className="text-red-500">{error}</p></div>
 
   return (
     <div className="space-y-6">
@@ -52,15 +62,15 @@ export default function ParentNotificationsPage() {
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Bell className="h-6 w-6 text-blue-600" />
-            الإشعارات
+            {t("notificationsTitle")}
           </h1>
           <p className="text-sm text-gray-500">
-            {unreadCount > 0 ? `لديك ${unreadCount} إشعار غير مقروء` : "لا توجد إشعارات جديدة"}
+            {unreadCount > 0 ? t("unreadCount", { count: unreadCount }) : t("noNotifications")}
           </p>
         </div>
         {unreadCount > 0 && (
           <Button variant="secondary" size="sm" onClick={() => void markAll()}>
-            <CheckCheck className="h-4 w-4" /> تحديد الكل كمقروء
+            <CheckCheck className="h-4 w-4" /> {t("markAllRead")}
           </Button>
         )}
       </div>
@@ -69,8 +79,8 @@ export default function ParentNotificationsPage() {
         <Card padding="lg">
           <div className="py-12 text-center">
             <Bell className="mx-auto h-12 w-12 text-gray-200" />
-            <p className="mt-3 text-gray-500">لا توجد إشعارات بعد</p>
-            <p className="text-sm text-gray-400">ستظهر هنا إشعارات الغياب والتنبيهات من المدرسة</p>
+            <p className="mt-3 text-gray-500">{t("noNotificationsYet")}</p>
+            <p className="text-sm text-gray-400">{t("notificationsHint")}</p>
           </div>
         </Card>
       ) : (
@@ -85,8 +95,8 @@ export default function ParentNotificationsPage() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <h3 className="font-semibold text-gray-900">{n.title}</h3>
-                    {!n.read && <Badge variant="info">جديد</Badge>}
-                    <Badge variant="default">{n.type === "ATTENDANCE_ABSENCE" ? "غياب" : n.type}</Badge>
+                    {!n.read && <Badge variant="info">{t("newBadge")}</Badge>}
+                    <Badge variant="default">{n.type === "ATTENDANCE_ABSENCE" ? t("absenceType") : n.type}</Badge>
                   </div>
                   <p className="mt-1 text-sm text-gray-600">{n.message}</p>
                   <p className="mt-2 flex items-center gap-1 text-xs text-gray-400">

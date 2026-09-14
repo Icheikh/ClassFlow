@@ -191,9 +191,11 @@ export default function StudentsPage() {
           <p className="text-sm text-gray-500">{t("subtitle", { total })}</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="secondary" onClick={() => setImportModal(true)}>
-            <Upload className="h-5 w-5" /> {t("import")}
-          </Button>
+          <Link href="/school/students/import">
+            <Button variant="secondary">
+              <Upload className="h-5 w-5" /> {t("import")}
+            </Button>
+          </Link>
           <Button onClick={() => { resetForm(); setAddModal(true) }}>
             <Plus className="h-5 w-5" /> {t("addStudent")}
           </Button>

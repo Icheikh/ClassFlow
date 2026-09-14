@@ -15,8 +15,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const isLegacyRole = ["SUPERVISOR", "ACCOUNTANT", "SCHOOL_ADMIN"].includes(user?.role)
-    if (!hasPermission(user, PERMISSIONS.VIEW_REPORTS) && !isLegacyRole) {
+    if (!hasPermission(user, PERMISSIONS.VIEW_REPORTS)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 

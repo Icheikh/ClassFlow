@@ -82,6 +82,12 @@ export default function AcademicYearsPage() {
     else { toast.success(t("yearActivated")); fetchYears() }
   }
 
+  async function toggleTerm(term: Term) {
+    const { error } = await termsApi.update({ id: term.id, isActive: !term.isActive })
+    if (error) toast.error(error)
+    else { toast.success(term.isActive ? t("termDeactivated") : t("termActivated")); fetchYears() }
+  }
+
   async function saveTerm() {
     if (!termName || !termStart || !termEnd || !selectedYear) { toast.error(t("fillFields")); return }
     const { error } = await termsApi.create({
@@ -191,9 +197,15 @@ export default function AcademicYearsPage() {
                       <div key={term.id} className="bg-gray-50 rounded-lg p-3">
                         <div className="flex items-center justify-between">
                           <span className="font-medium text-sm">{term.name}</span>
-                          <Badge variant={term.isActive ? "success" : "default"}>
-                            {term.isActive ? tStatus("active") : tStatus("inactive")}
-                          </Badge>
+                          <button
+                            onClick={() => toggleTerm(term)}
+                            className="cursor-pointer hover:opacity-80 transition-opacity"
+                            title={term.isActive ? t("clickToDeactivate") : t("clickToActivate")}
+                          >
+                            <Badge variant={term.isActive ? "success" : "default"}>
+                              {term.isActive ? tStatus("active") : tStatus("inactive")}
+                            </Badge>
+                          </button>
                         </div>
                         <p className="text-xs text-gray-400 mt-1">
                           {new Date(term.startsAt).toLocaleDateString(getDateLocale(locale))} → {new Date(term.endsAt).toLocaleDateString(getDateLocale(locale))}

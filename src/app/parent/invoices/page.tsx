@@ -22,11 +22,12 @@ type InvoiceItem = {
 
 type InvoiceSummary = { total: number; paid: number; remaining: number }
 
-function formatMonth(month: string) {
+function formatMonth(month: string, t: (key: string) => string) {
   if (!month) return "—"
   const [year, m] = month.split("-")
-  const months = ["جانفي", "فيفري", "مارس", "أفريل", "ماي", "جوان", "جويلية", "أوت", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"]
-  return `${months[parseInt(m, 10) - 1]} ${year}`
+  const monthKeys = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
+  const monthIdx = parseInt(m, 10) - 1
+  return `${t(`monthNames.${monthKeys[monthIdx]}`)} ${year}`
 }
 
 export default function ParentInvoicesPage() {
@@ -36,10 +37,12 @@ export default function ParentInvoicesPage() {
   const [summary, setSummary] = useState<InvoiceSummary | null>(null)
   const [children, setChildren] = useState<{ id: string; firstName: string; lastName: string }[]>([])
   const [selectedChild, setSelectedChild] = useState("")
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
-      const { data } = await api.get<{ children: { id: string; firstName: string; lastName: string }[] }>("/api/parent/children")
+      const { data, error: apiError } = await api.get<{ children: { id: string; firstName: string; lastName: string }[] }>("/api/parent/children")
+      if (apiError) { setError(apiError); setLoading(false); return }
       if (data?.children) {
         setChildren(data.children)
         if (data.children[0]) setSelectedChild(data.children[0].id)
@@ -70,21 +73,22 @@ export default function ParentInvoicesPage() {
   }, [selectedChild])
 
   if (loading) return <LoadingPage />
+  if (error) return <div className="text-center py-12"><p className="text-red-500">{error}</p></div>
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">الفواتير والمدفوعات</h1>
-        <p className="text-sm text-gray-500">متابعة رسوم الدراسة والمدفوعات</p>
+        <h1 className="text-2xl font-bold">{t("invoicesHeading")}</h1>
+        <p className="text-sm text-gray-500">{t("invoicesSubtitle")}</p>
       </div>
 
       {children.length > 1 && (
         <Card padding="md">
           <Select
-            label="اختر الابن"
+            label={t("selectChild")}
             value={selectedChild}
             onChange={setSelectedChild}
-            options={[{ value: "", label: "جميع الأبناء" }, ...children.map((c) => ({ value: c.id, label: `${c.firstName} ${c.lastName}` }))]}
+            options={[{ value: "", label: t("allChildren") }, ...children.map((c) => ({ value: c.id, label: `${c.firstName} ${c.lastName}` }))]}
           />
         </Card>
       )}
@@ -94,21 +98,21 @@ export default function ParentInvoicesPage() {
           <Card padding="md">
             <div className="flex items-center gap-2 text-blue-600">
               <Receipt className="h-5 w-5" />
-              <span className="text-sm font-medium">إجمالي الفواتير</span>
+              <span className="text-sm font-medium">{t("totalInvoices")}</span>
             </div>
             <p className="mt-2 text-3xl font-bold">{summary.total.toLocaleString()} MRU</p>
           </Card>
           <Card padding="md">
             <div className="flex items-center gap-2 text-green-600">
               <CheckCircle2 className="h-5 w-5" />
-              <span className="text-sm font-medium">المدفوع</span>
+              <span className="text-sm font-medium">{t("paid")}</span>
             </div>
             <p className="mt-2 text-3xl font-bold text-green-600">{summary.paid.toLocaleString()} MRU</p>
           </Card>
           <Card padding="md">
             <div className="flex items-center gap-2 text-red-600">
               <AlertTriangle className="h-5 w-5" />
-              <span className="text-sm font-medium">المتبقي</span>
+              <span className="text-sm font-medium">{t("remaining")}</span>
             </div>
             <p className="mt-2 text-3xl font-bold text-red-600">{summary.remaining.toLocaleString()} MRU</p>
           </Card>
@@ -116,24 +120,24 @@ export default function ParentInvoicesPage() {
       )}
 
       <Card padding="lg">
-        <h2 className="mb-4 text-lg font-semibold">قائمة الفواتير</h2>
+        <h2 className="mb-4 text-lg font-semibold">{t("invoiceList")}</h2>
         {invoices.length === 0 ? (
           <div className="rounded-xl border border-dashed border-gray-200 py-12 text-center">
             <DollarSign className="mx-auto h-12 w-12 text-gray-300" />
-            <p className="mt-3 text-gray-500">لا توجد فواتير</p>
+            <p className="mt-3 text-gray-500">{t("noInvoices")}</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-right text-gray-500">
-                  <th className="pb-3 font-medium">الابن</th>
-                  <th className="pb-3 font-medium">الرسوم</th>
-                  <th className="pb-3 font-medium">الشهر</th>
-                  <th className="pb-3 font-medium">المبلغ</th>
-                  <th className="pb-3 font-medium">المدفوع</th>
-                  <th className="pb-3 font-medium">المتبقي</th>
-                  <th className="pb-3 font-medium">الحالة</th>
+                  <th className="pb-3 font-medium">{t("selectChild")}</th>
+                  <th className="pb-3 font-medium">{t("fee")}</th>
+                  <th className="pb-3 font-medium">{t("month")}</th>
+                  <th className="pb-3 font-medium">{t("amount")}</th>
+                  <th className="pb-3 font-medium">{t("paid")}</th>
+                  <th className="pb-3 font-medium">{t("remaining")}</th>
+                  <th className="pb-3 font-medium">{t("invoiceStatus")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -141,13 +145,13 @@ export default function ParentInvoicesPage() {
                   <tr key={inv.id} className="border-b last:border-0">
                     <td className="py-3">{inv.student.firstName} {inv.student.lastName}</td>
                     <td className="py-3">{inv.feeName}</td>
-                    <td className="py-3">{formatMonth(inv.month)}</td>
+                    <td className="py-3">{formatMonth(inv.month, t as any)}</td>
                     <td className="py-3 font-medium">{inv.amount.toLocaleString()} MRU</td>
                     <td className="py-3 text-green-600">{inv.paidAmount.toLocaleString()} MRU</td>
                     <td className="py-3 text-red-600">{inv.remaining.toLocaleString()} MRU</td>
                     <td className="py-3">
                       <Badge variant={inv.status === "PAID" ? "success" : inv.status === "PARTIAL" ? "warning" : "danger"}>
-                        {inv.status === "PAID" ? "مدفوع" : inv.status === "PARTIAL" ? "جزئي" : "معلق"}
+                        {inv.status === "PAID" ? t("statusPaid") : inv.status === "PARTIAL" ? t("statusPartial") : t("statusPending")}
                       </Badge>
                     </td>
                   </tr>

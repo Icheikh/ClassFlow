@@ -89,6 +89,7 @@ export async function POST(req: NextRequest) {
 
   if (parentName?.trim() && parentPhone?.trim()) {
     const school = await prisma.school.findUnique({ where: { id: user.schoolId! } })
+    const studentFullName = `${firstName} ${lastName}`
     const account = await ensureSchoolUser({
       schoolId: user.schoolId!,
       phone: parentPhone.trim(),
@@ -96,6 +97,7 @@ export async function POST(req: NextRequest) {
       role: "PARENT",
       schoolName: school?.name,
       locale: (body.locale as string) === "fr" ? "fr" : "ar",
+      studentName: studentFullName,
     })
     const parent = await prisma.parent.findFirst({ where: { userId: account.user.id } })
     if (parent) {
